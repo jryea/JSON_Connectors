@@ -114,7 +114,7 @@ namespace Grasshopper.Export
         /// </summary>
         public override Guid ComponentGuid
         {
-            get { return new Guid("f9a0b1c2-d3e4-5f6g-7h8i-9j0k1l2m3n4o"); }
+            get { return new Guid("f9a0b1c2-d3e4-5f6a-7b8c-9d0e1f2a3b4c"); }
         }
     }
 }

@@ -5,11 +5,20 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="Resources\IMEG_Logo_Grasshopper.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\IMEG_Logo_Grasshopper.png" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Folder Include="Utilities\" />
     <Folder Include="Validation\" />
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="System.Drawing.Common" Version="4.7.3" />
     <PackageReference Include="System.Text.Json" Version="9.0.3" />
   </ItemGroup>
 

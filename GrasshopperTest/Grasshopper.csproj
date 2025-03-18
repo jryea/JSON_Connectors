@@ -7,7 +7,7 @@
         Rhino 8 Windows: net48, net7.0, net7.0-windows, net7.0-windows10.0.22000.0, etc
         Rhino 8 Mac: net7.0, net7.0-macos, net7.0-macos12.0, etc
     -->
-    <TargetFrameworks>net7.0;net48</TargetFrameworks>
+    <TargetFrameworks>net48</TargetFrameworks>
     <EnableDynamicLoading>true</EnableDynamicLoading>
     <TargetExt>.gha</TargetExt>
     <NoWarn>NU1701</NoWarn>
@@ -20,6 +20,10 @@
     <Company>GrasshopperTest Authors</Company>
     <Description>Description of GrasshopperTest</Description>
   </PropertyGroup>
+  
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\IMEG_Logo_Grasshopper.png" />
+  </ItemGroup>
   
   <ItemGroup>
     <PackageReference Include="Grasshopper" Version="8.0.23304.9001" ExcludeAssets="runtime" />

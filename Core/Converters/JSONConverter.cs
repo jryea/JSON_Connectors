@@ -3,6 +3,7 @@ using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Core.Models.Model;
+using Core.Models;  
 
 namespace Core.Converters
 {
@@ -15,11 +16,11 @@ namespace Core.Converters
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
         };
 
-        public static string Serialize(Model buildingStructure)
+        public static string Serialize(Base baseModel)
         {
             try
             {
-                return JsonSerializer.Serialize(buildingStructure, _options);
+                return JsonSerializer.Serialize(baseModel, _options);
             }
             catch (Exception ex)
             {
@@ -39,12 +40,24 @@ namespace Core.Converters
             }
         }
 
-        public static void SaveToFile(Model buildingStructure, string filePath)
+        public static void SaveToFile(Base baseModel, string filePath)
         {
             try
             {
-                string json = Serialize(buildingStructure);
+                string json = Serialize(baseModel);
                 File.WriteAllText(filePath, json);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                throw new Exception($"Access to the path '{filePath}' is denied: {ex.Message}", ex);
+            }
+            catch (DirectoryNotFoundException ex)
+            {
+                throw new Exception($"The directory specified in path '{filePath}' was not found: {ex.Message}", ex);
+            }
+            catch (IOException ex)
+            {
+                throw new Exception($"An I/O error occurred while writing to the file '{filePath}': {ex.Message}", ex);
             }
             catch (Exception ex)
             {

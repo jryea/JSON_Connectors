@@ -71,7 +71,7 @@ namespace Grasshopper.Export
             if (!DA.GetData(1, ref projectName)) return;
             if (!DA.GetData(2, ref filePath)) return;
             if (!DA.GetData(3, ref exportTrigger)) return;
-            DA.GetDataList(4, levels); // Optional, so no validation needed
+            //DA.GetDataList(4, levels); // Optional, so no validation needed
 
             // Basic validation
             if (string.IsNullOrWhiteSpace(projectName))
@@ -151,7 +151,7 @@ namespace Grasshopper.Export
         /// </summary>
         public override Guid ComponentGuid
         {
-            get { return new Guid("d7e8f9a0-b1c2-4d3e-5f6g-7h8i9j0k1l2m"); }
+            get { return new Guid("7f47f0b0-b365-43d5-b83f-32e8e83eaca9"); }
         }
     }
 }

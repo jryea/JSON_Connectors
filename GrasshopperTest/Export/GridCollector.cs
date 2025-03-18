@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Drawing;
 using Grasshopper.Kernel;
 using Rhino.Geometry;
 using Core.Models.Model;
@@ -96,11 +95,10 @@ namespace Grasshopper.Export
         /// <summary>
         /// Provides an Icon for the component.
         /// </summary>
-        protected override Bitmap Icon
+        protected override System.Drawing.Bitmap Icon
         {
             get
             {
-                // You can add custom icon here
                 return null;
             }
         }
@@ -108,9 +106,6 @@ namespace Grasshopper.Export
         /// <summary>
         /// Gets the unique ID for this component. Do not change this ID after release.
         /// </summary>
-        public override Guid ComponentGuid
-        {
-            get { return new Guid("e8f9a0b1-c2d3-4e5f-6g7h-8i9j0k1l2m3n"); }
-        }
+        public override Guid ComponentGuid => new Guid("8b384189-15d3-40c3-8f9b-235b61d956fc");
     }
 }

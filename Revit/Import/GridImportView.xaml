@@ -43,12 +43,14 @@
                     Width="80" 
                     Height="25" 
                     Margin="0,0,10,0"
-                    IsCancel="True"/>
+                    IsCancel="True"
+                    Click="CancelButton_Click"/>
             <Button Content="Import" 
                     Width="80" 
                     Height="25"
                     IsDefault="True"
-                    Command="{Binding ImportCommand}"/>
+                    Command="{Binding ImportCommand}"
+                    Click="ImportButton_Click"/>
         </StackPanel>
     </Grid>
 </Window>

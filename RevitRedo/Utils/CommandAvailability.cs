@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace RevitRedo
+namespace Revit.Utils
 {
     internal class CommandAvailability : IExternalCommandAvailability
     {

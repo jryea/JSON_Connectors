@@ -9,10 +9,11 @@ using System.Diagnostics;
 using System.Runtime.Versioning;
 using System.Windows.Markup;
 using Revit.Import;
+using RU = Revit.Utils;  
 
 #endregion
 
-namespace RevitRedo
+namespace Revit
 {
     internal class App : IExternalApplication
     {
@@ -30,7 +31,7 @@ namespace RevitRedo
             }
 
             // 2. Create ribbon panel 
-            RibbonPanel panel = Utils.CreateRibbonPanel(app, tabName, "Import");
+            RibbonPanel panel = RU.Utils.CreateRibbonPanel(app, tabName, "Import");
 
             // 3. Create button data instances
             PushButtonData btnData1 = GridImportCommand.GetButtonData();

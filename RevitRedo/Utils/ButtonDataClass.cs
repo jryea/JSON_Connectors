@@ -8,7 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Media.Imaging;
 
-namespace Revit.Import
+namespace Revit.Utils
 {
     internal class ButtonDataClass
     {
@@ -25,7 +25,7 @@ namespace Revit.Import
             Data.Image = BitmapToImageSource(smallImage);
 
             // set command availability
-            Data.AvailabilityClassName = "Revit.CommandAvailability";
+            Data.AvailabilityClassName = "Revit.Import.CommandAvailability";
         }
         public static Assembly GetAssembly()
         {

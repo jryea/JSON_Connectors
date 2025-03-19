@@ -13,7 +13,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tests", "Tests\Tests.csproj
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Grasshopper", "GrasshopperTest\Grasshopper.csproj", "{CD1308AD-9A7A-4553-89A9-DF79BB7A9A7C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Revit", "RevitRedo\Revit.csproj", "{36613FE5-5738-4CBA-AEA4-F4036990EB1A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Revit", "Revit\Revit.csproj", "{36613FE5-5738-4CBA-AEA4-F4036990EB1A}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

@@ -25,7 +25,7 @@ namespace Revit.Utils
             Data.Image = BitmapToImageSource(smallImage);
 
             // set command availability
-            Data.AvailabilityClassName = "Revit.Import.CommandAvailability";
+            Data.AvailabilityClassName = "Revit.Utils.CommandAvailability";
         }
         public static Assembly GetAssembly()
         {

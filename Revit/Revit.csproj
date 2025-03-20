@@ -162,10 +162,6 @@
   <ItemGroup>
     <Compile Include="App.cs" />
     <Compile Include="Import\GridImportCommand.cs" />
-    <Compile Include="Import\GridImportView.xaml.cs">
-      <DependentUpon>GridImportView.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Import\GridImportViewModel.cs" />
     <Compile Include="Utils\ButtonDataClass.cs" />
     <Compile Include="Properties\Resources.Designer.cs">
       <AutoGen>True</AutoGen>
@@ -194,12 +190,6 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="JSON_Connectors.addin" />
-  </ItemGroup>
-  <ItemGroup>
-    <Page Include="Import\GridImportView.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.csproj">

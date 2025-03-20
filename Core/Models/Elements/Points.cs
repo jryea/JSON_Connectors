@@ -33,7 +33,7 @@ namespace Core.Models.Elements
     {
         public bool IsBubble { get; set; }
 
-        public GridPoint(double x, double y, double z, bool isBubble = false)
+        public GridPoint(double x, double y, double z, bool isBubble = true)
             : base(x, y, z)
         {
             IsBubble = isBubble;

@@ -16,7 +16,7 @@ namespace Core.Converters
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
         };
 
-        public static string Serialize(Base baseModel)
+        public static string Serialize(BaseModel baseModel)
         {
             try
             {
@@ -28,11 +28,11 @@ namespace Core.Converters
             }
         }
 
-        public static Model Deserialize(string json)
+        public static BaseModel Deserialize(string json)
         {
             try
             {
-                return JsonSerializer.Deserialize<Model>(json, _options);
+                return JsonSerializer.Deserialize<BaseModel>(json, _options);
             }
             catch (Exception ex)
             {
@@ -40,7 +40,7 @@ namespace Core.Converters
             }
         }
 
-        public static void SaveToFile(Base baseModel, string filePath)
+        public static void SaveToFile(BaseModel baseModel, string filePath)
         {
             try
             {
@@ -65,7 +65,7 @@ namespace Core.Converters
             }
         }
 
-        public static Model LoadFromFile(string filePath)
+        public static BaseModel LoadFromFile(string filePath)
         {
             try
             {

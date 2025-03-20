@@ -41,23 +41,23 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Class1.cs" />
-    <Compile Include="Export\CompositeDeckProps.cs" />
-    <Compile Include="Export\FloorType.cs" />
-    <Compile Include="Export\Grasshopper_RAM.cs" />
-    <Compile Include="Export\Grids.cs" />
-    <Compile Include="Export\LayoutBeam.cs" />
-    <Compile Include="Export\LayoutColumn.cs" />
-    <Compile Include="Export\LayoutWall.cs" />
-    <Compile Include="Export\NewFile.cs" />
-    <Compile Include="Export\NonCompositeDeckProps.cs" />
-    <Compile Include="Export\SlabProps.cs" />
-    <Compile Include="Export\Stories.cs" />
-    <Compile Include="Export\SurfaceLoadProps.cs" />
+    <Compile Include="Export\Properties\CompositeDeckProps.cs" />
+    <Compile Include="Export\Model\FloorType.cs" />
+    <Compile Include="Export\Model\Grids.cs" />
+    <Compile Include="Export\Elements\LayoutBeam.cs" />
+    <Compile Include="Export\Elements\LayoutColumn.cs" />
+    <Compile Include="Export\Elements\LayoutWall.cs" />
+    <Compile Include="Export\Model\NewFile.cs" />
+    <Compile Include="Export\Properties\NonCompositeDeckProps.cs" />
+    <Compile Include="Export\Properties\SlabProps.cs" />
+    <Compile Include="Export\Model\Stories.cs" />
+    <Compile Include="Export\Properties\SurfaceLoadProps.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Utilities\Helpers.cs" />
   </ItemGroup>
   <ItemGroup>
+    <Folder Include="Export\Loads\" />
+    <Folder Include="Export\Metadata\" />
     <Folder Include="Import\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

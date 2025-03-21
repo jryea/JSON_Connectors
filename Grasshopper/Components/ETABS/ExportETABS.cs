@@ -3,7 +3,7 @@ using System.IO;
 using Grasshopper.Kernel;
 using Rhino.Geometry;
 using Core.Models;
-using ETABS.Core.Export;
+//using ETABS.Core.Export;
 
 namespace Grasshopper.Components.ETABS
 {
@@ -48,7 +48,7 @@ namespace Grasshopper.Components.ETABS
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             // Get input parameters
-            Base model = null;
+            BaseModel model = null;
             string filePath = string.Empty;
             bool export = false;
 
@@ -95,7 +95,7 @@ namespace Grasshopper.Components.ETABS
                     Directory.CreateDirectory(directory);
 
                 // Export using E2KExporter
-                var exporter = new E2KExporter();
+                var exporter = new E2KExport();
                 exporter.ExportToE2K(model, filePath);
 
                 DA.SetData(0, true);

@@ -88,7 +88,7 @@ namespace Grasshopper.Components.ETABS
             {
                 // Import using E2KImporter
                 var importer = new E2KImporter();
-                Base model = importer.ImportFromE2K(filePath);
+                BaseModel model = importer.ImportFromE2K(filePath);
 
                 DA.SetData(0, model);
                 DA.SetData(1, true);

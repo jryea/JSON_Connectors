@@ -1,29 +1,28 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.IO;
 using Grasshopper.Kernel;
 using Core.Converters;
 using Core.Models;
 using Core.Models.Elements;
 using Core.Models.Model;
 using Core.Models.Properties;
-
+using Core.Models.Metadata;
+using Core.Models.Loads;
 
 namespace Grasshopper.Export
 {
     public class ExportJSON : GH_Component
     {
-        private BaseModel _baseModel;
-
         /// <summary>
-        /// Initializes a new instance of the StructuralModelExport class.
+        /// Initializes a new instance of the ExportJSON class.
         /// </summary>
         public ExportJSON()
-          : base("Structural Model Export", "StructExport",
-              "Export a complete structural model to JSON",
+          : base("Export JSON", "ExpJSON",
+              "Export a complete structural model to JSON file",
               "IMEG", "Export")
         {
-            _baseModel = new BaseModel();
         }
 
         /// <summary>
@@ -31,14 +30,10 @@ namespace Grasshopper.Export
         /// </summary>
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddGenericParameter("Grids", "G", "Grids to include in the model", GH_ParamAccess.list);
-            pManager.AddTextParameter("ProjectName", "P", "Project name for metadata", GH_ParamAccess.item);
-            pManager.AddTextParameter("FilePath", "F", "Path to save the JSON file", GH_ParamAccess.item);
-            pManager.AddBooleanParameter("Export", "E", "Trigger export (set to true)", GH_ParamAccess.item);
-
-            // Optional inputs can be added later for other structural elements
-            //pManager.AddGenericParameter("Levels", "L", "Levels to include in the model", GH_ParamAccess.list, null);
-            //pManager[4].Optional = true;
+            pManager.AddGenericParameter("Model", "M", "Structural model to export", GH_ParamAccess.item);
+            pManager.AddTextParameter("File Path", "F", "Path to save the JSON file", GH_ParamAccess.item);
+            pManager.AddBooleanParameter("Export", "E", "Trigger export (set to true)", GH_ParamAccess.item, false);
+            pManager.AddBooleanParameter("Pretty Print", "P", "Format JSON with indentation for readability", GH_ParamAccess.item, true);
         }
 
         /// <summary>
@@ -46,7 +41,7 @@ namespace Grasshopper.Export
         /// </summary>
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddGenericParameter("Model", "M", "Complete structural model", GH_ParamAccess.item);
+            pManager.AddTextParameter("JSON", "J", "JSON representation of the model", GH_ParamAccess.item);
             pManager.AddBooleanParameter("Success", "S", "True if export was successful", GH_ParamAccess.item);
             pManager.AddTextParameter("Message", "I", "Result message", GH_ParamAccess.item);
         }
@@ -57,81 +52,122 @@ namespace Grasshopper.Export
         /// <param name="DA">The DA object is used to retrieve from inputs and store in outputs.</param>
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            // Reset the building structure
-            _baseModel = new BaseModel();
-
             // Retrieve input data
-            List<Grid> grids = new List<Grid>();
-            string projectName = string.Empty;
+            BaseModel model = null;
             string filePath = string.Empty;
-            bool exportTrigger = false;
-            List<Level> levels = new List<Level>();
+            bool export = false;
+            bool prettyPrint = true;
 
-            if (!DA.GetDataList(0, grids)) return;
-            if (!DA.GetData(1, ref projectName)) return;
-            if (!DA.GetData(2, ref filePath)) return;
-            if (!DA.GetData(3, ref exportTrigger)) return;
-            //DA.GetDataList(4, levels); // Optional, so no validation needed
-
-            // Basic validation
-            if (string.IsNullOrWhiteSpace(projectName))
+            if (!DA.GetData(0, ref model))
             {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "No structural model provided");
                 DA.SetData(1, false);
-                DA.SetData(2, "Project name cannot be empty");
+                DA.SetData(2, "No structural model provided");
                 return;
             }
 
+            if (!DA.GetData(1, ref filePath))
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "No file path provided");
+                DA.SetData(1, false);
+                DA.SetData(2, "No file path provided");
+                return;
+            }
+
+            DA.GetData(2, ref export);
+            DA.GetData(3, ref prettyPrint);
+
             try
             {
-                // Set metadata
-                _baseModel.ProjectInfo.ProjectName = projectName;
-                _baseModel.ProjectInfo.CreationDate = DateTime.Now;
-                _baseModel.ProjectInfo.SchemaVersion = "1.0";
+                // Generate JSON string
+                string json = JsonConverter.Serialize(model);
 
-                // Set units (you can make these configurable later)
-                _baseModel.Units.Length = "inches";
-                _baseModel.Units.Force = "pounds";
-                _baseModel.Units.Temperature = "fahrenheit";
+                // Set JSON output regardless of export flag
+                DA.SetData(0, json);
 
-                // Add grids
-                _baseModel.Model.Grids = grids;
-
-                // Add levels
-                if (levels != null && levels.Count > 0)
+                // If export is triggered, save to file
+                if (export)
                 {
-                    _baseModel  .Model.Levels = levels;
-                }
+                    // Validate file path
+                    if (string.IsNullOrWhiteSpace(filePath))
+                    {
+                        DA.SetData(1, false);
+                        DA.SetData(2, "Invalid file path");
+                        return;
+                    }
 
-                // Validate
-                //ValidationResult validationResult = YourSolution.Core.Validation.BuildingStructureValidator.Validate(_base);
-                //if (!validationResult.IsValid)
-                //{
-                //    DA.SetData(1, false);
-                //    DA.SetData(2, $"Validation failed: {string.Join(", ", validationResult.Errors)}");
-                //    return;
-                //}
+                    // Make sure path ends with .json
+                    if (!filePath.ToLower().EndsWith(".json"))
+                    {
+                        filePath += ".json";
+                    }
 
-                // Export if trigger is true
-                if (exportTrigger)
-                {
-                    JsonConverter.SaveToFile(_baseModel, filePath);
+                    // Create directory if it doesn't exist
+                    string directory = Path.GetDirectoryName(filePath);
+                    if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+                    {
+                        Directory.CreateDirectory(directory);
+                    }
+
+                    // Save model to file
+                    JsonConverter.SaveToFile(model, filePath);
+
+                    // Generate model stats for info message
+                    int elementCount = CountElements(model.Elements);
+                    int propCount = CountProperties(model.Properties);
+
+                    // Success message
                     DA.SetData(1, true);
-                    DA.SetData(2, $"Successfully exported model with {grids.Count} grids and {levels.Count} levels to {filePath}");
+                    DA.SetData(2, $"Successfully exported model with {elementCount} elements and {propCount} properties to {filePath}");
                 }
                 else
                 {
                     DA.SetData(1, true);
-                    DA.SetData(2, "Model ready for export. Set Export to True to save the file.");
+                    DA.SetData(2, "JSON generated. Set Export to True to save the file.");
                 }
-
-                // Set model output
-                DA.SetData(0, _baseModel);
             }
             catch (Exception ex)
             {
+                DA.SetData(0, string.Empty);
                 DA.SetData(1, false);
                 DA.SetData(2, $"Error: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Counts the total number of elements in the container
+        /// </summary>
+        private int CountElements(ElementContainer elements)
+        {
+            if (elements == null)
+                return 0;
+
+            return elements.Floors.Count +
+                   elements.Walls.Count +
+                   elements.Beams.Count +
+                   elements.Braces.Count +
+                   elements.Columns.Count +
+                   elements.IsolatedFootings.Count +
+                   elements.Joints.Count +
+                   elements.ContinuousFootings.Count +
+                   elements.Piles.Count +
+                   elements.Piers.Count +
+                   elements.DrilledPiers.Count;
+        }
+
+        /// <summary>
+        /// Counts the total number of properties in the container
+        /// </summary>
+        private int CountProperties(PropertiesContainer properties)
+        {
+            if (properties == null)
+                return 0;
+
+            return properties.Materials.Count +
+                   properties.WallProperties.Count +
+                   properties.FloorProperties.Count +
+                   properties.Diaphragms.Count +
+                   properties.FrameProperties.Count;
         }
 
         /// <summary>
@@ -141,7 +177,6 @@ namespace Grasshopper.Export
         {
             get
             {
-                // You can add custom icon here
                 return null;
             }
         }
@@ -149,9 +184,6 @@ namespace Grasshopper.Export
         /// <summary>
         /// Gets the unique ID for this component. Do not change this ID after release.
         /// </summary>
-        public override Guid ComponentGuid
-        {
-            get { return new Guid("7f47f0b0-b365-43d5-b83f-32e8e83eaca9"); }
-        }
+        public override Guid ComponentGuid => new Guid("7f47f0b0-b365-43d5-b83f-32e8e83eaca9");
     }
 }

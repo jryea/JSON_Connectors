@@ -5,7 +5,7 @@ using Rhino.Geometry;
 using Core.Models.Model;
 using Core.Models.Elements;
 
-namespace Grasshopper.Export
+namespace Grasshopper.Components.Core.Export.Model
 {
     public class GridCollectorComponent : GH_Component
     {
@@ -15,14 +15,14 @@ namespace Grasshopper.Export
         public GridCollectorComponent()
           : base("Grids", "Grids",
               "Creates grid objects from lines that can be used in the structural model",
-              "IMEG", "Elements")
+              "IMEG", "Model")
         {
         }
 
         /// <summary>
         /// Registers all the input parameters for this component.
         /// </summary>
-        protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
+        protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddLineParameter("Lines", "L", "Lines representing grids", GH_ParamAccess.list);
             pManager.AddTextParameter("Names", "N", "Names for each grid", GH_ParamAccess.list);
@@ -31,7 +31,7 @@ namespace Grasshopper.Export
         /// <summary>
         /// Registers all the output parameters for this component.
         /// </summary>
-        protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
+        protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
             pManager.AddGenericParameter("Grids", "G", "Grid objects for the structural model", GH_ParamAccess.list);
         }

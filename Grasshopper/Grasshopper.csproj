@@ -23,6 +23,15 @@
   </PropertyGroup>
   
   <ItemGroup>
+    <Compile Remove="Components\ETABS\**" />
+    <Compile Remove="Components\RAM\**" />
+    <EmbeddedResource Remove="Components\ETABS\**" />
+    <EmbeddedResource Remove="Components\RAM\**" />
+    <None Remove="Components\ETABS\**" />
+    <None Remove="Components\RAM\**" />
+  </ItemGroup>
+  
+  <ItemGroup>
     <PackageReference Include="Grasshopper" Version="8.0.23304.9001" ExcludeAssets="runtime" />
   </ItemGroup>
   
@@ -44,6 +53,9 @@
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.csproj" />
     <ProjectReference Include="..\ETABS\ETABS.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Components\Core\Export\Metadata\" />
   </ItemGroup>
 
 </Project>

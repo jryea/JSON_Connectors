@@ -6,7 +6,7 @@ using Core.Models.Elements;
 using Core.Models.Model;
 using Core.Models.Properties;
 
-namespace Grasshopper.Export
+namespace Grasshopper.Components.Core.Export.Model
 {
     public class LevelCollectorComponent : GH_Component
     {
@@ -16,14 +16,14 @@ namespace Grasshopper.Export
         public LevelCollectorComponent()
           : base("Levels", "LevelCollect",
               "Creates level objects that can be used in the structural model",
-              "IMEG", "Elements")
+              "IMEG", "Model")
         {
         }
 
         /// <summary>
         /// Registers all the input parameters for this component.
         /// </summary>
-        protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
+        protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("Names", "N", "Names for each level", GH_ParamAccess.list);
             pManager.AddNumberParameter("Elevations", "E", "Elevation of each level (in model units)", GH_ParamAccess.list);
@@ -33,7 +33,7 @@ namespace Grasshopper.Export
         /// <summary>
         /// Registers all the output parameters for this component.
         /// </summary>
-        protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
+        protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
             pManager.AddGenericParameter("Levels", "L", "Level objects for the structural model", GH_ParamAccess.list);
         }

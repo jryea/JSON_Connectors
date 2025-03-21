@@ -4,7 +4,7 @@ using System.Drawing;
 using Grasshopper.Kernel;
 using Rhino.Geometry;
 using Core.Models.Elements;
-using Core.Models.Model;
+using Core.Models.ModelLayout;
 
 namespace Grasshopper.Components.Core.Export.Elements
 {

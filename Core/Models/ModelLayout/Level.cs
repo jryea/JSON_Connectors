@@ -1,6 +1,6 @@
 ﻿using Core.Models.Elements;
 
-namespace Core.Models.Model
+namespace Core.Models.ModelLayout
 {
     public class Level
     {

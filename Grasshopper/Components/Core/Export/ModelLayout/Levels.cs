@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using Grasshopper.Kernel;
 using Core.Models.Elements;
-using Core.Models.Model;
+using Core.Models.ModelLayout;
 using Core.Models.Properties;
 
 namespace Grasshopper.Components.Core.Export.Model
@@ -16,7 +16,7 @@ namespace Grasshopper.Components.Core.Export.Model
         public LevelCollectorComponent()
           : base("Levels", "LevelCollect",
               "Creates level objects that can be used in the structural model",
-              "IMEG", "Model")
+              "IMEG", "Model Layout")
         {
         }
 

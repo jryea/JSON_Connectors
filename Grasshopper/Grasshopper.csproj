@@ -54,8 +54,5 @@
     <ProjectReference Include="..\Core\Core.csproj" />
     <ProjectReference Include="..\ETABS\ETABS.csproj" />
   </ItemGroup>
-  <ItemGroup>
-    <Folder Include="Components\Core\Export\Metadata\" />
-  </ItemGroup>
 
 </Project>

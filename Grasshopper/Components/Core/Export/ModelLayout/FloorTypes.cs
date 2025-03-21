@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Drawing;
 using Grasshopper.Kernel;
-using Core.Models.Model;
+using Core.Models.ModelLayout;
 
 namespace Grasshopper.Export
 {
@@ -14,7 +14,7 @@ namespace Grasshopper.Export
         public FloorTypeCollectorComponent()
           : base("Floor Types", "FloorTypes",
               "Creates floor type objects that can be used in the structural model",
-              "IMEG", "Model")
+              "IMEG", "Model Layout")
         {
         }
 

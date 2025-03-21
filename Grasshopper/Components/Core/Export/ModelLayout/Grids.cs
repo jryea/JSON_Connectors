@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using Grasshopper.Kernel;
 using Rhino.Geometry;
-using Core.Models.Model;
+using Core.Models.ModelLayout;
 using Core.Models.Elements;
 
 namespace Grasshopper.Components.Core.Export.Model
@@ -15,7 +15,7 @@ namespace Grasshopper.Components.Core.Export.Model
         public GridCollectorComponent()
           : base("Grids", "Grids",
               "Creates grid objects from lines that can be used in the structural model",
-              "IMEG", "Model")
+              "IMEG", "Model Layout")
         {
         }
 

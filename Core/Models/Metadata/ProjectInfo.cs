@@ -9,6 +9,7 @@ namespace Core.Models.Metadata
     public class ProjectInfo
     {
         public string ProjectName { get; set; }
+        public string ProjectId { get; set; }   
         public DateTime CreationDate { get; set; }
         public string SchemaVersion { get; set; }
     }

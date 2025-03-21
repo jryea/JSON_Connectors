@@ -1,9 +1,9 @@
 ﻿using Core.Models.Elements;
 using Core.Models.Properties;
-using Core.Models.Model;
+using Core.Models.ModelLayout;
 
 
-namespace Core.Models.Model
+namespace Core.Models.ModelLayout
 {
 
     public class Grid

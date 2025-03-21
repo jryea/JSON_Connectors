@@ -6,7 +6,7 @@ using Grasshopper.Kernel;
 using Core.Converters;
 using Core.Models;
 using Core.Models.Elements;
-using Core.Models.Model;
+using Core.Models.ModelLayout;
 using Core.Models.Properties;
 using Core.Models.Metadata;
 using Core.Models.Loads;
@@ -30,10 +30,25 @@ namespace Grasshopper.Export
         /// </summary>
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddGenericParameter("Model", "M", "Structural model to export", GH_ParamAccess.item);
+            // Export settings
             pManager.AddTextParameter("File Path", "F", "Path to save the JSON file", GH_ParamAccess.item);
-            pManager.AddBooleanParameter("Export", "E", "Trigger export (set to true)", GH_ParamAccess.item, false);
-            pManager.AddBooleanParameter("Pretty Print", "P", "Format JSON with indentation for readability", GH_ParamAccess.item, true);
+            pManager.AddBooleanParameter("Export", "X", "Trigger export (set to true)", GH_ParamAccess.item, false);
+
+            // Option 2: Build model from containers
+            pManager.AddGenericParameter("Metadata", "M", "Project information", GH_ParamAccess.item);
+            pManager.AddGenericParameter("Layout", "L", "Container with layout components (grids, levels, etc.)", GH_ParamAccess.item);
+            pManager.AddGenericParameter("Properties", "P", "Container with all property definitions", GH_ParamAccess.item);
+            pManager.AddGenericParameter("Loads", "LD", "Container with load definitions (optional)", GH_ParamAccess.item);
+            pManager.AddGenericParameter("Elements", "E", "Container with all structural elements", GH_ParamAccess.item);
+
+
+            // Make components optional
+            pManager[0].Optional = true;  // File Path is optional if not exporting
+            pManager[1].Optional = true;  // Project Info is optional
+            pManager[2].Optional = true;  // Layout is optional
+            pManager[3].Optional = true;  // Properties is optional
+            pManager[4].Optional = true;  // Loads is optional
+            pManager[5].Optional = true;  // Elements is optional
         }
 
         /// <summary>
@@ -43,7 +58,7 @@ namespace Grasshopper.Export
         {
             pManager.AddTextParameter("JSON", "J", "JSON representation of the model", GH_ParamAccess.item);
             pManager.AddBooleanParameter("Success", "S", "True if export was successful", GH_ParamAccess.item);
-            pManager.AddTextParameter("Message", "I", "Result message", GH_ParamAccess.item);
+            pManager.AddTextParameter("Message", "MSG", "Result message", GH_ParamAccess.item);
         }
 
         /// <summary>
@@ -53,34 +68,76 @@ namespace Grasshopper.Export
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             // Retrieve input data
-            BaseModel model = null;
+            ElementContainer elementContainer = null;
+            PropertiesContainer propertiesContainer = null;
+            ModelLayoutContainer layoutContainer = null;
+            MetadataContainer metadata = null;
+            LoadContainer loadContainer = null;
             string filePath = string.Empty;
             bool export = false;
-            bool prettyPrint = true;
 
-            if (!DA.GetData(0, ref model))
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "No structural model provided");
-                DA.SetData(1, false);
-                DA.SetData(2, "No structural model provided");
-                return;
-            }
+            // Get export settings
+            DA.GetData(0, ref filePath);
+            DA.GetData(1, ref export);
 
-            if (!DA.GetData(1, ref filePath))
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "No file path provided");
-                DA.SetData(1, false);
-                DA.SetData(2, "No file path provided");
-                return;
-            }
+            // Try to get individual containers
+            DA.GetData(2, ref metadata);
+            DA.GetData(3, ref layoutContainer);
+            DA.GetData(4, ref propertiesContainer);
+            DA.GetData(5, ref loadContainer);
+            DA.GetData(6, ref elementContainer);
 
-            DA.GetData(2, ref export);
-            DA.GetData(3, ref prettyPrint);
 
             try
             {
+                // Prepare the model - either use the provided one or build a new one
+                BaseModel baseModel;
+               
+                // Build a new model from containers
+                baseModel = new BaseModel();
+
+                // Add elements if container is provided
+                if (elementContainer != null)
+                {
+                    baseModel.Elements = elementContainer;
+                }
+
+                // Add properties if container is provided
+                if (propertiesContainer != null)
+                {
+                    baseModel.Properties = propertiesContainer;
+                }
+
+                // Add model layout components if provided
+                if (layoutContainer != null)
+                {
+                    baseModel.ModelLayout = layoutContainer;
+                }
+
+                // Add project info if provided
+                if (metadata != null)
+                {
+                    baseModel.Metadata = metadata;
+                }
+                else
+                {
+                    // Create default project info
+                    baseModel.Metadata.ProjectInfo.ProjectName = "New Project";
+                    baseModel.Metadata.ProjectInfo.CreationDate = DateTime.Now;
+                    baseModel.Metadata.ProjectInfo.SchemaVersion = "1.0";
+                    baseModel.Metadata.Units.Length = "inches";
+                    baseModel.Metadata.Units.Force = "pounds";
+                    baseModel.Metadata.Units.Temperature = "fahrenheit";
+                }
+
+                // Add loads if provided
+                if (loadContainer != null)
+                {
+                    baseModel.Loads = loadContainer;
+                }
+
                 // Generate JSON string
-                string json = JsonConverter.Serialize(model);
+                string json = JsonConverter.Serialize(baseModel);
 
                 // Set JSON output regardless of export flag
                 DA.SetData(0, json);
@@ -110,15 +167,17 @@ namespace Grasshopper.Export
                     }
 
                     // Save model to file
-                    JsonConverter.SaveToFile(model, filePath);
+                    JsonConverter.SaveToFile(baseModel, filePath);
 
                     // Generate model stats for info message
-                    int elementCount = CountElements(model.Elements);
-                    int propCount = CountProperties(model.Properties);
+                    int elementCount = CountElements(baseModel.Elements);
+                    int propCount = CountProperties(baseModel.Properties);
+                    int layoutCount = CountLayoutItems(baseModel.ModelLayout);
 
                     // Success message
                     DA.SetData(1, true);
-                    DA.SetData(2, $"Successfully exported model with {elementCount} elements and {propCount} properties to {filePath}");
+                    DA.SetData(2, $"Successfully exported model with {elementCount} elements, {propCount} properties, " +
+                              $"and {layoutCount} layout items to {filePath}");
                 }
                 else
                 {
@@ -168,6 +227,19 @@ namespace Grasshopper.Export
                    properties.FloorProperties.Count +
                    properties.Diaphragms.Count +
                    properties.FrameProperties.Count;
+        }
+
+        /// <summary>
+        /// Counts the total number of layout items in the container
+        /// </summary>
+        private int CountLayoutItems(ModelLayoutContainer layout)
+        {
+            if (layout == null)
+                return 0;
+
+            return layout.Grids.Count +
+                   layout.Levels.Count +
+                   layout.FloorTypes.Count;
         }
 
         /// <summary>

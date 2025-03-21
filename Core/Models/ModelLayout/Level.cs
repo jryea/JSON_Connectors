@@ -1,17 +1,18 @@
 ﻿using Core.Models.Elements;
+using System;
 
 namespace Core.Models.ModelLayout
 {
     public class Level
     {
         public string Name { get; set; }
-        public string FloorLayoutId { get; set; }
+        public Guid FloorTypeId { get; set; }
         public double Elevation { get; set; }
 
-        public Level(string name, string floorLayoutId, double elevationOrHeight)
+        public Level(string name, FloorType floorType, double elevationOrHeight)
         {
             Name = name;
-            FloorLayoutId = floorLayoutId;
+            FloorTypeId = floorType.Id;
             Elevation = elevationOrHeight;
         }
     }

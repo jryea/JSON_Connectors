@@ -27,7 +27,7 @@ namespace Grasshopper.Components.Core.Export.Model
         {
             pManager.AddTextParameter("Names", "N", "Names for each level", GH_ParamAccess.list);
             pManager.AddNumberParameter("Elevations", "E", "Elevation of each level (in model units)", GH_ParamAccess.list);
-            pManager.AddTextParameter("FloorType", "F", "Floor Type (optional)", GH_ParamAccess.list);
+            pManager.AddGenericParameter("FloorType", "F", "Floor Type (optional)", GH_ParamAccess.list);
         }
 
         /// <summary>
@@ -47,7 +47,7 @@ namespace Grasshopper.Components.Core.Export.Model
             // Retrieve input data
             List<string> names = new List<string>();
             List<double> elevations = new List<double>();
-            List<string> floorTypes = new List<string>();
+            List<FloorType> floorTypes = new List<FloorType>();
 
             if (!DA.GetDataList(0, names)) return;
             if (!DA.GetDataList(1, elevations)) return;
@@ -67,11 +67,18 @@ namespace Grasshopper.Components.Core.Export.Model
                 return;
             }
 
-            if (names.Count != floorTypes.Count)
+            //if (names.Count != floorTypes.Count)
+            //{
+            //    AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
+            //        $"Number of floor types ({names.Count}) does not match number of elevations ({elevations.Count})");
+            //    return;
+            //}
+
+            while (floorTypes.Count < elevations.Count)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
-                    $"Number of floor types ({names.Count}) does not match number of elevations ({elevations.Count})");
-                return;
+                int lastIndex = floorTypes.Count - 1;
+                FloorType lastFloorType = floorTypes[lastIndex];
+                floorTypes.Add(lastFloorType);
             }
 
             try
@@ -82,7 +89,7 @@ namespace Grasshopper.Components.Core.Export.Model
                 {
                     string name = names[i];
                     double elevation = elevations[i];
-                    string floorType = floorTypes[i];
+                    FloorType floorType = floorTypes[i];
 
                     Level level = new Level(name, floorType, elevation);
                     levels.Add(level);

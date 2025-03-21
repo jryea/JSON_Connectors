@@ -9,10 +9,13 @@ namespace Core.Models.ModelLayout
     public class FloorType
     {
         public string Name { get; set; }
+        public Guid Id { get; private set; }
 
         public FloorType(string name)
         {
             Name = name;
+            Id = Guid.NewGuid();
         }
+       
     }
 }

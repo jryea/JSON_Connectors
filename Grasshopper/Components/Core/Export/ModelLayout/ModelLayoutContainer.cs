@@ -33,7 +33,7 @@ namespace Grasshopper.Export
             pManager.AddGenericParameter("Floor Types", "FT", "Floor type definitions (for RAM)", GH_ParamAccess.list);
 
             // Set optional parameters
-            pManager[2].Optional = true;
+            pManager[1].Optional = true;
             pManager[2].Optional = true;
         }
 

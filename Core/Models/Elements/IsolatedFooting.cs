@@ -1,6 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using Core.Models.Properties;
+using Core.Models.ModelLayout;
+using Core.Models.Loads;
+using Core.Models.Metadata;
 
 namespace Core.Models.Elements
 {
@@ -13,15 +17,5 @@ namespace Core.Models.Elements
         /// Location point of the isolated footing in 3D space
         /// </summary>
         public Point3D Point { get; set; }
-
-        /// <summary>
-        /// Optional properties ID for the footing
-        /// </summary>
-        public string PropertiesId { get; set; }
-
-        /// <summary>
-        /// Optional dimensions for the footing
-        /// </summary>
-        public Dictionary<string, double> Dimensions { get; set; } = new Dictionary<string, double>();
     }
 }

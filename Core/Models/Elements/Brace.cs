@@ -1,6 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using Core.Models.Properties;
+using Core.Models.ModelLayout;
+using Core.Models.Loads;
+using Core.Models.Metadata;
 
 namespace Core.Models.Elements
 {
@@ -9,20 +13,9 @@ namespace Core.Models.Elements
     /// </summary>
     public class Brace
     {
-        /// <summary>
-        /// ID of the material for this brace
-        /// </summary>
-        public string MaterialId { get; set; }
+        public Level BaseLevel { get; set; }
 
-        /// <summary>
-        /// Section ID information with analysis properties
-        /// </summary>
-        public Dictionary<string, string> SectionId { get; set; } = new Dictionary<string, string>();
-
-        /// <summary>
-        /// ID of the level this brace belongs to
-        /// </summary>
-        public string LevelId { get; set; }
+        public Level TopLevel { get; set; } 
 
         /// <summary>
         /// Starting point of the brace in 3D space
@@ -33,5 +26,7 @@ namespace Core.Models.Elements
         /// Ending point of the brace in 3D space
         /// </summary>
         public Point3D EndPoint { get; set; }
+
+        public FrameProperties FrameProperties { get; set; }
     }
 }

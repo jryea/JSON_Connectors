@@ -1,6 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using Core.Models.Properties;
+using Core.Models.ModelLayout;
+using Core.Models.Loads;
+using Core.Models.Metadata;
 
 namespace Core.Models.Elements
 {
@@ -12,31 +16,27 @@ namespace Core.Models.Elements
         /// <summary>
         /// Starting point of the column in 3D space
         /// </summary>
-        public Point3D StartPoint { get; set; }
+        public Point2D StartPoint { get; set; }
 
         /// <summary>
         /// Ending point of the column in 3D space
         /// </summary>
-        public Point3D EndPoint { get; set; }
+        public Point2D EndPoint { get; set; }
 
         /// <summary>
         /// ID of the base level for this column
         /// </summary>
-        public string BaseLevelId { get; set; }
+        public Level BaseLevel { get; set; }
 
         /// <summary>
         /// ID of the top level for this column
         /// </summary>
-        public string TopLevelId { get; set; }
+        public Level TopLevel { get; set; }
 
         /// <summary>
         /// ID of the section properties for this column
         /// </summary>
-        public string SectionId { get; set; }
-
-        /// <summary>
-        /// Analysis properties for this column
-        /// </summary>
-        public Dictionary<string, string> Analysis { get; set; } = new Dictionary<string, string>();
+        public FrameProperties FrameProperties { get; set; }
+  
     }
 }

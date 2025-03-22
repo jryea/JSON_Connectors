@@ -1,6 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using Core.Models.Properties;
+using Core.Models.ModelLayout;
+using Core.Models.Loads;
+using Core.Models.Metadata;
 
 namespace Core.Models.Elements
 {
@@ -12,26 +16,26 @@ namespace Core.Models.Elements
         /// <summary>
         /// ID of the level this floor belongs to
         /// </summary>
-        public string LevelId { get; set; }
+        public Level Level { get; set; }
 
         /// <summary>
         /// ID of the properties for this floor
         /// </summary>
-        public string PropertiesId { get; set; }
+        public FloorProperties FloorProperties { get; set; }
 
         /// <summary>
         /// Collection of 3D points defining the floor geometry
         /// </summary>
-        public List<Point3D> Points { get; set; } = new List<Point3D>();
+        public List<Point2D> Points { get; set; } = new List<Point2D>();
 
         /// <summary>
         /// ID of the diaphragm assigned to this floor
         /// </summary>
-        public string DiaphragmId { get; set; }
+        public Diaphragm Diaphragm { get; set; }
 
         /// <summary>
         /// ID of the surface load assigned to this floor
         /// </summary>
-        public string SurfaceLoadId { get; set; }
+        public SurfaceLoad SurfaceLoad { get; set; }
     }
 }

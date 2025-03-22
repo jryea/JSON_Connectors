@@ -1,6 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using Core.Models.Properties;
+using Core.Models.ModelLayout;
+using Core.Models.Loads;    
+using Core.Models.Metadata; 
 
 namespace Core.Models.Elements
 {
@@ -22,12 +26,12 @@ namespace Core.Models.Elements
         /// <summary>
         /// ID of the level this beam belongs to
         /// </summary>
-        public string LevelId { get; set; }
+        public Level Level { get; set; }
 
         /// <summary>
         /// ID of the properties for this beam
         /// </summary>
-        public string PropertiesId { get; set; }
+        public FrameProperties FrameProperties { get; set; }
 
         /// <summary>
         /// Indicates if this beam is part of the lateral system

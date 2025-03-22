@@ -1,127 +1,80 @@
-﻿using System;
+﻿using Grasshopper.Kernel;
+using System;
 using System.Collections.Generic;
-using System.Drawing;
-using Grasshopper.Kernel;
-using Core.Models.Elements;
 using Core.Models.ModelLayout;
-using Core.Models.Properties;
+using Grasshopper.Utilities;
 
-namespace Grasshopper.Components.Core.Export.Model
+namespace JSON_Connectors.Components.Core.Export.ModelLayout
 {
     public class LevelCollectorComponent : GH_Component
     {
-        /// <summary>
-        /// Initializes a new instance of the LevelCollector class.
-        /// </summary>
         public LevelCollectorComponent()
-          : base("Levels", "LevelCollect",
-              "Creates level objects that can be used in the structural model",
+          : base("Levels", "Levels",
+              "Creates level objects for the structural model",
               "IMEG", "Model Layout")
         {
         }
 
-        /// <summary>
-        /// Registers all the input parameters for this component.
-        /// </summary>
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("Names", "N", "Names for each level", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Elevations", "E", "Elevation of each level (in model units)", GH_ParamAccess.list);
-            pManager.AddGenericParameter("FloorType", "F", "Floor Type (optional)", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Elevations", "E", "Elevation of each level", GH_ParamAccess.list);
+            pManager.AddGenericParameter("FloorTypes", "FT", "Floor types from Floor Type component", GH_ParamAccess.list);
         }
 
-        /// <summary>
-        /// Registers all the output parameters for this component.
-        /// </summary>
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddGenericParameter("Levels", "L", "Level objects for the structural model", GH_ParamAccess.list);
+            pManager.AddGenericParameter("Levels", "L", "Level objects", GH_ParamAccess.list);
         }
 
-        /// <summary>
-        /// This is the method that actually does the work.
-        /// </summary>
-        /// <param name="DA">The DA object is used to retrieve from inputs and store in outputs.</param>
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            // Retrieve input data
             List<string> names = new List<string>();
             List<double> elevations = new List<double>();
-            List<FloorType> floorTypes = new List<FloorType>();
+            List<object> floorTypeObjects = new List<object>();
 
             if (!DA.GetDataList(0, names)) return;
             if (!DA.GetDataList(1, elevations)) return;
-            if (!DA.GetDataList(2, floorTypes)) return;
+            if (!DA.GetDataList(2, floorTypeObjects)) return;
 
-            // Basic validation
-            if (names.Count == 0)
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "No level names provided");
-                return;
-            }
-
-            if (names.Count != elevations.Count)
+            if (names.Count != elevations.Count || names.Count != floorTypeObjects.Count)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
-                    $"Number of level names ({names.Count}) does not match number of elevations ({elevations.Count})");
+                    "Number of names, elevations, and floor types must match");
                 return;
             }
 
-            //if (names.Count != floorTypes.Count)
-            //{
-            //    AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
-            //        $"Number of floor types ({names.Count}) does not match number of elevations ({elevations.Count})");
-            //    return;
-            //}
-
-            while (floorTypes.Count < elevations.Count)
+            List<GH_Level> levels = new List<GH_Level>();
+            for (int i = 0; i < names.Count; i++)
             {
-                int lastIndex = floorTypes.Count - 1;
-                FloorType lastFloorType = floorTypes[lastIndex];
-                floorTypes.Add(lastFloorType);
-            }
+                FloorType floorType = null;
 
-            try
-            {
-                // Create levels
-                List<Level> levels = new List<Level>();
-                for (int i = 0; i < names.Count; i++)
+                // Extract floor type from wrapper if needed
+                if (floorTypeObjects[i] is GH_FloorType ghFloorType)
                 {
-                    string name = names[i];
-                    double elevation = elevations[i];
-                    FloorType floorType = floorTypes[i];
-
-                    Level level = new Level(name, floorType, elevation);
-                    levels.Add(level);
+                    floorType = ghFloorType.Value;
+                }
+                else if (floorTypeObjects[i] is FloorType directFloorType)
+                {
+                    floorType = directFloorType;
                 }
 
-                // Set output
-                DA.SetDataList(0, levels);
+                if (floorType != null)
+                {
+                    Level level = new Level(names[i], floorType, elevations[i]);
+                    levels.Add(new GH_Level(level));
+                }
+                else
+                {
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
+                        "Input contains object that is not a valid FloorType");
+                    return;
+                }
             }
-            catch (Exception ex)
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
-            }
+
+            DA.SetDataList(0, levels);
         }
 
-        /// <summary>
-        /// Provides an Icon for the component.
-        /// </summary>
-        protected override Bitmap Icon
-        {
-            get
-            {
-                // You can add custom icon here
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// Gets the unique ID for this component. Do not change this ID after release.
-        /// </summary>
-        public override Guid ComponentGuid
-        {
-            get { return new Guid("f9a0b1c2-d3e4-5f6a-7b8c-9d0e1f2a3b4c"); }
-        }
+        public override Guid ComponentGuid => new Guid("f9a0b1c2-d3e4-5f6a-7b8c-9d0e1f2a3b4c");
     }
 }

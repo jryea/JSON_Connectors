@@ -1,94 +1,78 @@
-﻿using System;
+﻿using Grasshopper.Kernel;
+using System;
 using System.Collections.Generic;
-using System.Drawing;
-using Grasshopper.Kernel;
 using Core.Models.Properties;
+using Grasshopper.Utilities;
 
-namespace Grasshopper.Export
+namespace JSON_Connectors.Components.Core.Export.Properties
 {
     public class PropertiesContainerComponent : GH_Component
     {
-        /// <summary>
-        /// Initializes a new instance of the PropertiesContainer class.
-        /// </summary>
         public PropertiesContainerComponent()
           : base("Properties Container", "PropsCont",
-              "Collects all property definitions into a single container for the structural model",
+              "Collects all property definitions into a container",
               "IMEG", "Properties")
         {
         }
 
-        /// <summary>
-        /// Registers all the input parameters for this component.
-        /// </summary>
-        protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
+        protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddGenericParameter("Materials", "M", "Material definitions", GH_ParamAccess.list);
             pManager.AddGenericParameter("Wall Properties", "WP", "Wall property definitions", GH_ParamAccess.list);
             pManager.AddGenericParameter("Floor Properties", "FP", "Floor property definitions", GH_ParamAccess.list);
             pManager.AddGenericParameter("Diaphragms", "D", "Diaphragm definitions", GH_ParamAccess.list);
-            pManager.AddGenericParameter("Pier Spandrels", "PS", "Pier/spandrel configurations", GH_ParamAccess.list);
             pManager.AddGenericParameter("Frame Properties", "FRP", "Frame property definitions", GH_ParamAccess.list);
 
-            // Make all parameters optional
-            for (int i = 0; i < 6; i++)
-            {
+            for (int i = 0; i < 5; i++)
                 pManager[i].Optional = true;
-            }
         }
 
-        /// <summary>
-        /// Registers all the output parameters for this component.
-        /// </summary>
-        protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
+        protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
-            pManager.AddGenericParameter("Properties Container", "PC", "Container with all property definitions for the structural model", GH_ParamAccess.item);
+            pManager.AddGenericParameter("Properties", "P", "Properties container", GH_ParamAccess.item);
         }
 
-        /// <summary>
-        /// This is the method that actually does the work.
-        /// </summary>
-        /// <param name="DA">The DA object is used to retrieve from inputs and store in outputs.</param>
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            // Retrieve input data
-            List<Material> materials = new List<Material>();
-            List<WallProperties> wallProperties = new List<WallProperties>();
-            List<FloorProperties> floorProperties = new List<FloorProperties>();
-            List<Diaphragm> diaphragms = new List<Diaphragm>();
-            List<FrameProperties> frameProperties = new List<FrameProperties>();
+            List<object> materialObjects = new List<object>();
+            List<object> wallPropObjects = new List<object>();
+            List<object> floorPropObjects = new List<object>();
+            List<object> diaphragmObjects = new List<object>();
+            List<object> framePropObjects = new List<object>();
 
-            // Get data - all inputs are optional
-            DA.GetDataList(0, materials);
-            DA.GetDataList(1, wallProperties);
-            DA.GetDataList(2, floorProperties);
-            DA.GetDataList(3, diaphragms);
-            DA.GetDataList(4, frameProperties);
+            DA.GetDataList(0, materialObjects);
+            DA.GetDataList(1, wallPropObjects);
+            DA.GetDataList(2, floorPropObjects);
+            DA.GetDataList(3, diaphragmObjects);
+            DA.GetDataList(4, framePropObjects);
 
             try
             {
-                // Create properties container
-                PropertiesContainer propertiesContainer = new PropertiesContainer();
+                PropertiesContainer container = new PropertiesContainer();
 
-                // Add all properties
-                propertiesContainer.Materials.AddRange(materials);
-                propertiesContainer.WallProperties.AddRange(wallProperties);
-                propertiesContainer.FloorProperties.AddRange(floorProperties);
-                propertiesContainer.Diaphragms.AddRange(diaphragms);
-                propertiesContainer.FrameProperties.AddRange(frameProperties);
+                // Extract materials
+                ExtractProperties(materialObjects, container.Materials, "Material");
 
-                // Output container count info
-                string countInfo = $"Created properties container with: " +
-                                  $"{materials.Count} materials, " +
-                                  $"{wallProperties.Count} wall properties, " +
-                                  $"{floorProperties.Count} floor properties, " +
-                                  $"{diaphragms.Count} diaphragms, " +
-                                  $"{frameProperties.Count} frame properties";
+                // Extract wall properties
+                ExtractProperties(wallPropObjects, container.WallProperties, "WallProperties");
 
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, countInfo);
+                // Extract floor properties
+                ExtractProperties(floorPropObjects, container.FloorProperties, "FloorProperties");
 
-                // Set output
-                DA.SetData(0, propertiesContainer);
+                // Extract diaphragms
+                ExtractProperties(diaphragmObjects, container.Diaphragms, "Diaphragm");
+
+                // Extract frame properties
+                ExtractProperties(framePropObjects, container.FrameProperties, "FrameProperties");
+
+                int totalProps = container.Materials.Count + container.WallProperties.Count +
+                    container.FloorProperties.Count + container.Diaphragms.Count +
+                    container.FrameProperties.Count;
+
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Remark,
+                    $"Added {totalProps} property definitions to container");
+
+                DA.SetData(0, new GH_PropertiesContainer(container));
             }
             catch (Exception ex)
             {
@@ -96,20 +80,28 @@ namespace Grasshopper.Export
             }
         }
 
-        /// <summary>
-        /// Provides an Icon for the component.
-        /// </summary>
-        protected override Bitmap Icon
+        private void ExtractProperties<T>(List<object> objects, List<T> targetList, string typeName) where T : class
         {
-            get
+            foreach (object obj in objects)
             {
-                return null;
+                // Check if it's our Goo wrapper
+                if (obj is GH_ModelGoo<T> ghObj)
+                {
+                    targetList.Add(ghObj.Value);
+                }
+                // Direct type
+                else if (obj is T prop)
+                {
+                    targetList.Add(prop);
+                }
+                else
+                {
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
+                        $"Skipped object that is not a valid {typeName}");
+                }
             }
         }
 
-        /// <summary>
-        /// Gets the unique ID for this component. Do not change this ID after release.
-        /// </summary>
         public override Guid ComponentGuid => new Guid("D3C2B1A0-9F8E-7D6C-5B4A-3E2F1D0C9B8A");
     }
 }

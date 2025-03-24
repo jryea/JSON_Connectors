@@ -17,7 +17,7 @@ namespace Core.Models.Properties
         /// <summary>
         /// Material of the wall
         /// </summary>
-        public string Material { get; set; }
+        public Material Material { get; set; }
 
         /// <summary>
         /// Thickness of the wall in model units (typically inches)

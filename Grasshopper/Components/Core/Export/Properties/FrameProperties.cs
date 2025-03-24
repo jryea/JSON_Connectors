@@ -12,7 +12,7 @@ namespace Grasshopper.Export
         /// Initializes a new instance of the FramePropertiesCollector class.
         /// </summary>
         public FramePropertiesCollectorComponent()
-          : base("Frame Properties", "FrameProps",
+          : base("Frame Property", "FrameProp",
               "Creates frame property definitions for beams, columns, and braces",
               "IMEG", "Properties")
         {
@@ -23,14 +23,16 @@ namespace Grasshopper.Export
         /// </summary>
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Names", "N", "Names for each frame property", GH_ParamAccess.list);
-            pManager.AddTextParameter("Material IDs", "M", "Material IDs for each frame property", GH_ParamAccess.list);
-            pManager.AddTextParameter("Shapes", "S", "Shapes for each frame property (e.g., 'W', 'HSS', 'Pipe', 'Custom')", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Depths", "D", "Depths (height) for each frame property (in inches)", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Widths", "W", "Widths for each frame property (in inches)", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Modifiers", "MOD", "Optional stiffness modifiers (0.0-1.0)", GH_ParamAccess.list);
+            pManager.AddTextParameter("Name", "N", "Name for the frame property", GH_ParamAccess.item);
+            pManager.AddGenericParameter("Material", "M", "Material for the frame property", GH_ParamAccess.item);
+            pManager.AddTextParameter("Shape", "S", "Shape for the frame property (e.g., 'W', 'HSS', 'Pipe', 'Custom')", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Depth", "D", "Depth (height) for the frame property (in inches)", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Width", "W", "Width for the frame property (in inches)", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Modifier", "MOD", "Optional stiffness modifier (0.0-1.0)", GH_ParamAccess.item, 1.0);
 
-            // Make some parameters optional
+            // Make depth and width optional
+            pManager[3].Optional = true;
+            pManager[4].Optional = true;
             pManager[5].Optional = true;
         }
 
@@ -39,7 +41,7 @@ namespace Grasshopper.Export
         /// </summary>
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddGenericParameter("Frame Properties", "FP", "Frame property definitions for the structural model", GH_ParamAccess.list);
+            pManager.AddGenericParameter("Frame Property", "FP", "Frame property definition for the structural model", GH_ParamAccess.item);
         }
 
         /// <summary>
@@ -49,142 +51,138 @@ namespace Grasshopper.Export
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             // Retrieve input data
-            List<string> names = new List<string>();
-            List<string> materialIds = new List<string>();
-            List<string> shapes = new List<string>();
-            List<double> depths = new List<double>();
-            List<double> widths = new List<double>();
-            List<double> modifiers = new List<double>();
+            string name = string.Empty;
+            Material material = null;
+            string shape = string.Empty;
+            double depth = 0;
+            double width = 0;
+            double modifier = 1.0;
 
-            if (!DA.GetDataList(0, names)) return;
-            if (!DA.GetDataList(1, materialIds)) return;
-            if (!DA.GetDataList(2, shapes)) return;
-            if (!DA.GetDataList(3, depths)) return;
-            if (!DA.GetDataList(4, widths)) return;
-            DA.GetDataList(5, modifiers); // Optional
+            if (!DA.GetData(0, ref name)) return;
+            if (!DA.GetData(1, ref material)) return;
+            if (!DA.GetData(2, ref shape)) return;
+
+            // Optional parameters
+            bool hasDepth = DA.GetData(3, ref depth);
+            bool hasWidth = DA.GetData(4, ref width);
+            DA.GetData(5, ref modifier);
 
             // Basic validation
-            if (names.Count == 0)
+            if (string.IsNullOrWhiteSpace(name))
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "No frame property names provided");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Frame property name cannot be empty");
                 return;
             }
 
-            if (names.Count != materialIds.Count || names.Count != shapes.Count ||
-                names.Count != depths.Count || names.Count != widths.Count)
+            if (string.IsNullOrWhiteSpace(shape))
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
-                    $"Number of names ({names.Count}) must match number of material IDs ({materialIds.Count}), " +
-                    $"shapes ({shapes.Count}), depths ({depths.Count}), and widths ({widths.Count})");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Shape cannot be empty");
                 return;
             }
 
-            // Ensure optional modifiers have the right size or are empty
-            if (modifiers.Count > 0 && modifiers.Count != names.Count)
+          
+            if (material == null)
             {
-                if (modifiers.Count == 1)
-                {
-                    // Use the single value for all properties
-                    double modifier = modifiers[0];
-                    modifiers.Clear();
-                    for (int i = 0; i < names.Count; i++)
-                        modifiers.Add(modifier);
-                }
-                else
-                {
-                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
-                        $"Number of modifiers ({modifiers.Count}) must match number of names ({names.Count}) or be a single value");
-                    return;
-                }
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Invalid material provided");
+                return;
             }
 
             try
             {
-                // Create frame properties
-                List<FrameProperties> framePropertiesList = new List<FrameProperties>();
-
-                for (int i = 0; i < names.Count; i++)
+                // Create a new frame property
+                FrameProperties frameProperty = new FrameProperties
                 {
-                    string name = names[i];
-                    string materialId = materialIds[i];
-                    string shape = shapes[i];
-                    double depth = depths[i];
-                    double width = widths[i];
+                    Name = name,
+                    Material = material,
+                    Shape = shape
+                };
 
-                    if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(materialId) || string.IsNullOrWhiteSpace(shape))
-                    {
-                        AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Empty frame property name, material ID, or shape skipped");
-                        continue;
-                    }
+                // Set dimensions if provided
+                if (hasDepth)
+                    frameProperty.Dimensions["depth"] = depth;
 
-                    // Validate dimensions
-                    if (depth <= 0 || width <= 0)
-                    {
-                        AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
-                            $"Invalid dimensions (depth: {depth}, width: {width}) for frame property '{name}'. Must be greater than zero.");
-                        continue;
-                    }
+                if (hasWidth)
+                    frameProperty.Dimensions["width"] = width;
 
-                    // Create a new frame property
-                    FrameProperties frameProperties = new FrameProperties
-                    {
-                        Name = name,
-                        MaterialId = materialId,
-                        Shape = shape
-                    };
+                // Set additional dimensions based on shape type
+                SetDefaultDimensions(frameProperty, shape);
 
-                    // Set dimensions
-                    frameProperties.Dimensions["depth"] = depth;
-                    frameProperties.Dimensions["width"] = width;
-
-                    // Add more dimensions based on shape type
-                    if (shape.StartsWith("W", StringComparison.OrdinalIgnoreCase) ||
-                        shape.StartsWith("S", StringComparison.OrdinalIgnoreCase) ||
-                        shape.StartsWith("HP", StringComparison.OrdinalIgnoreCase))
-                    {
-                        // For wide flange shapes, add default web and flange thickness
-                        frameProperties.Dimensions["webThickness"] = 0.375; // Default web thickness in inches
-                        frameProperties.Dimensions["flangeThickness"] = 0.625; // Default flange thickness in inches
-                    }
-                    else if (shape.StartsWith("HSS", StringComparison.OrdinalIgnoreCase))
-                    {
-                        // For hollow structural sections, add default wall thickness
-                        frameProperties.Dimensions["wallThickness"] = 0.25; // Default wall thickness in inches
-                    }
-                    else if (shape.StartsWith("Pipe", StringComparison.OrdinalIgnoreCase))
-                    {
-                        // For pipes, adjust dimensions
-                        frameProperties.Dimensions["outerDiameter"] = width;
-                        frameProperties.Dimensions["wallThickness"] = 0.25; // Default wall thickness in inches
-                    }
-
-                    // Set modifiers if provided
-                    if (modifiers.Count > i)
-                    {
-                        double modifier = modifiers[i];
-                        if (modifier >= 0 && modifier <= 1.0)
-                        {
-                            frameProperties.Modifiers["axial"] = modifier;
-                            frameProperties.Modifiers["shear"] = modifier;
-                            frameProperties.Modifiers["flexural"] = modifier;
-                            frameProperties.Modifiers["torsional"] = modifier;
-                        }
-                        else
-                        {
-                            AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
-                                $"Invalid modifier value ({modifier}) for frame property '{name}'. Must be between 0.0 and 1.0.");
-                        }
-                    }
-
-                    framePropertiesList.Add(frameProperties);
+                // Set modifier if provided
+                if (modifier >= 0 && modifier <= 1.0)
+                {
+                    frameProperty.Modifiers["axial"] = modifier;
+                    frameProperty.Modifiers["shear"] = modifier;
+                    frameProperty.Modifiers["flexural"] = modifier;
+                    frameProperty.Modifiers["torsional"] = modifier;
+                }
+                else
+                {
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
+                        $"Invalid modifier value ({modifier}). Must be between 0.0 and 1.0. Using default of 1.0.");
                 }
 
-                // Set output
-                DA.SetDataList(0, framePropertiesList);
+                // Output the frame property
+                DA.SetData(0, new Utilities.GH_FrameProperties(frameProperty));
             }
             catch (Exception ex)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
+            }
+        }
+
+        private Material ExtractMaterial(object materialObj)
+        {
+            // Direct reference
+            if (materialObj is Material material)
+                return material;
+
+            // Through wrapper
+            if (materialObj is Utilities.GH_Material ghMaterial)
+                return ghMaterial.Value;
+
+            // Try by name/string (for backward compatibility)
+            if (materialObj is string materialName && !string.IsNullOrWhiteSpace(materialName))
+            {
+                return new Material
+                {
+                    Name = materialName,
+                    Type = "Unknown"
+                };
+            }
+
+            return null;
+        }
+
+        private void SetDefaultDimensions(FrameProperties frameProperty, string shape)
+        {
+            if (shape.StartsWith("W", StringComparison.OrdinalIgnoreCase) ||
+                shape.StartsWith("S", StringComparison.OrdinalIgnoreCase) ||
+                shape.StartsWith("HP", StringComparison.OrdinalIgnoreCase))
+            {
+                // For wide flange shapes, add default web and flange thickness
+                if (!frameProperty.Dimensions.ContainsKey("webThickness"))
+                    frameProperty.Dimensions["webThickness"] = 0.375; // Default web thickness in inches
+
+                if (!frameProperty.Dimensions.ContainsKey("flangeThickness"))
+                    frameProperty.Dimensions["flangeThickness"] = 0.625; // Default flange thickness in inches
+            }
+            else if (shape.StartsWith("HSS", StringComparison.OrdinalIgnoreCase))
+            {
+                // For hollow structural sections, add default wall thickness
+                if (!frameProperty.Dimensions.ContainsKey("wallThickness"))
+                    frameProperty.Dimensions["wallThickness"] = 0.25; // Default wall thickness in inches
+            }
+            else if (shape.StartsWith("Pipe", StringComparison.OrdinalIgnoreCase))
+            {
+                // For pipes, adjust dimensions
+                if (frameProperty.Dimensions.ContainsKey("width"))
+                {
+                    frameProperty.Dimensions["outerDiameter"] = frameProperty.Dimensions["width"];
+                    frameProperty.Dimensions.Remove("width");
+                }
+
+                if (!frameProperty.Dimensions.ContainsKey("wallThickness"))
+                    frameProperty.Dimensions["wallThickness"] = 0.25; // Default wall thickness in inches
             }
         }
 

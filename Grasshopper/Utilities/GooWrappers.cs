@@ -118,7 +118,9 @@ namespace Grasshopper.Utilities
         public override string ToString()
         {
             if (Value == null) return "Null Beam";
-            return $"Beam: {Value.PropertiesId}";
+            string levelInfo = Value.Level?.Name ?? "No Level";
+            string propInfo = Value.FrameProperties?.Name ?? "No Props";
+            return $"Beam: Level={levelInfo}, Props={propInfo}";
         }
     }
 
@@ -132,7 +134,10 @@ namespace Grasshopper.Utilities
         public override string ToString()
         {
             if (Value == null) return "Null Column";
-            return $"Column: {Value.SectionId}";
+            string baseLevelInfo = Value.BaseLevel?.Name ?? "No Base";
+            string topLevelInfo = Value.TopLevel?.Name ?? "No Top";
+            string propInfo = Value.FrameProperties?.Name ?? "No Props";
+            return $"Column: Base={baseLevelInfo}, Top={topLevelInfo}, Props={propInfo}";
         }
     }
 
@@ -146,7 +151,10 @@ namespace Grasshopper.Utilities
         public override string ToString()
         {
             if (Value == null) return "Null Brace";
-            return $"Brace: {Value.MaterialId}";
+            string baseLevelInfo = Value.BaseLevel?.Name ?? "No Base";
+            string topLevelInfo = Value.TopLevel?.Name ?? "No Top";
+            string propInfo = Value.FrameProperties?.Name ?? "No Props";
+            return $"Brace: Base={baseLevelInfo}, Top={topLevelInfo}, Props={propInfo}";
         }
     }
 
@@ -160,7 +168,7 @@ namespace Grasshopper.Utilities
         public override string ToString()
         {
             if (Value == null) return "Null Wall";
-            return $"Wall: {Value.PropertiesId}, Points: {Value.Points.Count}";
+            return $"Wall: Props={Value.PropertiesId}, Points: {Value.Points.Count}";
         }
     }
 
@@ -174,7 +182,10 @@ namespace Grasshopper.Utilities
         public override string ToString()
         {
             if (Value == null) return "Null Floor";
-            return $"Floor: {Value.PropertiesId}, Level: {Value.LevelId}";
+            string levelInfo = Value.Level?.Name ?? "No Level";
+            string propInfo = Value.FloorProperties?.Name ?? "No Props";
+            string diaInfo = Value.Diaphragm?.Name ?? "No Diaphragm";
+            return $"Floor: Level={levelInfo}, Props={propInfo}, Diaphragm={diaInfo}";
         }
     }
 
@@ -188,7 +199,7 @@ namespace Grasshopper.Utilities
         public override string ToString()
         {
             if (Value == null) return "Null IsolatedFooting";
-            return $"IsolatedFooting: {Value.PropertiesId ?? "No Props"}";
+            return $"IsolatedFooting: Point=({Value.Point.X:F2}, {Value.Point.Y:F2}, {Value.Point.Z:F2})";
         }
     }
 
@@ -322,7 +333,7 @@ namespace Grasshopper.Utilities
         public override string ToString()
         {
             if (Value == null) return "Null FrameProperties";
-            return $"FrameProps: {Value.Name}, Mat: {Value.MaterialId}, Shape: {Value.Shape}";
+            return $"FrameProps: {Value.Name}, Mat: {Value.Material}, Shape: {Value.Shape}";
         }
     }
 
@@ -364,6 +375,12 @@ namespace Grasshopper.Utilities
         public GH_SurfaceLoad(SurfaceLoad load) : base(load) { }
 
         public override IGH_Goo Duplicate() => new GH_SurfaceLoad(Value);
+
+        public override string ToString()
+        {
+            if (Value == null) return "Null SurfaceLoad";
+            return $"SurfaceLoad: Layout={Value.LayoutTypeId}, Dead={Value.DeadId}, Live={Value.LiveId}";
+        }
     }
 
     public class GH_LoadCombination : GH_ModelGoo<LoadCombination>
@@ -372,6 +389,12 @@ namespace Grasshopper.Utilities
         public GH_LoadCombination(LoadCombination combo) : base(combo) { }
 
         public override IGH_Goo Duplicate() => new GH_LoadCombination(Value);
+
+        public override string ToString()
+        {
+            if (Value == null) return "Null LoadCombination";
+            return $"LoadCombo: Def={Value.LoadDefinitionId}";
+        }
     }
 
     public class GH_LoadContainer : GH_ModelGoo<LoadContainer>
@@ -426,6 +449,14 @@ namespace Grasshopper.Utilities
         public GH_MetadataContainer(MetadataContainer container) : base(container) { }
 
         public override IGH_Goo Duplicate() => new GH_MetadataContainer(Value);
+
+        public override string ToString()
+        {
+            if (Value == null) return "Null MetadataContainer";
+            string projectName = Value.ProjectInfo?.ProjectName ?? "No Project";
+            string units = Value.Units?.Length ?? "No Units";
+            return $"Metadata: Project={projectName}, Units={units}";
+        }
     }
 
     #endregion
@@ -444,7 +475,8 @@ namespace Grasshopper.Utilities
             if (Value == null) return "Null BaseModel";
             int elementCount = Value.Elements.Beams.Count + Value.Elements.Columns.Count +
                 Value.Elements.Walls.Count + Value.Elements.Floors.Count + Value.Elements.Braces.Count;
-            return $"Model: {elementCount} elements, ID: {Value.Id}";
+            string projectName = Value.Metadata.ProjectInfo?.ProjectName ?? "No Project";
+            return $"Model: {projectName}, {elementCount} elements, ID: {Value.Id}";
         }
     }
 

@@ -17,7 +17,7 @@ namespace Core.Models.Properties
         /// <summary>
         /// ID of the material for this frame element
         /// </summary>
-        public string MaterialId { get; set; }
+        public Material Material { get; set; }
 
         /// <summary>
         /// Shape of the frame section (e.g., "W", "HSS", "Pipe")

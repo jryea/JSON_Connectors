@@ -3,7 +3,11 @@ using Rhino.Geometry;
 using System;
 using System.Collections.Generic;
 using Core.Models.Elements;
+using Core.Models.ModelLayout;
+using Core.Models.Properties;
+using Core.Models.Loads;
 using Grasshopper.Utilities;
+using Grasshopper.Kernel.Types;
 
 namespace JSON_Connectors.Components.Core.Export.Elements
 {
@@ -18,11 +22,11 @@ namespace JSON_Connectors.Components.Core.Export.Elements
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddSurfaceParameter("Surfaces", "S", "Surfaces representing floors", GH_ParamAccess.list);
-            pManager.AddTextParameter("Level ID", "L", "ID of the level", GH_ParamAccess.list);
-            pManager.AddTextParameter("Properties ID", "P", "ID of the floor properties", GH_ParamAccess.list);
-            pManager.AddTextParameter("Diaphragm ID", "D", "ID of the diaphragm (optional)", GH_ParamAccess.list);
-            pManager.AddTextParameter("Surface Load ID", "SL", "ID of the surface load (optional)", GH_ParamAccess.list);
+            pManager.AddPointParameter("Points", "P", "Points defining floor boundary", GH_ParamAccess.tree);
+            pManager.AddGenericParameter("Level", "L", "Level the floor belongs to", GH_ParamAccess.list);
+            pManager.AddGenericParameter("Properties", "P", "Floor properties", GH_ParamAccess.list);
+            pManager.AddGenericParameter("Diaphragm", "D", "Diaphragm (optional)", GH_ParamAccess.list);
+            pManager.AddGenericParameter("Surface Load", "SL", "Surface load (optional)", GH_ParamAccess.list);
 
             pManager[3].Optional = true;
             pManager[4].Optional = true;
@@ -35,55 +39,120 @@ namespace JSON_Connectors.Components.Core.Export.Elements
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            List<Surface> surfaces = new List<Surface>();
-            List<string> levelIds = new List<string>();
-            List<string> propertiesIds = new List<string>();
-            List<string> diaphragmIds = new List<string>();
-            List<string> surfaceLoadIds = new List<string>();
+            Grasshopper.Kernel.Data.GH_Structure<GH_Point> pointsTree;
+            List<object> levelObjs = new List<object>();
+            List<object> propObjs = new List<object>();
+            List<object> diaphragmObjs = new List<object>();
+            List<object> surfaceLoadObjs = new List<object>();
 
-            if (!DA.GetDataList(0, surfaces)) return;
-            if (!DA.GetDataList(1, levelIds)) return;
-            if (!DA.GetDataList(2, propertiesIds)) return;
-            DA.GetDataList(3, diaphragmIds);
-            DA.GetDataList(4, surfaceLoadIds);
+            if (!DA.GetDataTree(0, out pointsTree)) return;
+            if (!DA.GetDataList(1, levelObjs)) return;
+            if (!DA.GetDataList(2, propObjs)) return;
+            DA.GetDataList(3, diaphragmObjs);
+            DA.GetDataList(4, surfaceLoadObjs);
 
-            if (surfaces.Count != levelIds.Count || surfaces.Count != propertiesIds.Count)
+            if (pointsTree.PathCount != levelObjs.Count || pointsTree.PathCount != propObjs.Count)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
-                    "Number of surfaces must match number of level IDs and properties IDs");
+                    "Number of point sets must match number of levels and properties");
+                return;
+            }
+
+            if (diaphragmObjs.Count > 0 && diaphragmObjs.Count != pointsTree.PathCount)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
+                    "If provided, number of diaphragms must match number of point sets");
+                return;
+            }
+
+            if (surfaceLoadObjs.Count > 0 && surfaceLoadObjs.Count != pointsTree.PathCount)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
+                    "If provided, number of surface loads must match number of point sets");
                 return;
             }
 
             List<GH_Floor> floors = new List<GH_Floor>();
-            for (int i = 0; i < surfaces.Count; i++)
-            {
-                Surface srf = surfaces[i];
-                NurbsSurface nurbsSrf = srf.ToNurbsSurface();
 
-                // Extract points from the surface
-                List<Point3D> points = new List<Point3D>();
-                for (int u = 0; u <= 1; u++)
+            for (int i = 0; i < pointsTree.PathCount; i++)
+            {
+                var path = pointsTree.Paths[i];
+                var pointsBranch = pointsTree.get_Branch(path);
+
+                if (pointsBranch.Count < 3)
                 {
-                    for (int v = 0; v <= 1; v++)
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
+                        $"Skipping floor at index {i}: at least 3 points are required to define a floor");
+                    continue;
+                }
+
+                Level level = ExtractObject<Level>(levelObjs[i], "Level");
+                FloorProperties floorProps = ExtractObject<FloorProperties>(propObjs[i], "FloorProperties");
+                Diaphragm diaphragm = diaphragmObjs.Count > i ? ExtractObject<Diaphragm>(diaphragmObjs[i], "Diaphragm") : null;
+                SurfaceLoad surfaceLoad = surfaceLoadObjs.Count > i ? ExtractObject<SurfaceLoad>(surfaceLoadObjs[i], "SurfaceLoad") : null;
+
+                if (level == null || floorProps == null)
+                {
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Invalid level or properties at index {i}");
+                    continue;
+                }
+
+                // Convert input points to model Point2D objects
+                List<Point2D> floorPoints = new List<Point2D>();
+                foreach (var ghPoint in pointsBranch)
+                {
+                    if (ghPoint is GH_Point ghPointCast)
                     {
-                        Point3d pt = nurbsSrf.PointAt(u, v);
-                        points.Add(new Point3D(pt.X * 12, pt.Y * 12, pt.Z * 12));
+                        Point3d pt = ghPointCast.Value;
+                        floorPoints.Add(new Point2D(pt.X * 12, pt.Y * 12));
+                    }
+                    else
+                    {
+                        AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Invalid point at index {i}");
                     }
                 }
 
                 Floor floor = new Floor
                 {
-                    LevelId = levelIds[i],
-                    PropertiesId = propertiesIds[i],
-                    Points = points,
-                    DiaphragmId = diaphragmIds.Count > i ? diaphragmIds[i] : null,
-                    SurfaceLoadId = surfaceLoadIds.Count > i ? surfaceLoadIds[i] : null
+                    Level = level,
+                    FloorProperties = floorProps,
+                    Points = floorPoints,
+                    Diaphragm = diaphragm,
+                    SurfaceLoad = surfaceLoad
                 };
 
                 floors.Add(new GH_Floor(floor));
             }
 
             DA.SetDataList(0, floors);
+        }
+
+        private T ExtractObject<T>(object obj, string typeName) where T : class
+        {
+            if (obj is T directType)
+                return directType;
+
+            if (obj is GH_ModelGoo<T> ghType)
+                return ghType.Value;
+
+            // Try to handle string IDs (for compatibility)
+            if (obj is string)
+            {
+                if (typeof(T) == typeof(Level))
+                    return new Level((string)obj, null, 0) as T;
+
+                if (typeof(T) == typeof(FloorProperties))
+                    return new FloorProperties { Name = (string)obj } as T;
+
+                if (typeof(T) == typeof(Diaphragm))
+                    return new Diaphragm { Name = (string)obj } as T;
+
+                if (typeof(T) == typeof(SurfaceLoad))
+                    return new SurfaceLoad { Id = (string)obj } as T;
+            }
+
+            AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Could not extract {typeName}");
+            return null;
         }
 
         public override Guid ComponentGuid => new Guid("8D3932A5-1B74-43C6-9BC7-8C0C21B932C5");

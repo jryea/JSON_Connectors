@@ -23,11 +23,11 @@ namespace Grasshopper.Export
         /// </summary>
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Names", "N", "Names for each floor property", GH_ParamAccess.list);
-            pManager.AddTextParameter("Types", "T", "Types for each floor property (e.g., 'Concrete', 'Composite', 'Deck')", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Thicknesses", "TH", "Thicknesses for each floor property (in inches)", GH_ParamAccess.list);
-            pManager.AddTextParameter("Material IDs", "M", "Material IDs for each floor property", GH_ParamAccess.list);
-            pManager.AddTextParameter("Reinforcement", "R", "Reinforcement details (optional)", GH_ParamAccess.list);
+            pManager.AddTextParameter("Names", "N", "Name for each floor property", GH_ParamAccess.list);
+            pManager.AddTextParameter("Types", "T", "Type for floor (e.g., 'Slab', 'Composite', 'NonComposite')", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Thicknesses", "TH", "Thickness (in inches)", GH_ParamAccess.list);
+            pManager.AddGenericParameter("Materials", "M", "Material", GH_ParamAccess.list);
+            pManager.AddTextParameter("Reinforcement", "R", "Reinforcement (optional)", GH_ParamAccess.list);
 
             // Make some parameters optional
             pManager[4].Optional = true;
@@ -51,13 +51,13 @@ namespace Grasshopper.Export
             List<string> names = new List<string>();
             List<string> types = new List<string>();
             List<double> thicknesses = new List<double>();
-            List<string> materialIds = new List<string>();
+            List<Material> materials = new List<Material>();
             List<string> reinforcements = new List<string>();
 
             if (!DA.GetDataList(0, names)) return;
             if (!DA.GetDataList(1, types)) return;
             if (!DA.GetDataList(2, thicknesses)) return;
-            if (!DA.GetDataList(3, materialIds)) return;
+            if (!DA.GetDataList(3, materials)) return;
             DA.GetDataList(4, reinforcements); // Optional
 
             // Basic validation
@@ -67,11 +67,11 @@ namespace Grasshopper.Export
                 return;
             }
 
-            if (names.Count != types.Count || names.Count != thicknesses.Count || names.Count != materialIds.Count)
+            if (names.Count != types.Count || names.Count != thicknesses.Count || names.Count != materials.Count)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
                     $"Number of names ({names.Count}) must match number of types ({types.Count}), " +
-                    $"thicknesses ({thicknesses.Count}), and material IDs ({materialIds.Count})");
+                    $"thicknesses ({thicknesses.Count}), and material IDs ({materials.Count})");
                 return;
             }
 
@@ -104,9 +104,9 @@ namespace Grasshopper.Export
                     string name = names[i];
                     string type = types[i];
                     double thickness = thicknesses[i];
-                    string materialId = materialIds[i];
+                    Material material = materials[i];
 
-                    if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(type) || string.IsNullOrWhiteSpace(materialId))
+                    if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(type) || material != null)
                     {
                         AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Empty floor property name, type, or material ID skipped");
                         continue;
@@ -126,7 +126,7 @@ namespace Grasshopper.Export
                         Name = name,
                         Type = type,
                         Thickness = thickness,
-                        MaterialId = materialId
+                        Material = material
                     };
 
                     // Set reinforcement if provided

@@ -15,7 +15,7 @@ namespace Core.Models.Properties
         public string Name { get; set; }
 
         /// <summary>
-        /// Type of floor (e.g., "Concrete", "Composite", "Deck")
+        /// Type of floor (e.g., "Slab", "Composite", "NonComposite")
         /// </summary>
         public string Type { get; set; }
 
@@ -27,12 +27,7 @@ namespace Core.Models.Properties
         /// <summary>
         /// ID of the material for this floor
         /// </summary>
-        public string MaterialId { get; set; }
-
-        /// <summary>
-        /// Reinforcement details (if applicable)
-        /// </summary>
-        public string Reinforcement { get; set; }
+        public Material Material { get; set; }
 
         /// <summary>
         /// Additional slab-specific properties (when Type is slab)
@@ -43,5 +38,6 @@ namespace Core.Models.Properties
         /// Additional deck-specific properties (when Type is deck)
         /// </summary>
         public Dictionary<string, object> DeckProperties { get; set; } = new Dictionary<string, object>();
+        public string Reinforcement { get; set; }
     }
 }

@@ -23,9 +23,9 @@ namespace Grasshopper.Export
         /// </summary>
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("Names", "N", "Names for each wall property", GH_ParamAccess.list);
-            pManager.AddTextParameter("Materials", "M", "Materials for each wall property (e.g., 'Concrete', 'Masonry', 'Wood')", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Thicknesses", "TH", "Thicknesses for each wall property (in inches)", GH_ParamAccess.list);
+            pManager.AddTextParameter("Name", "N", "Names for each wall property", GH_ParamAccess.list);
+            pManager.AddTextParameter("Material", "M", "Materials for each wall property (e.g., 'Concrete', 'Masonry', 'Wood')", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Thickness", "TH", "Thickness for each wall property (in inches)", GH_ParamAccess.list);
         }
 
         /// <summary>
@@ -44,7 +44,7 @@ namespace Grasshopper.Export
         {
             // Retrieve input data
             List<string> names = new List<string>();
-            List<string> materials = new List<string>();
+            List<Material> materials = new List<Material>();
             List<double> thicknesses = new List<double>();
 
             if (!DA.GetDataList(0, names)) return;
@@ -74,10 +74,10 @@ namespace Grasshopper.Export
                 for (int i = 0; i < names.Count; i++)
                 {
                     string name = names[i];
-                    string material = materials[i];
+                    Material material = materials[i];
                     double thickness = thicknesses[i];
 
-                    if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(material))
+                    if (string.IsNullOrWhiteSpace(name) || material != null)
                     {
                         AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Empty wall property name or material skipped");
                         continue;
@@ -100,25 +100,25 @@ namespace Grasshopper.Export
                     };
 
                     // Add material-specific properties
-                    if (material.Equals("Concrete", StringComparison.OrdinalIgnoreCase))
+                    if (material.Type.Equals("Concrete", StringComparison.OrdinalIgnoreCase))
                     {
                         // Add concrete wall properties
                         wallProperties.Properties["fc"] = 4000.0; // Default concrete strength in psi
                         wallProperties.Properties["reinforcementRatio"] = 0.0025; // Default minimum reinforcement ratio
                     }
-                    else if (material.Equals("Masonry", StringComparison.OrdinalIgnoreCase))
+                    else if (material.Type.Equals("Masonry", StringComparison.OrdinalIgnoreCase))
                     {
                         // Add masonry wall properties
                         wallProperties.Properties["fm"] = 1500.0; // Default masonry strength in psi
                         wallProperties.Properties["isGrouted"] = true; // Default to grouted masonry
                     }
-                    else if (material.Equals("Wood", StringComparison.OrdinalIgnoreCase))
+                    else if (material.Type.Equals("Wood", StringComparison.OrdinalIgnoreCase))
                     {
                         // Add wood wall properties
                         wallProperties.Properties["studSpacing"] = 16.0; // Default stud spacing in inches
                         wallProperties.Properties["sheathing"] = "Plywood"; // Default sheathing material
                     }
-                    else if (material.Equals("Steel", StringComparison.OrdinalIgnoreCase))
+                    else if (material.Type.Equals("Steel", StringComparison.OrdinalIgnoreCase))
                     {
                         // Add steel wall properties
                         wallProperties.Properties["studGage"] = 18; // Default stud gage

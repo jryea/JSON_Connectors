@@ -6,6 +6,9 @@ using Core.Models.Elements;
 using Core.Models.ModelLayout;
 using Core.Models.Properties;
 using Grasshopper.Utilities;
+using Grasshopper.Kernel.Data;
+using Grasshopper.Kernel.Types;
+using System.Linq;
 
 namespace JSON_Connectors.Components.Core.Export.Elements
 {
@@ -20,7 +23,7 @@ namespace JSON_Connectors.Components.Core.Export.Elements
 
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
-            pManager.AddLineParameter("Lines", "L", "Lines representing columns", GH_ParamAccess.list);
+            pManager.AddLineParameter("Lines", "L", "Lines representing columns", GH_ParamAccess.tree);
             pManager.AddGenericParameter("Base Level", "BL", "Base level of the column", GH_ParamAccess.list);
             pManager.AddGenericParameter("Top Level", "TL", "Top level of the column", GH_ParamAccess.list);
             pManager.AddGenericParameter("Frame Properties", "P", "Frame properties for this column", GH_ParamAccess.list);
@@ -33,51 +36,71 @@ namespace JSON_Connectors.Components.Core.Export.Elements
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            List<Line> lines = new List<Line>();
+            GH_Structure<GH_Line> linesTree;
             List<object> baseLevelObjs = new List<object>();
             List<object> topLevelObjs = new List<object>();
             List<object> framePropObjs = new List<object>();
 
-            if (!DA.GetDataList(0, lines)) return;
+            if (!DA.GetDataTree(0, out linesTree)) return;
             if (!DA.GetDataList(1, baseLevelObjs)) return;
             if (!DA.GetDataList(2, topLevelObjs)) return;
             if (!DA.GetDataList(3, framePropObjs)) return;
 
-            if (lines.Count != baseLevelObjs.Count || lines.Count != topLevelObjs.Count || lines.Count != framePropObjs.Count)
+            // Check that the number of branches matches the number of levels and properties
+            if (linesTree.PathCount != baseLevelObjs.Count ||
+                linesTree.PathCount != topLevelObjs.Count ||
+                linesTree.PathCount != framePropObjs.Count)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
-                    "Number of lines must match number of base/top levels and properties");
+                    $"Number of line branches ({linesTree.PathCount}) must match number of base levels ({baseLevelObjs.Count}), " +
+                    $"top levels ({topLevelObjs.Count}), and properties ({framePropObjs.Count})");
                 return;
             }
 
             List<GH_Column> columns = new List<GH_Column>();
-            for (int i = 0; i < lines.Count; i++)
+
+            // Process each branch of the tree
+            for (int i = 0; i < linesTree.PathCount; i++)
             {
-                Line line = lines[i];
+                GH_Path path = linesTree.Paths[i];
+                List<GH_Line> linesBranch = linesTree.get_Branch(path).Cast<GH_Line>().ToList();
+
+                // Get the corresponding level and property for this branch
                 Level baseLevel = ExtractObject<Level>(baseLevelObjs[i], "BaseLevel");
                 Level topLevel = ExtractObject<Level>(topLevelObjs[i], "TopLevel");
                 FrameProperties frameProps = ExtractObject<FrameProperties>(framePropObjs[i], "FrameProperties");
 
                 if (baseLevel == null || topLevel == null || frameProps == null)
                 {
-                    AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Invalid level or properties at index {i}");
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
+                        $"Invalid level or properties at branch index {i}");
                     continue;
                 }
 
-                Column column = new Column
+                // Process each column in this branch
+                foreach (GH_Line ghLine in linesBranch)
                 {
-                    StartPoint = new Point2D(line.FromX * 12, line.FromY * 12),
-                    EndPoint = new Point2D(line.ToX * 12, line.ToY * 12),
-                    BaseLevel = baseLevel,
-                    TopLevel = topLevel,
-                    FrameProperties = frameProps
-                };
+                    if (ghLine == null) continue;
 
-                columns.Add(new GH_Column(column));
+                    Line line = ghLine.Value;
+
+                    Column column = new Column
+                    {
+                        StartPoint = new Point2D(line.FromX * 12, line.FromY * 12),
+                        EndPoint = new Point2D(line.ToX * 12, line.ToY * 12),
+                        BaseLevel = baseLevel,
+                        TopLevel = topLevel,
+                        FrameProperties = frameProps
+                    };
+
+                    columns.Add(new GH_Column(column));
+                }
             }
 
             DA.SetDataList(0, columns);
         }
+
+
 
         private T ExtractObject<T>(object obj, string typeName) where T : class
         {

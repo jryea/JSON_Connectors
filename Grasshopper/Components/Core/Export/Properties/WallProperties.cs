@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Drawing;
 using Grasshopper.Kernel;
 using Core.Models.Properties;
+using Grasshopper.Utilities;
+using GH_Types = Grasshopper.Kernel.Types;
 
 namespace Grasshopper.Export
 {
@@ -24,7 +26,7 @@ namespace Grasshopper.Export
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("Name", "N", "Names for each wall property", GH_ParamAccess.list);
-            pManager.AddTextParameter("Material", "M", "Materials for each wall property (e.g., 'Concrete', 'Masonry', 'Wood')", GH_ParamAccess.list);
+            pManager.AddGenericParameter("Material", "M", "Materials for each wall property", GH_ParamAccess.list);
             pManager.AddNumberParameter("Thickness", "TH", "Thickness for each wall property (in inches)", GH_ParamAccess.list);
         }
 
@@ -44,11 +46,11 @@ namespace Grasshopper.Export
         {
             // Retrieve input data
             List<string> names = new List<string>();
-            List<Material> materials = new List<Material>();
+            List<object> materialObjs = new List<object>();
             List<double> thicknesses = new List<double>();
 
             if (!DA.GetDataList(0, names)) return;
-            if (!DA.GetDataList(1, materials)) return;
+            if (!DA.GetDataList(1, materialObjs)) return;
             if (!DA.GetDataList(2, thicknesses)) return;
 
             // Basic validation
@@ -58,10 +60,10 @@ namespace Grasshopper.Export
                 return;
             }
 
-            if (names.Count != materials.Count || names.Count != thicknesses.Count)
+            if (names.Count != materialObjs.Count || names.Count != thicknesses.Count)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
-                    $"Number of names ({names.Count}) must match number of materials ({materials.Count}) " +
+                    $"Number of names ({names.Count}) must match number of materials ({materialObjs.Count}) " +
                     $"and thicknesses ({thicknesses.Count})");
                 return;
             }
@@ -69,17 +71,18 @@ namespace Grasshopper.Export
             try
             {
                 // Create wall properties
-                List<WallProperties> wallPropertiesList = new List<WallProperties>();
+                List<GH_WallProperties> wallPropertiesList = new List<GH_WallProperties>();
 
                 for (int i = 0; i < names.Count; i++)
                 {
                     string name = names[i];
-                    Material material = materials[i];
+                    Material material = ExtractMaterial(materialObjs[i]);
                     double thickness = thicknesses[i];
 
-                    if (string.IsNullOrWhiteSpace(name) || material != null)
+                    if (string.IsNullOrWhiteSpace(name) || material == null)
                     {
-                        AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Empty wall property name or material skipped");
+                        AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
+                            $"Skipping property at index {i}: Empty name or invalid material");
                         continue;
                     }
 
@@ -125,7 +128,7 @@ namespace Grasshopper.Export
                         wallProperties.Properties["studSpacing"] = 16.0; // Default stud spacing in inches
                     }
 
-                    wallPropertiesList.Add(wallProperties);
+                    wallPropertiesList.Add(new GH_WallProperties(wallProperties));
                 }
 
                 // Set output
@@ -135,6 +138,55 @@ namespace Grasshopper.Export
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
             }
+        }
+
+        private Material ExtractMaterial(object obj)
+        {
+            // Direct type check
+            if (obj is Material directMaterial)
+                return directMaterial;
+
+            // Using GooWrapper
+            if (obj is GH_Material ghMaterial)
+                return ghMaterial.Value;
+
+            // Try handling string IDs (for compatibility)
+            if (obj is string materialName && !string.IsNullOrWhiteSpace(materialName))
+            {
+                // Create a basic material with the provided name
+                return new Material
+                {
+                    Name = materialName,
+                    Type = DetermineMaterialTypeFromName(materialName)
+                };
+            }
+
+            // Handle IGH_Goo objects that can be cast to Material
+            if (obj is GH_Types.IGH_Goo goo && goo.CastTo<Material>(out var castMaterial))
+            {
+                return castMaterial;
+            }
+
+            AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
+                $"Could not extract Material from input: {obj?.GetType().Name ?? "null"}");
+            return null;
+        }
+
+        private string DetermineMaterialTypeFromName(string materialName)
+        {
+            // Try to determine material type from name for backward compatibility
+            materialName = materialName.ToLower();
+
+            if (materialName.Contains("concrete") || materialName.Contains("conc"))
+                return "Concrete";
+            else if (materialName.Contains("steel") || materialName.Contains("metal"))
+                return "Steel";
+            else if (materialName.Contains("wood") || materialName.Contains("timber"))
+                return "Wood";
+            else if (materialName.Contains("masonry") || materialName.Contains("brick") || materialName.Contains("cmu"))
+                return "Masonry";
+            else
+                return "Unknown";
         }
 
         /// <summary>

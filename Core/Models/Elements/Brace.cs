@@ -19,24 +19,29 @@ namespace Core.Models.Elements
         public string MaterialId { get; set; }
 
         /// <summary>
-        /// Section ID
+        /// Frame Section Id
         /// </summary>
-        public Dictionary<string, string> SectionId { get; set; } = new Dictionary<string, string>();
+        public string FramePropertiesId { get; set; }  
 
         /// <summary>
-        /// Level ID
+        /// BaseLevel ID
         /// </summary>
-        public string LevelId { get; set; }
+        public string BaseLevelId { get; set; }
+
+        /// <summary>
+        /// BaseLevel ID
+        /// </summary>
+        public string TopLevelId { get; set; }
 
         /// <summary>
         /// Start point
         /// </summary>
-        public Point3D StartPoint { get; set; }
+        public Point2D StartPoint { get; set; }
 
         /// <summary>
         /// End point
         /// </summary>
-        public Point3D EndPoint { get; set; }
+        public Point2D EndPoint { get; set; }
 
         /// <summary>
         /// Creates a new Brace with a generated ID
@@ -44,22 +49,6 @@ namespace Core.Models.Elements
         public Brace()
         {
             Id = IdGenerator.Generate(IdGenerator.Elements.BRACE);
-            SectionId = new Dictionary<string, string>();
-        }
-
-        /// <summary>
-        /// Creates a new Brace with specified properties
-        /// </summary>
-        /// <param name="materialId">Material ID</param>
-        /// <param name="levelId">Level ID</param>
-        /// <param name="startPoint">Start point</param>
-        /// <param name="endPoint">End point</param>
-        public Brace(string materialId, string levelId, Point3D startPoint, Point3D endPoint) : this()
-        {
-            MaterialId = materialId;
-            LevelId = levelId;
-            StartPoint = startPoint;
-            EndPoint = endPoint;
         }
     }
 }

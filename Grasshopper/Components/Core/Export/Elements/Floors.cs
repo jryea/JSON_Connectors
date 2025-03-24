@@ -114,11 +114,11 @@ namespace JSON_Connectors.Components.Core.Export.Elements
 
                 Floor floor = new Floor
                 {
-                    Level = level,
-                    FloorProperties = floorProps,
+                    LevelId = level.Id,
+                    FloorPropertiesId = floorProps.Id,
                     Points = floorPoints,
-                    Diaphragm = diaphragm,
-                    SurfaceLoad = surfaceLoad
+                    DiaphragmId = diaphragm.Id,
+                    SurfaceLoadId = surfaceLoad.Id
                 };
 
                 floors.Add(new GH_Floor(floor));

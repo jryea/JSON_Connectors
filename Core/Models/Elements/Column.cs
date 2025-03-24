@@ -35,7 +35,7 @@ namespace Core.Models.Elements
         /// <summary>
         /// ID of the section properties for this column
         /// </summary>
-        public string SectionId { get; set; }
+        public string FramePropertiesId { get; set; }
 
         /// <summary>
         /// Analysis properties
@@ -65,7 +65,7 @@ namespace Core.Models.Elements
             EndPoint = endPoint;
             BaseLevelId = baseLevelId;
             TopLevelId = topLevelId;
-            SectionId = sectionId;
+            FramePropertiesId = sectionId;
         }
     }
 

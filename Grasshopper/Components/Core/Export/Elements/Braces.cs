@@ -66,11 +66,11 @@ namespace JSON_Connectors.Components.Core.Export.Elements
 
                 Brace brace = new Brace
                 {
-                    StartPoint = new Point3D(line.FromX * 12, line.FromY * 12, line.FromZ * 12),
-                    EndPoint = new Point3D(line.ToX * 12, line.ToY * 12, line.ToZ * 12),
-                    BaseLevel = baseLevel,
-                    TopLevel = topLevel,
-                    FrameProperties = frameProps
+                    StartPoint = new Point2D(line.FromX * 12, line.FromY * 12),
+                    EndPoint = new Point2D(line.ToX * 12, line.ToY * 12),
+                    BaseLevelId = baseLevel.Id,
+                    TopLevelId = topLevel.Id,
+                    FramePropertiesId = frameProps.Id
                 };
 
                 braces.Add(new GH_Brace(brace));

@@ -88,10 +88,11 @@ namespace JSON_Connectors.Components.Core.Export.Elements
                     {
                         StartPoint = new Point2D(line.FromX * 12, line.FromY * 12),
                         EndPoint = new Point2D(line.ToX * 12, line.ToY * 12),
-                        BaseLevel = baseLevel,
-                        TopLevel = topLevel,
-                        FrameProperties = frameProps
+                        BaseLevelId = baseLevel.Id,
+                        TopLevelId = topLevel.Id,
+                        FramePropertiesId = frameProps.Id
                     };
+
 
                     columns.Add(new GH_Column(column));
                 }

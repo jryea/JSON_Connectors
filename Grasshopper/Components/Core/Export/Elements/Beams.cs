@@ -70,8 +70,8 @@ namespace JSON_Connectors.Components.Core.Export.Elements
                 {
                     StartPoint = new Point2D(line.FromX * 12, line.FromY * 12),
                     EndPoint = new Point2D(line.ToX * 12, line.ToY * 12),
-                    Level = level,
-                    FrameProperties = frameProps,
+                    LevelId = level.Id,
+                    FramePropertiesId = frameProps.Id,
                     IsLateral = isLateral,
                     IsJoist = isJoist
                 };

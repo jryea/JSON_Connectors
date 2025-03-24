@@ -21,7 +21,7 @@ namespace Core.Models.Elements
         /// <summary>
         /// ID of the properties for this floor
         /// </summary>
-        public string PropertiesId { get; set; }
+        public string FloorPropertiesId { get; set; }
 
         /// <summary>
         /// Collection of points defining the floor geometry
@@ -58,7 +58,7 @@ namespace Core.Models.Elements
         public Floor(string levelId, string propertiesId, List<Point2D> points, string diaphragmId = null, string surfaceLoadId = null) : this()
         {
             LevelId = levelId;
-            PropertiesId = propertiesId;
+            FloorPropertiesId = propertiesId;
             Points = points ?? new List<Point2D>();
             DiaphragmId = diaphragmId;
             SurfaceLoadId = surfaceLoadId;

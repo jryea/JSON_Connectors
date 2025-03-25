@@ -58,7 +58,7 @@ namespace Revit.Import
             int count = 0;
             var model = JsonConverter.LoadFromFile(filePath);
 
-            foreach (var jsonGrid in model.Model.Grids)
+            foreach (var jsonGrid in model.ModelLayout.Grids)
             {
 
                 try

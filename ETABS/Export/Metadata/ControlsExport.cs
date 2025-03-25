@@ -4,16 +4,17 @@ using Core.Models.Metadata;
 namespace ETABS.Export.Metadata
 {
     /// <summary>
-    /// Converts Core Units objects to ETABS E2K format text
+    /// Converts Core Metadata and Units objects to ETABS E2K format text for the CONTROLS section
     /// </summary>
-    public class UnitsExport
+    public class ControlsExport
     {
         /// <summary>
-        /// Converts a Units object to E2K format text
+        /// Converts Metadata and Units objects to E2K format text for CONTROLS section
         /// </summary>
+        /// <param name="projectInfo">Project information object</param>
         /// <param name="units">Units object</param>
-        /// <returns>E2K format text for units</returns>
-        public string ConvertToE2K(Units units)
+        /// <returns>E2K format text for CONTROLS section</returns>
+        public string ConvertToE2K(ProjectInfo projectInfo, Units units)
         {
             StringBuilder sb = new StringBuilder();
 
@@ -22,8 +23,12 @@ namespace ETABS.Export.Metadata
             string forceUnit = ConvertToETABSForceUnit(units.Force);
             string tempUnit = ConvertToETABSTempUnit(units.Temperature);
 
-            sb.AppendLine("$ UNITS");
-            sb.AppendLine($"UNITS {lengthUnit} {forceUnit} {tempUnit}");
+            sb.AppendLine("$ CONTROLS");
+            sb.AppendLine($"  UNITS  \"{forceUnit}\"  \"{lengthUnit}\"  \"{tempUnit}\"");
+            sb.AppendLine($"  TITLE1  \"IMEG\"");
+            sb.AppendLine($"  TITLE2  \"{projectInfo.ProjectName}.e2k\"");
+            sb.AppendLine("  PREFERENCE  MERGETOL 0.1");
+            sb.AppendLine("  RLLF  METHOD \"ASCE7-10\"  USEDEFAULTMIN \"YES\"");
 
             return sb.ToString();
         }
@@ -34,7 +39,7 @@ namespace ETABS.Export.Metadata
             switch (modelLengthUnit.ToLower())
             {
                 case "inches":
-                    return "INCH";
+                    return "IN";
                 case "feet":
                     return "FT";
                 case "millimeters":
@@ -44,7 +49,7 @@ namespace ETABS.Export.Metadata
                 case "meters":
                     return "M";
                 default:
-                    return "FT"; // Default to feet
+                    return "IN"; // Default to inches
             }
         }
 

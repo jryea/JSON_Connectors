@@ -8,7 +8,7 @@ namespace ETABS.Export.ModelLayout
     /// <summary>
     /// Converts Core Level objects to ETABS E2K format text
     /// </summary>
-    public class LevelsExport
+    public class StoriesExport
     {
         /// <summary>
         /// Converts a collection of Level objects to E2K format text

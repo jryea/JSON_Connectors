@@ -8,7 +8,7 @@ namespace ETABS.Export.Loads
     /// <summary>
     /// Converts Core Load objects to ETABS E2K format text
     /// </summary>
-    public class LoadsExport
+    public class LoadPatternsExport
     {
         /// <summary>
         /// Converts LoadContainer to E2K format text

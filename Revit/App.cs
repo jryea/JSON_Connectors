@@ -30,14 +30,16 @@ namespace Revit
                 Debug.Print("Tab already exists.");
             }
 
-            // 2. Create ribbon panel 
+            // In App.cs, add the new button:
             RibbonPanel panel = RU.Utils.CreateRibbonPanel(app, tabName, "Import");
 
-            // 3. Create button data instances
-            PushButtonData btnData1 = GridImportCommand.GetButtonData();
+            // Create button data instances
+            PushButtonData btnGridImport = GridImportCommand.GetButtonData();
+            PushButtonData btnModelImport = ModelImportCommand.GetButtonData();
 
-            // 4. Create buttons
-            PushButton myButton1 = panel.AddItem(btnData1) as PushButton;
+            // Create buttons
+            PushButton buttonGridImport = panel.AddItem(btnGridImport) as PushButton;
+            PushButton buttonModelImport = panel.AddItem(btnModelImport) as PushButton;
 
             return Result.Succeeded;
         }

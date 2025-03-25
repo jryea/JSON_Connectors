@@ -4,11 +4,17 @@ using System.Text;
 using System.Collections.Generic;
 using Core.Models;
 using Core.Models.Elements;
-using Core.Models.Model;
+using Core.Models.ModelLayout;
 using Core.Models.Properties;
 using Core.Models.Metadata;
+using ETABS.Export.ModelLayout;
+using ETABS.Export.Elements;
+using ETABS.Export.Metadata;
+using ETABS.Export.Loads;
+using ETABS.Export.Properties;
 using System.Reflection;
 using System.Xml.Linq;
+using static Core.Utilities.IdGenerator;
 
 namespace ETABS.Core.Export
 {
@@ -17,21 +23,23 @@ namespace ETABS.Core.Export
     /// </summary>
     public class E2KExporter
     {
-        private readonly Model.GridExporter _gridExporter;
-        private readonly Model.LevelExporter _levelExporter;
-        private readonly Elements.ColumnExporter _columnExporter;
-        private readonly Elements.BeamExporter _beamExporter;
-        private readonly Properties.MaterialExporter _materialExporter;
-        private readonly Metadata.UnitsExporter _unitsExporter;
+        private readonly GridsExport _gridsExport;
+        private readonly LevelsExport _levelsExport;
+        private readonly ColumnsExport _columnsExport;
+        private readonly BeamsExport _beamsExport;
+        private readonly MaterialsExport _materialsExport;
+        private readonly UnitsExport _unitsExport;
+        private readonly LoadsExport _loadsExport;
 
         public E2KExporter()
         {
-            _gridExporter = new Model.GridExporter();
-            _levelExporter = new Model.LevelExporter();
-            _columnExporter = new Elements.ColumnExporter();
-            _beamExporter = new Elements.BeamExporter();
-            _materialExporter = new Properties.MaterialExporter();
-            _unitsExporter = new Metadata.UnitsExporter();
+            _gridsExport = new GridsExport();
+            _levelsExport = new LevelsExport();
+            _columnsExport = new ColumnsExport();
+            _beamsExport = new BeamsExport();
+            _materialsExport = new MaterialsExport();
+            _unitsExport = new UnitsExport();
+            _loadsExport = new LoadsExport();
         }
 
         /// <summary>
@@ -39,7 +47,7 @@ namespace ETABS.Core.Export
         /// </summary>
         /// <param name="model">Building structure model</param>
         /// <param name="filePath">Path to save the E2K file</param>
-        public void ExportToE2K(Base model, string filePath)
+        public void ExportToE2K(BaseModel model, string filePath)
         {
             try
             {
@@ -49,30 +57,30 @@ namespace ETABS.Core.Export
                 WriteHeader(sb, model.Metadata);
 
                 // Set units
-                string unitsSection = _unitsExporter.ConvertToE2K(model.Units);
+                string unitsSection = _unitsExport.ConvertToE2K(model.Metadata.Units);
                 sb.AppendLine(unitsSection);
                 sb.AppendLine();
 
                 // Export materials (needed before structural elements)
                 if (model.Properties != null && model.Properties.Materials.Count > 0)
                 {
-                    string materialsSection = _materialExporter.ConvertToE2K(model.Properties.Materials);
+                    string materialsSection = _materialsExport.ConvertToE2K(model.Properties.Materials);
                     sb.AppendLine(materialsSection);
                     sb.AppendLine();
                 }
 
                 // Export grids
-                if (model.Model.Grids.Count > 0)
+                if (model.ModelLayout.Grids.Count > 0)
                 {
-                    string gridSection = _gridExporter.ConvertToE2K(model.Model.Grids);
+                    string gridSection = _gridsExport.ConvertToE2K(model.ModelLayout.Grids);
                     sb.AppendLine(gridSection);
                     sb.AppendLine();
                 }
 
                 // Export levels
-                if (model.Model.Levels.Count > 0)
+                if (model.ModelLayout.Levels.Count > 0)
                 {
-                    string levelSection = _levelExporter.ConvertToE2K(model.Model.Levels);
+                    string levelSection = _levelsExport.ConvertToE2K(model.ModelLayout.Levels);
                     sb.AppendLine(levelSection);
                     sb.AppendLine();
                 }
@@ -80,7 +88,7 @@ namespace ETABS.Core.Export
                 // Export columns
                 if (model.Elements.Columns.Count > 0)
                 {
-                    string columnsSection = _columnExporter.ConvertToE2K(model.Elements.Columns, model.Model.Levels);
+                    string columnsSection = _columnsExport.ConvertToE2K(model.Elements.Columns, model.ModelLayout.Levels);
                     sb.AppendLine(columnsSection);
                     sb.AppendLine();
                 }
@@ -88,8 +96,15 @@ namespace ETABS.Core.Export
                 // Export beams
                 if (model.Elements.Beams.Count > 0)
                 {
-                    string beamsSection = _beamExporter.ConvertToE2K(model.Elements.Beams, model.Model.Levels);
+                    string beamsSection = _beamsExport.ConvertToE2K(model.Elements.Beams, model.ModelLayout.Levels);
                     sb.AppendLine(beamsSection);
+                    sb.AppendLine();
+                }
+
+                if (model.Loads.LoadDefinitions.Count > 0)
+                {
+                    string loadsSection = _loadsExport.ConvertToE2K(model.Loads);
+                    sb.AppendLine(loadsSection);
                     sb.AppendLine();
                 }
 
@@ -102,13 +117,14 @@ namespace ETABS.Core.Export
             }
         }
 
-        private void WriteHeader(StringBuilder sb, Metadata metadata)
+        private void WriteHeader(StringBuilder sb, MetadataContainer metadata)
         {
-            sb.AppendLine("$ ETABS 2019 E2K FILE");
-            sb.AppendLine("$ Generated by JSON Connectors (Build: 1.0)");
-            sb.AppendLine($"$ Project: {metadata.ProjectName}");
+            sb.AppendLine("$ PROGRAM INFORMATION");
+            sb.AppendLine("\tPROGRAM  \"ETABS\"  VERSION \"21.2.0\"\n");
+            sb.AppendLine("$ CONTROLS");
+            sb.AppendLine($"\tUNITS \"{metadata.Units.Force}\" \"{metadata.Units.Length}\" \"{metadata.Units.Temperature}\" ");
             sb.AppendLine($"$ Generated on: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
-            sb.AppendLine($"$ Schema Version: {metadata.SchemaVersion}");
+            sb.AppendLine($"$ Schema Version: {metadata.ProjectInfo.SchemaVersion}");
             sb.AppendLine();
             sb.AppendLine("$ PROGRAM CONTROL INFORMATION");
             sb.AppendLine("UNITS KIPS FEET F");  // Default units will be overridden by UnitsExporter

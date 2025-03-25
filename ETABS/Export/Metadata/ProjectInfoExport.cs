@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace ETABS.Export.Metadata
 {
-    internal class ProjectInfo
+    internal class ProjectInfoExport
     {
     }
 }

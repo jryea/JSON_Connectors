@@ -61,7 +61,8 @@ namespace Grasshopper.Components.Core.Export.ModelLayout
 
                 if (floorType != null)
                 {
-                    Level level = new Level(names[i], floorType.Id, elevations[i]);
+                    double elevationInches = elevations[i] * 12;
+                    Level level = new Level(names[i], floorType.Id, elevationInches);
                     levels.Add(new GH_Level(level));
                 }
                 else

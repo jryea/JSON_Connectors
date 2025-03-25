@@ -6,7 +6,7 @@ namespace ETABS.Export.Metadata
     /// <summary>
     /// Converts Core Units objects to ETABS E2K format text
     /// </summary>
-    public class UnitsExporter
+    public class UnitsExport
     {
         /// <summary>
         /// Converts a Units object to E2K format text

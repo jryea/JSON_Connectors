@@ -23,11 +23,8 @@
   </PropertyGroup>
   
   <ItemGroup>
-    <Compile Remove="Components\ETABS\**" />
     <Compile Remove="Components\RAM\**" />
-    <EmbeddedResource Remove="Components\ETABS\**" />
     <EmbeddedResource Remove="Components\RAM\**" />
-    <None Remove="Components\ETABS\**" />
     <None Remove="Components\RAM\**" />
   </ItemGroup>
   

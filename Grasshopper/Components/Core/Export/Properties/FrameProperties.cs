@@ -93,7 +93,7 @@ namespace Grasshopper.Export
                 FrameProperties frameProperty = new FrameProperties
                 {
                     Name = name,
-                    Material = material,
+                    MaterialId = material.Id,
                     Shape = shape
                 };
 

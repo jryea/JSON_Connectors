@@ -72,7 +72,7 @@ namespace Grasshopper.Utilities
         public override string ToString()
         {
             if (Value == null) return "Null Level";
-            return $"Level: {Value.Name}, Elev: {Value.Elevation}";
+            return $"Level: {Value.Name}, Elev: {Value.ElevationOrHeight}";
         }
     }
 
@@ -118,9 +118,7 @@ namespace Grasshopper.Utilities
         public override string ToString()
         {
             if (Value == null) return "Null Beam";
-            string levelInfo = Value.Level?.Name ?? "No Level";
-            string propInfo = Value.FrameProperties?.Name ?? "No Props";
-            return $"Beam: Level={levelInfo}, Props={propInfo}";
+            return $"Beam: Level={Value.LevelId}, Props={Value.FramePropertiesId}, Lateral={Value.IsLateral}";
         }
     }
 
@@ -134,10 +132,7 @@ namespace Grasshopper.Utilities
         public override string ToString()
         {
             if (Value == null) return "Null Column";
-            string baseLevelInfo = Value.BaseLevel?.Name ?? "No Base";
-            string topLevelInfo = Value.TopLevel?.Name ?? "No Top";
-            string propInfo = Value.FrameProperties?.Name ?? "No Props";
-            return $"Column: Base={baseLevelInfo}, Top={topLevelInfo}, Props={propInfo}";
+            return $"Column: Base={Value.BaseLevelId}, Top={Value.TopLevelId}, Props={Value.FramePropertiesId}";
         }
     }
 
@@ -151,10 +146,7 @@ namespace Grasshopper.Utilities
         public override string ToString()
         {
             if (Value == null) return "Null Brace";
-            string baseLevelInfo = Value.BaseLevel?.Name ?? "No Base";
-            string topLevelInfo = Value.TopLevel?.Name ?? "No Top";
-            string propInfo = Value.FrameProperties?.Name ?? "No Props";
-            return $"Brace: Base={baseLevelInfo}, Top={topLevelInfo}, Props={propInfo}";
+            return $"Brace: Base={Value.BaseLevelId}, Top={Value.TopLevelId}, Props={Value.FramePropertiesId}";
         }
     }
 
@@ -182,10 +174,7 @@ namespace Grasshopper.Utilities
         public override string ToString()
         {
             if (Value == null) return "Null Floor";
-            string levelInfo = Value.Level?.Name ?? "No Level";
-            string propInfo = Value.FloorProperties?.Name ?? "No Props";
-            string diaInfo = Value.Diaphragm?.Name ?? "No Diaphragm";
-            return $"Floor: Level={levelInfo}, Props={propInfo}, Diaphragm={diaInfo}";
+            return $"Floor: Level={Value.LevelId}, Props={Value.FloorPropertiesId}, Diaphragm={Value.DiaphragmId}";
         }
     }
 
@@ -199,48 +188,9 @@ namespace Grasshopper.Utilities
         public override string ToString()
         {
             if (Value == null) return "Null IsolatedFooting";
-            return $"IsolatedFooting: Point=({Value.Point.X:F2}, {Value.Point.Y:F2}, {Value.Point.Z:F2})";
+            Point3D pt = Value.Point;
+            return $"IsolatedFooting: Point=({pt?.X:F2}, {pt?.Y:F2}, {pt?.Z:F2})";
         }
-    }
-
-    public class GH_ContinuousFooting : GH_ModelGoo<ContinuousFooting>
-    {
-        public GH_ContinuousFooting() { }
-        public GH_ContinuousFooting(ContinuousFooting footing) : base(footing) { }
-
-        public override IGH_Goo Duplicate() => new GH_ContinuousFooting(Value);
-    }
-
-    public class GH_Pile : GH_ModelGoo<Pile>
-    {
-        public GH_Pile() { }
-        public GH_Pile(Pile pile) : base(pile) { }
-
-        public override IGH_Goo Duplicate() => new GH_Pile(Value);
-    }
-
-    public class GH_Pier : GH_ModelGoo<Pier>
-    {
-        public GH_Pier() { }
-        public GH_Pier(Pier pier) : base(pier) { }
-
-        public override IGH_Goo Duplicate() => new GH_Pier(Value);
-    }
-
-    public class GH_DrilledPier : GH_ModelGoo<DrilledPier>
-    {
-        public GH_DrilledPier() { }
-        public GH_DrilledPier(DrilledPier drilledPier) : base(drilledPier) { }
-
-        public override IGH_Goo Duplicate() => new GH_DrilledPier(Value);
-    }
-
-    public class GH_Joint : GH_ModelGoo<Joint>
-    {
-        public GH_Joint() { }
-        public GH_Joint(Joint joint) : base(joint) { }
-
-        public override IGH_Goo Duplicate() => new GH_Joint(Value);
     }
 
     public class GH_ElementContainer : GH_ModelGoo<ElementContainer>
@@ -255,9 +205,7 @@ namespace Grasshopper.Utilities
             if (Value == null) return "Null ElementContainer";
             int totalElements = Value.Beams.Count + Value.Columns.Count +
                 Value.Walls.Count + Value.Floors.Count + Value.Braces.Count +
-                Value.IsolatedFootings.Count + Value.ContinuousFootings.Count +
-                Value.Piers.Count + Value.Piles.Count + Value.DrilledPiers.Count +
-                Value.Joints.Count;
+                Value.IsolatedFootings.Count;
 
             return $"Elements: {totalElements} total";
         }
@@ -291,7 +239,7 @@ namespace Grasshopper.Utilities
         public override string ToString()
         {
             if (Value == null) return "Null WallProperties";
-            return $"WallProps: {Value.Name}, Mat: {Value.Material}, t={Value.Thickness}";
+            return $"WallProps: {Value.Name}, Mat: {Value.MaterialId}, t={Value.Thickness}";
         }
     }
 
@@ -333,7 +281,7 @@ namespace Grasshopper.Utilities
         public override string ToString()
         {
             if (Value == null) return "Null FrameProperties";
-            return $"FrameProps: {Value.Name}, Mat: {Value.Material}, Shape: {Value.Shape}";
+            return $"FrameProps: {Value.Name}, Mat: {Value.MaterialId}, Shape: {Value.Shape}";
         }
     }
 
@@ -347,7 +295,7 @@ namespace Grasshopper.Utilities
         public override string ToString()
         {
             if (Value == null) return "Null PropertiesContainer";
-            return $"Props: {Value.Materials.Count} materials, {Value.FrameProperties.Count} frames, {Value.FloorProperties.Count} floors, {Value.WallProperties.Count} walls";
+            return $"Props: {Value.Materials.Count} materials, {Value.FrameProperties.Count} frames, {Value.FloorProperties.Count} floors, {Value.WallProperties.Count} walls, {Value.Diaphragms.Count} diaphragms";
         }
     }
 
@@ -473,9 +421,13 @@ namespace Grasshopper.Utilities
         public override string ToString()
         {
             if (Value == null) return "Null BaseModel";
-            int elementCount = Value.Elements.Beams.Count + Value.Elements.Columns.Count +
-                Value.Elements.Walls.Count + Value.Elements.Floors.Count + Value.Elements.Braces.Count;
-            string projectName = Value.Metadata.ProjectInfo?.ProjectName ?? "No Project";
+            int elementCount = 0;
+            if (Value.Elements != null)
+            {
+                elementCount = Value.Elements.Beams.Count + Value.Elements.Columns.Count +
+                    Value.Elements.Walls.Count + Value.Elements.Floors.Count + Value.Elements.Braces.Count;
+            }
+            string projectName = Value.Metadata?.ProjectInfo?.ProjectName ?? "No Project";
             return $"Model: {projectName}, {elementCount} elements, ID: {Value.Id}";
         }
     }

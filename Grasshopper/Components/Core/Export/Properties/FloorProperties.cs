@@ -129,7 +129,7 @@ namespace Grasshopper.Export
                         Name = name,
                         Type = type,
                         Thickness = thickness,
-                        Material = material
+                        MaterialId = material.Id
                     };
 
                     // Set reinforcement if provided

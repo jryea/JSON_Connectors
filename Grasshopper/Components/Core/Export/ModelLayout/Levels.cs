@@ -61,7 +61,7 @@ namespace JSON_Connectors.Components.Core.Export.ModelLayout
 
                 if (floorType != null)
                 {
-                    Level level = new Level(names[i], floorType, elevations[i]);
+                    Level level = new Level(names[i], floorType.Id, elevations[i]);
                     levels.Add(new GH_Level(level));
                 }
                 else

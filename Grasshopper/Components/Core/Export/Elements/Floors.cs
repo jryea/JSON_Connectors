@@ -88,6 +88,8 @@ namespace JSON_Connectors.Components.Core.Export.Elements
 
                 Level level = ExtractObject<Level>(levelObjs[i], "Level");
                 FloorProperties floorProps = ExtractObject<FloorProperties>(propObjs[i], "FloorProperties");
+
+                // Get diaphragm and surface load (if available)
                 Diaphragm diaphragm = diaphragmObjs.Count > i ? ExtractObject<Diaphragm>(diaphragmObjs[i], "Diaphragm") : null;
                 SurfaceLoad surfaceLoad = surfaceLoadObjs.Count > i ? ExtractObject<SurfaceLoad>(surfaceLoadObjs[i], "SurfaceLoad") : null;
 
@@ -112,13 +114,14 @@ namespace JSON_Connectors.Components.Core.Export.Elements
                     }
                 }
 
+                // Create the floor with safe handling of optional properties
                 Floor floor = new Floor
                 {
                     LevelId = level.Id,
                     FloorPropertiesId = floorProps.Id,
                     Points = floorPoints,
-                    DiaphragmId = diaphragm.Id,
-                    SurfaceLoadId = surfaceLoad.Id
+                    DiaphragmId = diaphragm?.Id,  // Use null conditional operator
+                    SurfaceLoadId = surfaceLoad?.Id  // Use null conditional operator
                 };
 
                 floors.Add(new GH_Floor(floor));
@@ -129,29 +132,41 @@ namespace JSON_Connectors.Components.Core.Export.Elements
 
         private T ExtractObject<T>(object obj, string typeName) where T : class
         {
+            // Handle null input
+            if (obj == null)
+                return null;
+
+            // Direct type check
             if (obj is T directType)
                 return directType;
 
+            // Using GooWrapper
             if (obj is GH_ModelGoo<T> ghType)
                 return ghType.Value;
 
             // Try to handle string IDs (for compatibility)
-            if (obj is string)
+            if (obj is string strId && !string.IsNullOrEmpty(strId))
             {
                 if (typeof(T) == typeof(Level))
-                    return new Level((string)obj, null, 0) as T;
+                    return new Level(strId, null, 0) as T;
 
                 if (typeof(T) == typeof(FloorProperties))
-                    return new FloorProperties { Name = (string)obj } as T;
+                    return new FloorProperties { Name = strId } as T;
 
                 if (typeof(T) == typeof(Diaphragm))
-                    return new Diaphragm { Name = (string)obj } as T;
+                    return new Diaphragm { Name = strId } as T;
 
                 if (typeof(T) == typeof(SurfaceLoad))
-                    return new SurfaceLoad { Id = (string)obj } as T;
+                    return new SurfaceLoad { Id = strId } as T;
             }
 
-            AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Could not extract {typeName}");
+            // If it's a GooWrapper but not for the expected type, log it
+            if (obj is IGH_Goo)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
+                    $"Got {obj.GetType().Name} but expected {typeName}");
+            }
+
             return null;
         }
 

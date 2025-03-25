@@ -98,7 +98,7 @@ namespace Grasshopper.Export
                     WallProperties wallProperties = new WallProperties
                     {
                         Name = name,
-                        Material = material,
+                        MaterialId = material.Id,
                         Thickness = thickness
                     };
 

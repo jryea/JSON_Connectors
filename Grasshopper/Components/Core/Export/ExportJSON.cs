@@ -29,8 +29,8 @@ namespace JSON_Connectors.Components.Core.Export
             pManager.AddGenericParameter("Metadata", "M", "Metadata container", GH_ParamAccess.item);
             pManager.AddGenericParameter("Layout", "L", "Model layout container", GH_ParamAccess.item);
             pManager.AddGenericParameter("Properties", "P", "Properties container", GH_ParamAccess.item);
-            pManager.AddGenericParameter("Elements", "E", "Elements container", GH_ParamAccess.item);
             pManager.AddGenericParameter("Loads", "LD", "Loads container (optional)", GH_ParamAccess.item);
+            pManager.AddGenericParameter("Elements", "E", "Elements container", GH_ParamAccess.item);
 
             for (int i = 2; i < 7; i++)
                 pManager[i].Optional = true;
@@ -58,8 +58,8 @@ namespace JSON_Connectors.Components.Core.Export
             DA.GetData(2, ref metadataObj);
             DA.GetData(3, ref layoutObj);
             DA.GetData(4, ref propertiesObj);
-            DA.GetData(5, ref elementsObj);
-            DA.GetData(6, ref loadsObj);
+            DA.GetData(5, ref loadsObj);
+            DA.GetData(6, ref elementsObj);
 
             try
             {

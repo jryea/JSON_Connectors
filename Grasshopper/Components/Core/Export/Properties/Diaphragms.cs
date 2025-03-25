@@ -1,16 +1,13 @@
-﻿using System;
+﻿using Grasshopper.Kernel;
+using System;
 using System.Collections.Generic;
-using System.Drawing;
-using Grasshopper.Kernel;
 using Core.Models.Properties;
+using Grasshopper.Utilities;
 
-namespace Grasshopper.Export
+namespace JSON_Connectors.Components.Core.Export.Properties
 {
     public class DiaphragmCollectorComponent : GH_Component
     {
-        /// <summary>
-        /// Initializes a new instance of the DiaphragmCollector class.
-        /// </summary>
         public DiaphragmCollectorComponent()
           : base("Diaphragms", "Diaphragms",
               "Creates diaphragm definitions for the structural model",
@@ -18,27 +15,17 @@ namespace Grasshopper.Export
         {
         }
 
-        /// <summary>
-        /// Registers all the input parameters for this component.
-        /// </summary>
-        protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
+        protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("Names", "N", "Names for each diaphragm", GH_ParamAccess.list);
             pManager.AddTextParameter("Types", "T", "Types for each diaphragm (e.g., 'Rigid', 'Semi-Rigid', 'Flexible')", GH_ParamAccess.list);
         }
 
-        /// <summary>
-        /// Registers all the output parameters for this component.
-        /// </summary>
-        protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
+        protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
             pManager.AddGenericParameter("Diaphragms", "D", "Diaphragm definitions for the structural model", GH_ParamAccess.list);
         }
 
-        /// <summary>
-        /// This is the method that actually does the work.
-        /// </summary>
-        /// <param name="DA">The DA object is used to retrieve from inputs and store in outputs.</param>
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             // Retrieve input data
@@ -65,7 +52,7 @@ namespace Grasshopper.Export
             try
             {
                 // Create diaphragms
-                List<Diaphragm> diaphragms = new List<Diaphragm>();
+                List<GH_Diaphragm> diaphragms = new List<GH_Diaphragm>();
 
                 for (int i = 0; i < names.Count; i++)
                 {
@@ -88,13 +75,13 @@ namespace Grasshopper.Export
                     }
 
                     // Create a new diaphragm
-                    Diaphragm diaphragm = new Diaphragm
+                    Diaphragm diaphragm = new Diaphragm()
                     {
                         Name = name,
-                        Type = type
+                        Type = type,    
                     };
 
-                    diaphragms.Add(diaphragm);
+                    diaphragms.Add(new GH_Diaphragm(diaphragm));
                 }
 
                 // Set output
@@ -106,20 +93,6 @@ namespace Grasshopper.Export
             }
         }
 
-        /// <summary>
-        /// Provides an Icon for the component.
-        /// </summary>
-        protected override Bitmap Icon
-        {
-            get
-            {
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// Gets the unique ID for this component. Do not change this ID after release.
-        /// </summary>
         public override Guid ComponentGuid => new Guid("9E8D7C6B-5A4F-3E2D-1C0B-9A8F7E6D5C4B");
     }
 }

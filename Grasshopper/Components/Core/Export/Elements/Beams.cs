@@ -7,7 +7,7 @@ using Core.Models.Properties;
 using Core.Models.ModelLayout;
 using Grasshopper.Utilities;
 
-namespace JSON_Connectors.Components.Core.Export.Elements
+namespace Grasshopper.Components.Core.Export.Elements
 {
     public class BeamCollectorComponent : GH_Component
     {

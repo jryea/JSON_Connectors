@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using Core.Models.Elements;
 using Grasshopper.Utilities;
 
-namespace JSON_Connectors.Components.Core.Export.Elements
+namespace Grasshopper.Components.Core.Export.Elements
 {
     public class ElementContainerComponent : GH_Component
     {

@@ -9,7 +9,7 @@ using Core.Models.Loads;
 using Grasshopper.Utilities;
 using Grasshopper.Kernel.Types;
 
-namespace JSON_Connectors.Components.Core.Export.Elements
+namespace Grasshopper.Components.Core.Export.Elements
 {
     public class FloorCollectorComponent : GH_Component
     {
@@ -39,7 +39,7 @@ namespace JSON_Connectors.Components.Core.Export.Elements
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            Grasshopper.Kernel.Data.GH_Structure<GH_Point> pointsTree;
+            Kernel.Data.GH_Structure<GH_Point> pointsTree;
             List<object> levelObjs = new List<object>();
             List<object> propObjs = new List<object>();
             List<object> diaphragmObjs = new List<object>();

@@ -10,7 +10,7 @@ using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
 using System.Linq;
 
-namespace JSON_Connectors.Components.Core.Export.Elements
+namespace Grasshopper.Components.Core.Export.Elements
 {
     public class ColumnCollectorComponent : GH_Component
     {

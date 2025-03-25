@@ -11,7 +11,7 @@ using Core.Models.Loads;
 using Core.Converters;
 using Grasshopper.Utilities;
 
-namespace JSON_Connectors.Components.Core.Export
+namespace Grasshopper.Components.Core.Export
 {
     public class ExportJSONComponent : GH_Component
     {
@@ -169,10 +169,10 @@ namespace JSON_Connectors.Components.Core.Export
                 return ghModel.Value;
 
             // Check if it's a general Grasshopper type that can be cast
-            if (obj is Grasshopper.Kernel.Types.IGH_Goo goo)
+            if (obj is Kernel.Types.IGH_Goo goo)
             {
                 T result = null;
-                if (goo.CastTo<T>(out result))
+                if (goo.CastTo(out result))
                     return result;
             }
 

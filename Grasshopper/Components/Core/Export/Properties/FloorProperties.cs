@@ -6,7 +6,7 @@ using Core.Models.Properties;
 using Grasshopper.Utilities;
 using GH_Type = Grasshopper.Kernel.Types;
 
-namespace Grasshopper.Export
+namespace Grasshopper.Components.Core.Export.Properties
 {
     public class FloorPropertiesCollectorComponent : GH_Component
     {
@@ -23,7 +23,7 @@ namespace Grasshopper.Export
         /// <summary>
         /// Registers all the input parameters for this component.
         /// </summary>
-        protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
+        protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("Names", "N", "Name for each floor property", GH_ParamAccess.list);
             pManager.AddTextParameter("Types", "T", "Type for floor (e.g., 'Slab', 'Composite', 'NonComposite')", GH_ParamAccess.list);
@@ -38,7 +38,7 @@ namespace Grasshopper.Export
         /// <summary>
         /// Registers all the output parameters for this component.
         /// </summary>
-        protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
+        protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
             pManager.AddGenericParameter("Floor Properties", "FP", "Floor property definitions for the structural model", GH_ParamAccess.list);
         }

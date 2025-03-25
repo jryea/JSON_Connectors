@@ -9,9 +9,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Import\Elements\" />
-    <Folder Include="Import\Metadata\" />
-    <Folder Include="Import\Properties\" />
+    <Folder Include="Core\Models\" />
+    <Folder Include="Core\Import\" />
+    <Folder Include="Core\Export\" />
+    <Folder Include="Utilities\" />
   </ItemGroup>
 
 </Project>

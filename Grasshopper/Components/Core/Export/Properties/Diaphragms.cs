@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using Core.Models.Properties;
 using Grasshopper.Utilities;
 
-namespace JSON_Connectors.Components.Core.Export.Properties
+namespace Grasshopper.Components.Core.Export.Properties
 {
     public class DiaphragmCollectorComponent : GH_Component
     {
@@ -78,7 +78,7 @@ namespace JSON_Connectors.Components.Core.Export.Properties
                     Diaphragm diaphragm = new Diaphragm()
                     {
                         Name = name,
-                        Type = type,    
+                        Type = type,
                     };
 
                     diaphragms.Add(new GH_Diaphragm(diaphragm));

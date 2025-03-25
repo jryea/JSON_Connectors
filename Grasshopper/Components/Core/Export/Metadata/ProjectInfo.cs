@@ -4,7 +4,7 @@ using Grasshopper.Kernel;
 using Core.Models.Metadata;
 using System.Collections.Generic;
 
-namespace Grasshopper.Export.Metadata
+namespace Grasshopper.Components.Core.Export.Metadata
 {
     public class ProjectInfoComponent : GH_Component
     {
@@ -21,7 +21,7 @@ namespace Grasshopper.Export.Metadata
         /// <summary>
         /// Registers all the input parameters for this component.
         /// </summary>
-        protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
+        protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("Project Name", "N", "Name of the project", GH_ParamAccess.item, "New Project");
         }
@@ -29,7 +29,7 @@ namespace Grasshopper.Export.Metadata
         /// <summary>
         /// Registers all the output parameters for this component.
         /// </summary>
-        protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
+        protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
             pManager.AddGenericParameter("Project Info", "PI", "Project information for the structural model", GH_ParamAccess.item);
         }
@@ -47,7 +47,7 @@ namespace Grasshopper.Export.Metadata
             string software = "Grasshopper";
 
             DA.GetData(0, ref projectName);
-      
+
             try
             {
                 // Validate inputs

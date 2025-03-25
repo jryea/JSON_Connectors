@@ -4,7 +4,7 @@ using System.Drawing;
 using Grasshopper.Kernel;
 using Core.Models.Metadata;
 
-namespace Grasshopper.Export.Metadata
+namespace Grasshopper.Components.Core.Export.Metadata
 {
     public class UnitsComponent : GH_Component
     {
@@ -21,7 +21,7 @@ namespace Grasshopper.Export.Metadata
         /// <summary>
         /// Registers all the input parameters for this component.
         /// </summary>
-        protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
+        protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("Length Unit", "L", "Length unit (e.g., 'inches', 'feet', 'mm', 'm')", GH_ParamAccess.item, "inches");
             pManager.AddTextParameter("Force Unit", "F", "Force unit (e.g., 'pounds', 'kips', 'N', 'kN')", GH_ParamAccess.item, "pounds");
@@ -31,7 +31,7 @@ namespace Grasshopper.Export.Metadata
         /// <summary>
         /// Registers all the output parameters for this component.
         /// </summary>
-        protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
+        protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
             pManager.AddGenericParameter("Units", "U", "Units definition for the structural model", GH_ParamAccess.item);
         }

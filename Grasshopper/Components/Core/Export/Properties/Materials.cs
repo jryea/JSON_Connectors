@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using Core.Models.Properties;
 using Grasshopper.Utilities;
 
-namespace JSON_Connectors.Components.Core.Export.Properties
+namespace Grasshopper.Components.Core.Export.Properties
 {
     public class MaterialCollectorComponent : GH_Component
     {

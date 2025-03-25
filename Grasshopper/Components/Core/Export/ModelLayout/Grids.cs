@@ -6,7 +6,7 @@ using Core.Models.Elements;
 using Core.Models.ModelLayout;
 using Grasshopper.Utilities;
 
-namespace JSON_Connectors.Components.Core.Export.ModelLayout
+namespace Grasshopper.Components.Core.Export.ModelLayout
 {
     public class GridCollectorComponent : GH_Component
     {

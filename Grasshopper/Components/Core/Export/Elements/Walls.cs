@@ -33,32 +33,90 @@ namespace JSON_Connectors.Components.Core.Export.Elements
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
+            // Input collection
             List<Curve> curves = new List<Curve>();
             List<object> propObjs = new List<object>();
             List<object> pierSpandrelObjs = new List<object>();
 
-            if (!DA.GetDataList(0, curves)) return;
-            if (!DA.GetDataList(1, propObjs)) return;
+            // Check if we have valid inputs
+            if (!DA.GetDataList(0, curves))
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "No curves provided for walls");
+                return;
+            }
+
+            if (!DA.GetDataList(1, propObjs))
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "No properties provided for walls");
+                return;
+            }
+
             DA.GetDataList(2, pierSpandrelObjs);
+
+            // Validate input counts
+            if (curves.Count == 0)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "No curves provided for walls");
+                return;
+            }
+
+            if (propObjs.Count == 0)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "No properties provided for walls");
+                return;
+            }
 
             if (curves.Count != propObjs.Count)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
-                    "Number of curves must match number of properties");
+                    $"Number of curves ({curves.Count}) must match number of properties ({propObjs.Count})");
                 return;
             }
 
             if (pierSpandrelObjs.Count > 0 && pierSpandrelObjs.Count != curves.Count)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
-                    "If provided, number of pier/spandrel objects must match number of curves");
+                    $"If provided, number of pier/spandrel objects ({pierSpandrelObjs.Count}) must match number of curves ({curves.Count})");
                 return;
             }
 
             List<GH_Wall> walls = new List<GH_Wall>();
+
+            // Process each curve to create a wall
             for (int i = 0; i < curves.Count; i++)
             {
                 Curve curve = curves[i];
+
+                // First check curve validity
+                if (curve == null)
+                {
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Null curve at index {i}");
+                    continue;
+                }
+
+                if (!curve.IsValid)
+                {
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Invalid curve at index {i}");
+                    continue;
+                }
+
+                // Check if curve has a valid length (avoids division by zero)
+                double curveLength = 0;
+                try
+                {
+                    curveLength = curve.GetLength();
+                    if (curveLength <= 0)
+                    {
+                        AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Curve at index {i} has zero or negative length");
+                        continue;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error, $"Error measuring curve at index {i}: {ex.Message}");
+                    continue;
+                }
+
                 WallProperties wallProps = ExtractObject<WallProperties>(propObjs[i], "WallProperties");
                 object pierSpandrel = pierSpandrelObjs.Count > i ? pierSpandrelObjs[i] : null;
 
@@ -69,25 +127,80 @@ namespace JSON_Connectors.Components.Core.Export.Elements
                 }
 
                 // Sample points along the curve to create wall points
-                List<Point2D> points = new List<Point2D>();
-
-                // Simple sampling of points along the curve
-                int numPoints = Math.Max(2, (int)(curve.GetLength() / 12.0));
-                for (int j = 0; j < numPoints; j++)
+                try
                 {
-                    double t = (double)j / (numPoints - 1);
-                    Point3d point = curve.PointAt(t);
-                    points.Add(new Point2D(point.X * 12, point.Y * 12));
+                    List<Point2D> points = new List<Point2D>();
+
+                    // Determine appropriate number of points based on curve length
+                    // More robust calculation with minimum and maximum limits
+                    int numPoints = Math.Max(2, Math.Min(100, (int)(curveLength / 12.0) + 1));
+
+                    // Use curve division with parameter checks
+                    if (numPoints == 2)
+                    {
+                        // For very short curves, just use start and end points
+                        Point3d startPoint = curve.PointAtStart;
+                        Point3d endPoint = curve.PointAtEnd;
+                        points.Add(new Point2D(startPoint.X * 12, startPoint.Y * 12));
+                        points.Add(new Point2D(endPoint.X * 12, endPoint.Y * 12));
+                    }
+                    else
+                    {
+                        // Sample along the curve at regular intervals
+                        for (int j = 0; j < numPoints; j++)
+                        {
+                            try
+                            {
+                                double t = (double)j / (numPoints - 1);
+                                if (t >= 0 && t <= 1)
+                                {
+                                    Point3d point = curve.PointAt(t);
+                                    points.Add(new Point2D(point.X * 12, point.Y * 12));
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
+                                    $"Failed to get point on curve at index {i}, parameter {j}: {ex.Message}");
+                                // Continue with other points
+                            }
+                        }
+                    }
+
+                    // Check if we have enough points to create a wall
+                    if (points.Count < 2)
+                    {
+                        AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
+                            $"Could not extract enough points from curve at index {i}");
+                        continue;
+                    }
+
+                    Wall wall = new Wall
+                    {
+                        Points = points,
+                        PropertiesId = wallProps.Name,
+                        PierSpandrelId = pierSpandrel?.ToString()
+                    };
+
+                    walls.Add(new GH_Wall(wall));
                 }
-
-                Wall wall = new Wall
+                catch (Exception ex)
                 {
-                    Points = points,
-                    PropertiesId = wallProps.Name,
-                    PierSpandrelId = pierSpandrel?.ToString()
-                };
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
+                        $"Error creating wall at index {i}: {ex.Message}");
+                }
+            }
 
-                walls.Add(new GH_Wall(wall));
+            // Return success message
+            if (walls.Count > 0)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Remark,
+                    $"Successfully created {walls.Count} wall objects");
+            }
+            else
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
+                    "No walls were created. Check input data and error messages.");
             }
 
             DA.SetDataList(0, walls);
@@ -95,20 +208,46 @@ namespace JSON_Connectors.Components.Core.Export.Elements
 
         private T ExtractObject<T>(object obj, string typeName) where T : class
         {
-            if (obj is T directType)
-                return directType;
-
-            if (obj is GH_ModelGoo<T> ghType)
-                return ghType.Value;
-
-            // Try to handle string IDs (for compatibility)
-            if (obj is string && typeof(T) == typeof(WallProperties))
+            try
             {
-                return new WallProperties { Name = (string)obj } as T;
-            }
+                // Direct type check
+                if (obj is T directType)
+                    return directType;
 
-            AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Could not extract {typeName}");
-            return null;
+                // Using GooWrapper
+                if (obj is GH_ModelGoo<T> ghType)
+                    return ghType.Value;
+
+                // Try handling string IDs (for compatibility)
+                if (obj is string && typeof(T) == typeof(WallProperties))
+                {
+                    string name = (string)obj;
+                    if (string.IsNullOrWhiteSpace(name))
+                    {
+                        AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Empty string ID provided for WallProperties");
+                        return null;
+                    }
+                    return new WallProperties { Name = name } as T;
+                }
+
+                // Try cast from Grasshopper types
+                if (obj is Grasshopper.Kernel.Types.IGH_Goo goo)
+                {
+                    T result = default(T);
+                    if (goo.CastTo<T>(out result))
+                        return result;
+                }
+
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
+                    $"Could not extract {typeName} from object of type {obj?.GetType().Name ?? "null"}");
+                return null;
+            }
+            catch (Exception ex)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
+                    $"Error extracting {typeName}: {ex.Message}");
+                return null;
+            }
         }
 
         public override Guid ComponentGuid => new Guid("B45C3A75-A162-4F76-8E3A-89F2D8D3C0EC");

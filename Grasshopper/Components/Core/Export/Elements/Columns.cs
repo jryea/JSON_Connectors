@@ -27,6 +27,9 @@ namespace JSON_Connectors.Components.Core.Export.Elements
             pManager.AddGenericParameter("Base Level", "BL", "Base level of the column", GH_ParamAccess.list);
             pManager.AddGenericParameter("Top Level", "TL", "Top level of the column", GH_ParamAccess.list);
             pManager.AddGenericParameter("Frame Properties", "P", "Frame properties for this column", GH_ParamAccess.list);
+            pManager.AddBooleanParameter("Is Lateral", "IL", "Is this column lateral?", GH_ParamAccess.list);
+
+            pManager[4].Optional = true;
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
@@ -40,11 +43,13 @@ namespace JSON_Connectors.Components.Core.Export.Elements
             List<object> baseLevelObjs = new List<object>();
             List<object> topLevelObjs = new List<object>();
             List<object> framePropObjs = new List<object>();
+            List<bool> isLateral = new List<bool>();
 
             if (!DA.GetDataTree(0, out linesTree)) return;
             if (!DA.GetDataList(1, baseLevelObjs)) return;
             if (!DA.GetDataList(2, topLevelObjs)) return;
             if (!DA.GetDataList(3, framePropObjs)) return;
+            if (!DA.GetDataList(4, isLateral)) return;
 
             // Check that the number of branches matches the number of levels and properties
             if (linesTree.PathCount != baseLevelObjs.Count ||
@@ -55,6 +60,11 @@ namespace JSON_Connectors.Components.Core.Export.Elements
                     $"Number of line branches ({linesTree.PathCount}) must match number of base levels ({baseLevelObjs.Count}), " +
                     $"top levels ({topLevelObjs.Count}), and properties ({framePropObjs.Count})");
                 return;
+            }
+
+            while (isLateral.Count < baseLevelObjs.Count)
+            {
+                isLateral.Add(false);
             }
 
             List<GH_Column> columns = new List<GH_Column>();
@@ -78,8 +88,9 @@ namespace JSON_Connectors.Components.Core.Export.Elements
                 }
 
                 // Process each column in this branch
-                foreach (GH_Line ghLine in linesBranch)
+                for (int j = 0; j < linesBranch.Count; j++)
                 {
+                    GH_Line ghLine = linesBranch[j];
                     if (ghLine == null) continue;
 
                     Line line = ghLine.Value;
@@ -90,9 +101,9 @@ namespace JSON_Connectors.Components.Core.Export.Elements
                         EndPoint = new Point2D(line.ToX * 12, line.ToY * 12),
                         BaseLevelId = baseLevel.Id,
                         TopLevelId = topLevel.Id,
-                        FramePropertiesId = frameProps.Id
+                        FramePropertiesId = frameProps.Id,
+                        IsLateral = isLateral[j],
                     };
-
 
                     columns.Add(new GH_Column(column));
                 }

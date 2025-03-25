@@ -158,7 +158,7 @@ namespace JSON_Connectors.Components.Core.Export
         private T ExtractContainer<T>(object obj) where T : class, new()
         {
             if (obj == null)
-                return null;
+                return new T(); // Return a new instance instead of null
 
             // Check if it's already our model type
             if (obj is T model)
@@ -168,10 +168,38 @@ namespace JSON_Connectors.Components.Core.Export
             if (obj is GH_ModelGoo<T> ghModel)
                 return ghModel.Value;
 
-            // Unknown type
+            // Check if it's a general Grasshopper type that can be cast
+            if (obj is Grasshopper.Kernel.Types.IGH_Goo goo)
+            {
+                T result = null;
+                if (goo.CastTo<T>(out result))
+                    return result;
+            }
+
+            // Try to interpret specific container types based on contents
+            if (typeof(T) == typeof(MetadataContainer))
+            {
+                // Handle case where we have ProjectInfo and/or Units but not a container
+                MetadataContainer container = new MetadataContainer();
+
+                if (obj is ProjectInfo projectInfo)
+                {
+                    container.ProjectInfo = projectInfo;
+                    return container as T;
+                }
+                else if (obj is Units units)
+                {
+                    container.Units = units;
+                    return container as T;
+                }
+            }
+
+            // If we got here, log the type we received for debugging
             AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
-                $"Could not extract {typeof(T).Name} from input");
-            return null;
+                $"Could not extract {typeof(T).Name} from input of type {obj?.GetType().Name ?? "null"}");
+
+            // Return a new instance with defaults rather than null
+            return new T();
         }
 
         public override Guid ComponentGuid => new Guid("7f47f0b0-b365-43d5-b83f-32e8e83eaca9");

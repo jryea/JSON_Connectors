@@ -5,7 +5,7 @@ using System.Text;
 using Core.Models.Elements;
 using Core.Models.ModelLayout;
 
-namespace ETABS.Export.Model
+namespace ETABS.Export.Elements
 {
     /// <summary>
     /// Exports point coordinates for the E2K file format

@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Text;
 using Core.Models.ModelLayout;
+using Core.Utilities;
 
 namespace ETABS.Export.ModelLayout
 {
@@ -20,16 +21,17 @@ namespace ETABS.Export.ModelLayout
 
             // E2K Grid System Header
             sb.AppendLine("$ GRIDS");
-            sb.AppendLine("GRIDSYSTEM \"G1\"  TYPE \"CARTESIAN\"  BUBBLESIZE 60");
+            sb.AppendLine("\tGRIDSYSTEM \"G1\"  TYPE \"CARTESIAN\"  BUBBLESIZE 60");
 
             foreach (var grid in grids)
             {
                 // Determine direction (X or Y) based on coordinates
-                bool isXDirection = grid.StartPoint.Y.Equals(grid.EndPoint.Y);
-                string direction = isXDirection ? "X" : "Y";
+
+                bool isYDirection = Utilities.AreLinePointsVertical(grid.StartPoint, grid.EndPoint);
+                string direction = isYDirection ? "Y" : "X";
 
                 // Determine coordinate value
-                double coordinate = isXDirection ? grid.StartPoint.X : grid.StartPoint.Y;
+                double coordinate = isYDirection ? grid.StartPoint.X : grid.StartPoint.Y;
 
                 // Determine bubble location
                 string bubbleLoc = "End";
@@ -43,7 +45,7 @@ namespace ETABS.Export.ModelLayout
                 }
 
                 // Format: GRID "G1"  LABEL "A"  DIR "X"  COORD 0 VISIBLE "Yes"  BUBBLELOC "End"
-                sb.AppendLine($"GRID \"G1\"  LABEL \"{grid.Name}\"  DIR \"{direction}\"  " +
+                sb.AppendLine($"\tGRID \"G1\"  LABEL \"{grid.Name}\"  DIR \"{direction}\"  " +
                              $"COORD {coordinate} VISIBLE \"Yes\"  BUBBLELOC \"{bubbleLoc}\"");
             }
 

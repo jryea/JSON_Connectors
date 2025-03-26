@@ -2,6 +2,7 @@
 using System.IO;
 using Grasshopper.Kernel;
 using ETABS.Core.Export;
+using System.Collections.Generic;
 
 namespace Grasshopper.Components
 {
@@ -18,6 +19,8 @@ namespace Grasshopper.Components
         {
             pManager.AddTextParameter("JSON", "J", "JSON representation of the structural model", GH_ParamAccess.item);
             pManager.AddTextParameter("Output Path", "P", "Path to save the E2K file", GH_ParamAccess.item);
+            pManager.AddTextParameter("E2K Sections", "E2K", "Custom E2K sections in format 'SECTION_NAME:CONTENT'", GH_ParamAccess.item);
+            pManager[2].Optional = true; // Optional parameter for custom E2K sections
         }
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
@@ -29,11 +32,13 @@ namespace Grasshopper.Components
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             // Get input data
-            string json = "";
-            string outputPath = "";
+            string json = string.Empty;
+            string outputPath = string.Empty;
+            string customE2K = string.Empty;
 
             if (!DA.GetData(0, ref json)) return;
             if (!DA.GetData(1, ref outputPath)) return;
+            DA.GetData(2, ref customE2K);
 
             // Validate input
             if (string.IsNullOrWhiteSpace(json))
@@ -61,14 +66,17 @@ namespace Grasshopper.Components
                     Directory.CreateDirectory(directory);
                 }
 
-                // Export to E2K
+                // Create exporter
                 var exporter = new ETABSExport();
-                exporter.ExportJsonToE2K(json, outputPath);
+
+                // Generate E2K content 
+                exporter.ExportJsonToE2K(json, customE2K, outputPath);
 
                 // Set output
                 DA.SetData(0, $"Successfully exported to {outputPath}");
                 DA.SetData(1, true);
             }
+
             catch (Exception ex)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);

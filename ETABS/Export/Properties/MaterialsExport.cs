@@ -25,7 +25,7 @@ namespace ETABS.Export.Properties
             foreach (var material in materials)
             {
                 // Basic material definition
-                sb.AppendLine($"MATERIAL \"{material.Name}\" TYPE \"{material.Type}\" GRADE \"Grade {GetMaterialGrade(material)}\" " +
+                sb.AppendLine($"\tMATERIAL \"{material.Name}\" TYPE \"{material.Type}\" GRADE \"Grade {GetMaterialGrade(material)}\" " +
                              $"WEIGHTPERVOLUME {GetMaterialWeight(material)}");
 
                 // Material properties based on type
@@ -37,12 +37,12 @@ namespace ETABS.Export.Properties
                         double u = GetDesignValue(material, "poissonsRatio", 0.3);
                         double a = GetDesignValue(material, "thermalCoeff", 6.5e-6);
 
-                        sb.AppendLine($"MATERIAL \"{material.Name}\" SYMTYPE \"Isotropic\" E {e} U {u} A {a}");
+                        sb.AppendLine($"\tMATERIAL \"{material.Name}\" SYMTYPE \"Isotropic\" E {e} U {u} A {a}");
 
                         double fy = GetDesignValue(material, "fy", 50000.0);
                         double fu = GetDesignValue(material, "fu", 65000.0);
 
-                        sb.AppendLine($"MATERIAL \"{material.Name}\" FY {fy} FU {fu} FYE {fy * 1.1} FUE {fu * 1.1}");
+                        sb.AppendLine($"\tMATERIAL \"{material.Name}\" FY {fy} FU {fu} FYE {fy * 1.1} FUE {fu * 1.1}");
                         break;
 
                     case "concrete":
@@ -51,12 +51,12 @@ namespace ETABS.Export.Properties
                         u = GetDesignValue(material, "poissonsRatio", 0.2);
                         a = GetDesignValue(material, "thermalCoeff", 5.5e-6);
 
-                        sb.AppendLine($"MATERIAL \"{material.Name}\" SYMTYPE \"Isotropic\" E {e} U {u} A {a}");
+                        sb.AppendLine($"\tMATERIAL \"{material.Name}\" SYMTYPE \"Isotropic\" E {e} U {u} A {a}");
 
                         double fc = GetDesignValue(material, "fc", 4000.0);
 
-                        sb.AppendLine($"MATERIAL \"{material.Name}\" FC {fc}");
-                        sb.AppendLine($"MATERIAL \"{material.Name}\" TIMEDEPCONCCODE \"CEBFIP90\"");
+                        sb.AppendLine($"\tMATERIAL \"{material.Name}\" FC {fc}");
+                        sb.AppendLine($"\tMATERIAL \"{material.Name}\" TIMEDEPCONCCODE \"CEBFIP90\"");
                         break;
                 }
             }

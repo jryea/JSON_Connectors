@@ -4,8 +4,9 @@ using System.Linq;
 using System.Text;
 using Core.Models.Elements;
 using Core.Models.ModelLayout;
+using Utils = Core.Utilities.Utilities;
 
-namespace ETABS.Export.Model
+namespace ETABS.Export.Elements
 {
     /// <summary>
     /// Exports area connectivities for the E2K file format
@@ -86,14 +87,14 @@ namespace ETABS.Export.Model
             // Add point references
             foreach (var point in wall.Points)
             {
-                string pointId = GetPointId(point);
+                string pointId = Utils.GetPointId(point, _pointMapping);
                 sb.Append($" \"{pointId}\"");
             }
 
             // Repeat the first point to close the polygon if not already closed
-            if (wall.Points.Count > 0 && !PointsEqual(wall.Points[0], wall.Points[wall.Points.Count - 1]))
+            if (wall.Points.Count > 0 && !Utils.ArePointsEqual(wall.Points[0], wall.Points[wall.Points.Count - 1]))
             {
-                string firstPointId = GetPointId(wall.Points[0]);
+                string firstPointId = Utils.GetPointId(wall.Points[0], _pointMapping);
                 sb.Append($" \"{firstPointId}\"");
             }
 
@@ -121,7 +122,7 @@ namespace ETABS.Export.Model
             // Add point references
             foreach (var point in floor.Points)
             {
-                string pointId = GetPointId(point);
+                string pointId = Utils.GetPointId(point, _pointMapping);
                 sb.Append($"  \"{pointId}\"");
             }
 
@@ -134,59 +135,6 @@ namespace ETABS.Export.Model
             return sb.ToString();
         }
 
-        /// <summary>
-        /// Gets the ID for a point using the point mapping dictionary
-        /// </summary>
-        /// <param name="point">Point to get ID for</param>
-        /// <returns>Point ID string</returns>
-        private string GetPointId(Point2D point)
-        {
-            // Check for exact match
-            foreach (var entry in _pointMapping)
-            {
-                if (Math.Abs(entry.Key.X - point.X) < 0.001 && Math.Abs(entry.Key.Y - point.Y) < 0.001)
-                {
-                    return entry.Value;
-                }
-            }
-
-            // If no exact match found, try to find the closest point
-            double minDistance = double.MaxValue;
-            string closestPointId = "0";
-
-            foreach (var entry in _pointMapping)
-            {
-                double distance = Math.Sqrt(
-                    Math.Pow(entry.Key.X - point.X, 2) +
-                    Math.Pow(entry.Key.Y - point.Y, 2));
-
-                if (distance < minDistance)
-                {
-                    minDistance = distance;
-                    closestPointId = entry.Value;
-                }
-            }
-
-            // Only use closest point if it's within a reasonable tolerance
-            if (minDistance < 0.1)
-            {
-                return closestPointId;
-            }
-
-            // Default to "0" if no match found
-            return "0";
-        }
-
-        /// <summary>
-        /// Checks if two points are equal within a small tolerance
-        /// </summary>
-        /// <param name="p1">First point</param>
-        /// <param name="p2">Second point</param>
-        /// <returns>True if points are equal within tolerance</returns>
-        private bool PointsEqual(Point2D p1, Point2D p2)
-        {
-            const double tolerance = 0.001;
-            return Math.Abs(p1.X - p2.X) < tolerance && Math.Abs(p1.Y - p2.Y) < tolerance;
-        }
+       
     }
 }

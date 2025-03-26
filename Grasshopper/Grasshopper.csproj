@@ -20,16 +20,13 @@
     <Title>Grasshopper</Title>
     <Company>Grasshopper Authors</Company>
     <Description>Description of Grasshopper</Description>
+    <UserSecretsId>f454a5a3-51a2-467a-94f2-53222f0bff87</UserSecretsId>
   </PropertyGroup>
   
   <ItemGroup>
     <Compile Remove="Components\RAM\**" />
     <EmbeddedResource Remove="Components\RAM\**" />
     <None Remove="Components\RAM\**" />
-  </ItemGroup>
-  
-  <ItemGroup>
-    <PackageReference Include="Grasshopper" Version="8.0.23304.9001" ExcludeAssets="runtime" />
   </ItemGroup>
   
   <!-- For Windows only builds -->
@@ -50,6 +47,20 @@
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.csproj" />
     <ProjectReference Include="..\ETABS\ETABS.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="GH_IO">
+      <HintPath>..\..\..\..\..\..\Program Files\Rhino 8\Plug-ins\Grasshopper\GH_IO.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Grasshopper">
+      <HintPath>..\..\..\..\..\..\Program Files\Rhino 8\Plug-ins\Grasshopper\Grasshopper.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="RhinoCommon">
+      <HintPath>..\..\..\..\..\..\Program Files\Rhino 8\System\RhinoCommon.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
   </ItemGroup>
 
 </Project>

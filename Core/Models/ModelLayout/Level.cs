@@ -25,7 +25,7 @@ namespace Core.Models.ModelLayout
         /// <summary>
         /// Elevation or height of the level in model units
         /// </summary>
-        public double ElevationOrHeight { get; set; }
+        public double Elevation { get; set; }
 
         /// <summary>
         /// Creates a new Level with a generated ID
@@ -41,11 +41,11 @@ namespace Core.Models.ModelLayout
         /// <param name="name">Name of the level</param>
         /// <param name="floorTypeId">Floor type ID</param>
         /// <param name="elevationOrHeight">Elevation or height</param>
-        public Level(string name, string floorTypeId, double elevationOrHeight) : this()
+        public Level(string name, string floorTypeId, double elevation) : this()
         {
             Name = name;
             FloorTypeId = floorTypeId;
-            ElevationOrHeight = elevationOrHeight;
+            Elevation = elevation;
         }
     }
 }

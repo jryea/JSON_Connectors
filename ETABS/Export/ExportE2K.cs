@@ -15,7 +15,7 @@ using ETABS.Export.Properties;
 using System.Reflection;
 using System.Xml.Linq;
 using static Core.Utilities.IdGenerator;
-using ETABS.Export.Model;
+using ETABS.Export;
 
 namespace ETABS.Core.Export
 {
@@ -27,16 +27,22 @@ namespace ETABS.Core.Export
         private readonly ControlsExport _controlsExport;    
         private readonly StoriesExport _storiesExport;
         private readonly GridsExport _gridsExport;
-        private readonly DiaphragmsExport _diaphragmsExport;    
+        private readonly DiaphragmsExport _diaphragmsExport;
+        private readonly WallPropertiesExport _wallPropertiesExport;
         private readonly MaterialsExport _materialsExport;
         private readonly LoadPatternsExport _loadsExport;
         private readonly PointCoordinatesExport _pointCoordinatesExport;
+
+        // Add an injector instance
+        private readonly E2KInjector _injector = new E2KInjector();
 
         public E2KExporter()
         {
             _controlsExport = new ControlsExport();
             _storiesExport = new StoriesExport();
             _gridsExport = new GridsExport();
+            _diaphragmsExport = new DiaphragmsExport();
+            _wallPropertiesExport = new WallPropertiesExport();
             _materialsExport = new MaterialsExport();
             _loadsExport = new LoadPatternsExport();
             _pointCoordinatesExport = new PointCoordinatesExport();
@@ -93,6 +99,14 @@ namespace ETABS.Core.Export
                     sb.AppendLine();
                 }
 
+                // Export wall properties
+                if (model.Properties != null && model.Properties.WallProperties.Count > 0)
+                {
+                    string wallPropertiesSection = _wallPropertiesExport.ConvertToE2K(model.Properties.WallProperties);
+                    sb.AppendLine(wallPropertiesSection);
+                    sb.AppendLine();
+                }
+
                 if (model.Loads.LoadDefinitions.Count > 0)
                 {
                     string loadsSection = _loadsExport.ConvertToE2K(model.Loads);
@@ -114,8 +128,14 @@ namespace ETABS.Core.Export
 
                 WriteFooter(sb, model.Metadata.ProjectInfo);
 
+                // Generate the base E2K content
+                string baseE2kContent = sb.ToString();
+
+                // Inject custom sections
+                string finalE2kContent = _injector.InjectCustomSections(baseE2kContent);
+
                 // Write the complete E2K file
-                File.WriteAllText(filePath, sb.ToString());
+                File.WriteAllText(filePath, finalE2kContent);
             }
             catch (Exception ex)
             {
@@ -144,7 +164,17 @@ namespace ETABS.Core.Export
 
             // End of model file marker
             sb.AppendLine("  END OF MODEL FILE");
-          
+        }
+
+        public void ParseRawE2KContent(string rawE2KContent)
+        {
+            _injector.ParseE2KContent(rawE2KContent);
+        }
+
+        // Add a method to add custom E2K sections
+        public void AddCustomSection(string sectionName, string content)
+        {
+            _injector.AddCustomSection(sectionName, content);
         }
     }
 }

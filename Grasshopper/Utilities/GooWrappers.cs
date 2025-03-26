@@ -72,7 +72,7 @@ namespace Grasshopper.Utilities
         public override string ToString()
         {
             if (Value == null) return "Null Level";
-            return $"Level: {Value.Name}, Elev: {Value.ElevationOrHeight}";
+            return $"Level: {Value.Name}, Elev: {Value.Elevation}";
         }
     }
 

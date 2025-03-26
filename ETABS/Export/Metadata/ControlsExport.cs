@@ -24,11 +24,11 @@ namespace ETABS.Export.Metadata
             string tempUnit = ConvertToETABSTempUnit(units.Temperature);
 
             sb.AppendLine("$ CONTROLS");
-            sb.AppendLine($"  UNITS  \"{forceUnit}\"  \"{lengthUnit}\"  \"{tempUnit}\"");
-            sb.AppendLine($"  TITLE1  \"IMEG\"");
-            sb.AppendLine($"  TITLE2  \"{projectInfo.ProjectName}.e2k\"");
-            sb.AppendLine("  PREFERENCE  MERGETOL 0.1");
-            sb.AppendLine("  RLLF  METHOD \"ASCE7-10\"  USEDEFAULTMIN \"YES\"");
+            sb.AppendLine($"\tUNITS  \"{forceUnit}\"  \"{lengthUnit}\"  \"{tempUnit}\"");
+            sb.AppendLine($"\tTITLE1  \"IMEG\"");
+            sb.AppendLine($"\tTITLE2  \"{projectInfo.ProjectName}.e2k\"");
+            sb.AppendLine("\tPREFERENCE  MERGETOL 0.1");
+            sb.AppendLine("\tRLLF  METHOD \"ASCE7-10\"  USEDEFAULTMIN \"YES\"");
 
             return sb.ToString();
         }

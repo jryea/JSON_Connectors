@@ -21,7 +21,7 @@ namespace ETABS.Export.ModelLayout
 
             // Sort levels by elevation in descending order (top to bottom)
             var sortedLevels = new List<Level>(levels);
-            sortedLevels.Sort((a, b) => b.ElevationOrHeight.CompareTo(a.ElevationOrHeight));
+            sortedLevels.Sort((a, b) => b.Elevation.CompareTo(a.Elevation));
 
             // E2K Levels Section Header
             sb.AppendLine("$ STORIES - IN SEQUENCE FROM TOP");
@@ -32,15 +32,15 @@ namespace ETABS.Export.ModelLayout
                 var below = sortedLevels[i + 1];
 
                 // Calculate story height
-                double height = current.ElevationOrHeight - below.ElevationOrHeight;
+                double height = current.Elevation - below.Elevation;
 
                 // Format: STORY "Story3" HEIGHT 120
-                sb.AppendLine($"STORY \"{current.Name}\" HEIGHT {height}");
+                sb.AppendLine($"\tSTORY \"{current.Name}\" HEIGHT {height}");
             }
 
             // Add base level with elevation
             var baseLevel = sortedLevels[sortedLevels.Count - 1];
-            sb.AppendLine($"STORY \"{baseLevel.Name}\" ELEV {baseLevel.ElevationOrHeight}");
+            sb.AppendLine($"\tSTORY \"Base\" ELEV {baseLevel.Elevation}");
 
             return sb.ToString();
         }

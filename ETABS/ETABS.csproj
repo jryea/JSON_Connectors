@@ -9,8 +9,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Core\Models\" />
-    <Folder Include="Core\Import\" />
     <Folder Include="Utilities\" />
   </ItemGroup>
 

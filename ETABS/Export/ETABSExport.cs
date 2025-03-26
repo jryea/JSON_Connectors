@@ -32,6 +32,5 @@ namespace ETABS.Core.Export
                 throw new Exception($"Error exporting JSON to E2K: {ex.Message}", ex);
             }
         }
-
     }
 }

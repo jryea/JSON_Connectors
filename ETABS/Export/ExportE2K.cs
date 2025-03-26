@@ -22,7 +22,7 @@ namespace ETABS.Core.Export
     /// <summary>
     /// Main exporter class for converting JSON building structure to ETABS E2K format
     /// </summary>
-    public class E2KExporter
+    public class E2KExport
     {
         private readonly ControlsExport _controlsExport;    
         private readonly StoriesExport _storiesExport;
@@ -36,7 +36,7 @@ namespace ETABS.Core.Export
         // Add an injector instance
         private readonly E2KInjector _injector = new E2KInjector();
 
-        public E2KExporter()
+        public E2KExport()
         {
             _controlsExport = new ControlsExport();
             _storiesExport = new StoriesExport();

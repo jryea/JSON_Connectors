@@ -24,7 +24,7 @@ namespace ETABS.Core.Export
                 BaseModel model = JsonConverter.Deserialize(jsonString);
 
                 // Export model to E2K
-                var exporter = new E2KExporter();
+                var exporter = new E2KExport();
                 exporter.ExportToE2K(model, outputPath);
             }
             catch (Exception ex)

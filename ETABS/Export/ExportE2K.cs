@@ -15,6 +15,7 @@ using ETABS.Export.Properties;
 using System.Reflection;
 using System.Xml.Linq;
 using static Core.Utilities.IdGenerator;
+using ETABS.Export.Model;
 
 namespace ETABS.Core.Export
 {
@@ -27,20 +28,18 @@ namespace ETABS.Core.Export
         private readonly StoriesExport _storiesExport;
         private readonly GridsExport _gridsExport;
         private readonly DiaphragmsExport _diaphragmsExport;    
-        private readonly ColumnsExport _columnsExport;
-        private readonly BeamsExport _beamsExport;
         private readonly MaterialsExport _materialsExport;
         private readonly LoadPatternsExport _loadsExport;
+        private readonly PointCoordinatesExport _pointCoordinatesExport;
 
         public E2KExporter()
         {
             _controlsExport = new ControlsExport();
             _storiesExport = new StoriesExport();
             _gridsExport = new GridsExport();
-            _columnsExport = new ColumnsExport();
-            _beamsExport = new BeamsExport();
             _materialsExport = new MaterialsExport();
             _loadsExport = new LoadPatternsExport();
+            _pointCoordinatesExport = new PointCoordinatesExport();
         }
 
         /// <summary>
@@ -94,29 +93,24 @@ namespace ETABS.Core.Export
                     sb.AppendLine();
                 }
 
-
-                // Export columns
-                if (model.Elements.Columns.Count > 0)
-                {
-                    string columnsSection = _columnsExport.ConvertToE2K(model.Elements.Columns, model.ModelLayout.Levels);
-                    sb.AppendLine(columnsSection);
-                    sb.AppendLine();
-                }
-
-                // Export beams
-                if (model.Elements.Beams.Count > 0)
-                {
-                    string beamsSection = _beamsExport.ConvertToE2K(model.Elements.Beams, model.ModelLayout.Levels);
-                    sb.AppendLine(beamsSection);
-                    sb.AppendLine();
-                }
-
                 if (model.Loads.LoadDefinitions.Count > 0)
                 {
                     string loadsSection = _loadsExport.ConvertToE2K(model.Loads);
                     sb.AppendLine(loadsSection);
                     sb.AppendLine();
                 }
+
+                // Export point coordinates (needed before structural elements)
+                string pointsSection = _pointCoordinatesExport.ConvertToE2K(model.Elements, model.ModelLayout);
+                sb.AppendLine(pointsSection);
+
+                // Create the area connectivities exporter with the point mapping
+                var areaConnectivitiesExport = new AreaConnectivitiesExport(_pointCoordinatesExport.PointMapping);
+
+                // Export area connectivities (needed before area assignments)
+                string areaSection = areaConnectivitiesExport.ConvertToE2K(model.Elements);
+                sb.AppendLine(areaSection);
+                sb.AppendLine();
 
                 WriteFooter(sb, model.Metadata.ProjectInfo);
 

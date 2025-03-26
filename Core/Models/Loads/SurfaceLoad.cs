@@ -4,7 +4,6 @@ using System.Text;
 
 namespace Core.Models.Loads
 {
-
     /// <summary>
     /// Represents a surface load in the structural model
     /// </summary>

@@ -52,8 +52,7 @@ namespace ETABS.Export
         /// Exports a building structure model to ETABS E2K format
         /// </summary>
         /// <param name="model">Building structure model</param>
-        /// <param name="filePath">Path to save the E2K file</param>
-        public string ExportToE2K(BaseModel model, string filePath)
+        public string ExportToE2K(BaseModel model)
         {
             try
             {

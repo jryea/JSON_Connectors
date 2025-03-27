@@ -54,7 +54,7 @@ namespace Grasshopper.Components.Core.Export.Elements
             // Ensure isLateral has the correct count and replace null values with false
             for (int i = 0; i < baseLevelObjs.Count; i++)
             {
-                if (i >= isLateral.Count || isLateral[i] == null)
+                if (i >= isLateral.Count)
                 {
                     isLateral.Insert(i, false);
                 }

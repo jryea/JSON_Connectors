@@ -28,6 +28,7 @@ namespace Grasshopper.Components
         {
             pManager.AddTextParameter("Result", "R", "Result of the export operation", GH_ParamAccess.item);
             pManager.AddBooleanParameter("Success", "S", "True if export was successful", GH_ParamAccess.item);
+            pManager.AddTextParameter("JSON", "J", "JSON representation of the model", GH_ParamAccess.item);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -71,11 +72,15 @@ namespace Grasshopper.Components
                 var exporter = new GrasshopperToETABS();
 
                 // Generate E2K content 
-                exporter.ConvertToE2K(json, customE2K, outputPath);
+                string finalE2K = exporter.ConvertToE2K(json, customE2K, outputPath);
 
                 // Set output
                 DA.SetData(0, $"Successfully exported to {outputPath}");
                 DA.SetData(1, true);
+                DA.SetData(2, finalE2K);
+
+                // Write the complete E2K file
+                File.WriteAllText(outputPath, finalE2K);
             }
 
             catch (Exception ex)

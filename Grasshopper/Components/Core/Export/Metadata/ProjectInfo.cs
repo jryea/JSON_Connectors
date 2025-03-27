@@ -44,7 +44,6 @@ namespace Grasshopper.Components.Core.Export.Metadata
             string projectName = "New Project";
             string projectId = string.Empty;
             string schemaVersion = "1.0";
-            string software = "Grasshopper";
 
             DA.GetData(0, ref projectName);
 

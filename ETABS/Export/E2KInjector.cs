@@ -20,6 +20,9 @@ namespace ETABS.Export
         // Add this method to the E2KInjector class
         public string InjectCustomE2K(string baseE2K, string customE2K)
         {
+            if (string.IsNullOrWhiteSpace(customE2K))
+                return baseE2K;
+
             // Parse the custom E2K content to extract its sections
             ParseE2KContent(customE2K);
 
@@ -37,8 +40,9 @@ namespace ETABS.Export
             _customSections.Clear();
 
             // Use regex to find section headers (lines starting with $)
-            var sectionPattern = new Regex(@"^\$ ([A-Z][A-Z0-9 _/]+)$", RegexOptions.Multiline);
-            var matches = sectionPattern.Matches(rawE2KContent);
+            Regex sectionPattern = new System.Text.RegularExpressions.Regex(@"^\$ ([A-Z][A-Z0-9 _/\-]+)",
+                System.Text.RegularExpressions.RegexOptions.Multiline);
+            MatchCollection matches = sectionPattern.Matches(rawE2KContent);
 
             if (matches.Count == 0)
                 return; // No sections found
@@ -72,12 +76,12 @@ namespace ETABS.Export
             }
         }
 
-        // Method to add a custom E2K section
-        public void AddCustomSection(string sectionName, string content)
-        {
-            // If the section already exists, replace it
-            _customSections[sectionName] = content;
-        }
+        //// Method to add a custom E2K section
+        //public void AddCustomSection(string sectionName, string content)
+        //{
+        //    // If the section already exists, replace it
+        //    _customSections[sectionName] = content;
+        //}
 
         // Method to inject custom sections into an existing E2K export
         public string InjectCustomSections(string baseE2kContent)
@@ -87,39 +91,59 @@ namespace ETABS.Export
                 return baseE2kContent; // No custom sections to inject
             }
 
-            var result = new StringBuilder();
-            var lines = baseE2kContent.Split(new[] { '\r', '\n' }, StringSplitOptions.None);
+            var result = new System.Text.StringBuilder();
+            var lines = baseE2kContent.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
 
             int i = 0;
 
             // Copy everything up to the first section marker
-            while (i < lines.Length && !lines[i].StartsWith("$ "))
+            while (i < lines.Length && !lines[i].TrimStart().StartsWith("$"))
             {
                 result.AppendLine(lines[i]);
                 i++;
             }
 
+            // Track sections we've already injected
+            var injectedSections = new HashSet<string>();
+
             // Process the rest of the file
             while (i < lines.Length)
             {
+                string currentLine = lines[i].TrimStart();
+
                 // Check if this is a section marker
-                if (lines[i].StartsWith("$ ") && lines[i].Length > 2)
+                if (currentLine.StartsWith("$") && currentLine.Length > 2)
                 {
-                    string sectionName = lines[i].Substring(2).Trim();
+                    // Extract section name - everything after the $ and any spaces
+                    string sectionLine = currentLine.Substring(1).Trim();
+
+                    // Find matching custom section if any
+                    string matchingSection = null;
+                    foreach (var section in _customSections.Keys)
+                    {
+                        if (sectionLine.StartsWith(section))
+                        {
+                            matchingSection = section;
+                            break;
+                        }
+                    }
 
                     // If we have a custom section for this, inject it
-                    if (_customSections.TryGetValue(sectionName, out string customContent))
+                    if (matchingSection != null)
                     {
                         // Add the section marker
                         result.AppendLine(lines[i]);
 
                         // Add the custom content
-                        result.AppendLine(customContent);
+                        result.AppendLine(_customSections[matchingSection]);
+
+                        // Mark this section as injected
+                        injectedSections.Add(matchingSection);
 
                         // Skip past the original section content
                         i++;
                         while (i < lines.Length &&
-                               (!lines[i].StartsWith("$ ") || lines[i].Length <= 2))
+                            (!lines[i].TrimStart().StartsWith("$") || lines[i].Trim().Length <= 1))
                         {
                             i++;
                         }
@@ -136,7 +160,7 @@ namespace ETABS.Export
             // Add any custom sections that weren't in the original file
             foreach (var section in _customSections)
             {
-                if (!baseE2kContent.Contains($"$ {section.Key}"))
+                if (!injectedSections.Contains(section.Key))
                 {
                     result.AppendLine($"$ {section.Key}");
                     result.AppendLine(section.Value);

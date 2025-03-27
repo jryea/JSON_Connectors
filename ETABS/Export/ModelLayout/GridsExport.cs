@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Text;
 using Core.Models.ModelLayout;
-using Core.Utilities;
+using Utils = Core.Utilities.Utilities;
 
 namespace ETABS.Export.ModelLayout
 {
@@ -27,7 +27,7 @@ namespace ETABS.Export.ModelLayout
             {
                 // Determine direction (X or Y) based on coordinates
 
-                bool isYDirection = Utilities.AreLinePointsVertical(grid.StartPoint, grid.EndPoint);
+                bool isYDirection = Utils.AreLinePointsVertical(grid.StartPoint, grid.EndPoint);
                 string direction = isYDirection ? "Y" : "X";
 
                 // Determine coordinate value

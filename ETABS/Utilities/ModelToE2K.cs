@@ -15,9 +15,8 @@ using ETABS.Export.Properties;
 using System.Reflection;
 using System.Xml.Linq;
 using static Core.Utilities.IdGenerator;
-using ETABS.Export;
 
-namespace ETABS.Export
+namespace ETABS.Utilities
 {
     /// <summary>
     /// Main exporter class for converting JSON building structure to ETABS E2K format

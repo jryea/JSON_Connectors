@@ -1,7 +1,8 @@
 ﻿using System;
 using System.IO;
 using Grasshopper.Kernel;
-using ETABS.Core.Export;
+using ETABS.Export;
+using ETABS;
 using System.Collections.Generic;
 
 namespace Grasshopper.Components
@@ -67,10 +68,10 @@ namespace Grasshopper.Components
                 }
 
                 // Create exporter
-                var exporter = new ETABSExport();
+                var exporter = new GrasshopperToETABS();
 
                 // Generate E2K content 
-                exporter.ExportJsonToE2K(json, customE2K, outputPath);
+                exporter.ConvertToE2K(json, customE2K, outputPath);
 
                 // Set output
                 DA.SetData(0, $"Successfully exported to {outputPath}");

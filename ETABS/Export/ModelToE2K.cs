@@ -17,12 +17,12 @@ using System.Xml.Linq;
 using static Core.Utilities.IdGenerator;
 using ETABS.Export;
 
-namespace ETABS.Core.Export
+namespace ETABS.Export
 {
     /// <summary>
     /// Main exporter class for converting JSON building structure to ETABS E2K format
     /// </summary>
-    public class E2KExport
+    public class ModelToE2K
     {
         private readonly ControlsExport _controlsExport;    
         private readonly StoriesExport _storiesExport;
@@ -36,7 +36,7 @@ namespace ETABS.Core.Export
         // Add an injector instance
         private readonly E2KInjector _injector = new E2KInjector();
 
-        public E2KExport()
+        public ModelToE2K()
         {
             _controlsExport = new ControlsExport();
             _storiesExport = new StoriesExport();
@@ -53,7 +53,7 @@ namespace ETABS.Core.Export
         /// </summary>
         /// <param name="model">Building structure model</param>
         /// <param name="filePath">Path to save the E2K file</param>
-        public void ExportToE2K(BaseModel model, string filePath)
+        public string ExportToE2K(BaseModel model, string filePath)
         {
             try
             {
@@ -131,11 +131,8 @@ namespace ETABS.Core.Export
                 // Generate the base E2K content
                 string baseE2kContent = sb.ToString();
 
-                // Inject custom sections
-                string finalE2kContent = _injector.InjectCustomSections(baseE2kContent);
+                return baseE2kContent;
 
-                // Write the complete E2K file
-                File.WriteAllText(filePath, finalE2kContent);
             }
             catch (Exception ex)
             {
@@ -166,15 +163,6 @@ namespace ETABS.Core.Export
             sb.AppendLine("  END OF MODEL FILE");
         }
 
-        public void ParseRawE2KContent(string rawE2KContent)
-        {
-            _injector.ParseE2KContent(rawE2KContent);
-        }
-
-        // Add a method to add custom E2K sections
-        public void AddCustomSection(string sectionName, string content)
-        {
-            _injector.AddCustomSection(sectionName, content);
-        }
+     
     }
 }

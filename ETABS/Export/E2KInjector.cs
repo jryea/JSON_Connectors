@@ -17,6 +17,16 @@ namespace ETABS.Export
         {
         }
 
+        // Add this method to the E2KInjector class
+        public string InjectCustomE2K(string baseE2K, string customE2K)
+        {
+            // Parse the custom E2K content to extract its sections
+            ParseE2KContent(customE2K);
+
+            // Then inject those sections into the base E2K
+            return InjectCustomSections(baseE2K);
+        }
+
         // Parse a single E2K text string into sections
         public void ParseE2KContent(string rawE2KContent)
         {

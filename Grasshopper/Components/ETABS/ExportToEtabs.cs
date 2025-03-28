@@ -9,9 +9,9 @@ using static System.Resources.ResXFileRef;
 
 namespace Grasshopper.Components
 {
-    public class JsonToE2KComponent : GH_Component
+    public class ExportToEtabs : GH_Component
     {
-        public JsonToE2KComponent()
+        public ExportToEtabs()
             : base("JSON to E2K", "J2E2K",
                 "Converts JSON model to ETABS E2K format",
                 "IMEG", "Export")

@@ -206,9 +206,6 @@ namespace ETABS.Export.Elements
             // Process wall assignments
             if (elements.Walls != null && elements.Walls.Count > 0)
             {
-                // Get sorted list of levels for consistent assignment order
-                var sortedLevels = levels.OrderBy(l => l.Elevation).ToList();
-
                 foreach (var wall in elements.Walls)
                 {
                     if (!_wallIdMapping.ContainsKey(wall.Id))
@@ -218,20 +215,20 @@ namespace ETABS.Export.Elements
                     string areaId = _wallIdMapping[wall.Id];
 
                     // Get the wall properties
-                    WallProperties wallProps = Utils.FindWallProperties(wallProperties, wall.PropertiesId);
-                    if (wallProps == null)
+                    var wallProp = wallProperties.FirstOrDefault(wp => wp.Id == wall.PropertiesId);
+                    if (wallProp == null)
                         continue;
 
-                    // Generate story names for a multi-story wall going from the base to top level
-                    // Skip the base level (first level) as per usual ETABS convention
-                    for (int i = 1; i < sortedLevels.Count; i++)
+                    // Generate story assignments for all levels except the base
+                    // Typically start from Story1 and go up
+                    for (int i = 1; i <= 15; i++)  // Assuming up to Story15
                     {
                         string storyName = $"Story{i}";
 
                         string areaAssign = FormatAreaAssign(
                             areaId,
                             storyName,
-                            wallProps.Name,
+                            wallProp.Name,
                             "DEFAULT",
                             "Yes",
                             "MIDDLE",
@@ -240,46 +237,46 @@ namespace ETABS.Export.Elements
                         sb.AppendLine(areaAssign);
                     }
                 }
-            }
 
-            // Process floor assignments
-            if (elements.Floors != null && elements.Floors.Count > 0)
-            {
-                foreach (var floor in elements.Floors)
+                // Process floor assignments
+                if (elements.Floors != null && elements.Floors.Count > 0)
                 {
-                    if (!_floorIdMapping.ContainsKey(floor.Id))
-                        continue;
-
-                    // Get the E2K area ID from the mapping
-                    string areaId = _floorIdMapping[floor.Id];
-
-                    // Get the floor properties
-                    FloorProperties floorProps = Utils.FindFloorProperties(floorProperties, floor.FloorPropertiesId);
-                    if (floorProps == null)
-                        continue;
-
-                    // Find the level this floor belongs to
-                    Level floorLevel = Utils.FindLevel(levels, floor.LevelId);
-                    if (floorLevel == null)
-                        continue;
-
-                    // Create an area assign entry for this floor at its level
-                    string areaAssign = FormatAreaAssign(
-                        areaId,
-                        floorLevel.Name,
-                        floorProps.Name,
-                        "DEFAULT",
-                        "No",
-                        "MIDDLE",
-                        "No");
-
-                    sb.AppendLine(areaAssign);
-
-                    // Add diaphragm information if present
-                    if (!string.IsNullOrEmpty(floor.DiaphragmId))
+                    foreach (var floor in elements.Floors)
                     {
-                        string diaphragmAssign = $"  AREAASSIGN \"{areaId}\" \"{floorLevel.Name}\" DIAPH \"{floor.DiaphragmId}\"";
-                        sb.AppendLine(diaphragmAssign);
+                        if (!_floorIdMapping.ContainsKey(floor.Id))
+                            continue;
+
+                        // Get the E2K area ID from the mapping
+                        string areaId = _floorIdMapping[floor.Id];
+
+                        // Get the floor properties
+                        FloorProperties floorProps = Utils.FindFloorProperties(floorProperties, floor.FloorPropertiesId);
+                        if (floorProps == null)
+                            continue;
+
+                        // Find the level this floor belongs to
+                        Level floorLevel = Utils.FindLevel(levels, floor.LevelId);
+                        if (floorLevel == null)
+                            continue;
+
+                        // Create an area assign entry for this floor at its level
+                        string areaAssign = FormatAreaAssign(
+                            areaId,
+                            floorLevel.Name,
+                            floorProps.Name,
+                            "DEFAULT",
+                            "No",
+                            "MIDDLE",
+                            "No");
+
+                        sb.AppendLine(areaAssign);
+
+                        // Add diaphragm information if present
+                        if (!string.IsNullOrEmpty(floor.DiaphragmId))
+                        {
+                            string diaphragmAssign = $"  AREAASSIGN \"{areaId}\" \"{floorLevel.Name}\" DIAPH \"{floor.DiaphragmId}\"";
+                            sb.AppendLine(diaphragmAssign);
+                        }
                     }
                 }
             }

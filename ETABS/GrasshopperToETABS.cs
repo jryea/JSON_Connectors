@@ -13,24 +13,24 @@ namespace ETABS
     public class GrasshopperToETABS
     {
         /// <summary>
-        /// Exports a JSON string to ETABS E2K format and returns the E2K content
+        /// Converts JSON model to E2K and handles file operations
         /// </summary>
-        /// <param name="jsonString">JSON representation of the structural model</param>
-        /// <param name="customE2K">Custom E2K content to inject</param>
-        /// <param name="outputPath">Path to save the E2K file</param>
-        /// <returns>The full E2K file content as a string</returns>
-        public string ConvertToE2K(string jsonString, string customE2K, string outputPath)
+        /// <param name="jsonString">Input JSON structural model</param>
+        /// <param name="customE2K">Optional custom E2K content</param>
+        /// <param name="outputPath">Path to save E2K file (if provided)</param>
+        /// <returns>Final E2K content string</returns>
+        public string ProcessModel(string jsonString, string customE2K = null, string outputPath = null)
         {
             try
             {
-                // Parse JSON to model
+                // Step 1: Parse JSON to model
                 BaseModel model = JsonConverter.Deserialize(jsonString);
 
-                // Convert model to E2K
+                // Step 2: Convert model to E2K
                 var e2kExport = new ModelToE2K();
                 string baseE2K = e2kExport.ExportToE2K(model);
 
-                // Only inject if custom E2K content is provided
+                // Step 3: Apply any custom content
                 string finalE2kContent = baseE2K;
                 if (!string.IsNullOrWhiteSpace(customE2K))
                 {
@@ -38,11 +38,43 @@ namespace ETABS
                     finalE2kContent = injector.InjectCustomE2K(baseE2K, customE2K);
                 }
 
-                return finalE2kContent; 
+                // Step 4: Write to file if path provided
+                if (!string.IsNullOrWhiteSpace(outputPath))
+                {
+                    WriteE2KToFile(finalE2kContent, outputPath);
+                }
+
+                // Step 5: Return the exact same content
+                return finalE2kContent;
             }
             catch (Exception ex)
             {
-                throw new Exception($"Error exporting JSON to E2K: {ex.Message}", ex);
+                throw new Exception($"Error in E2K conversion process: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// Writes E2K content to a file
+        /// </summary>
+        /// <param name="e2kContent">E2K content to write</param>
+        /// <param name="filePath">File path</param>
+        private void WriteE2KToFile(string e2kContent, string filePath)
+        {
+            try
+            {
+                // Ensure directory exists
+                string directory = Path.GetDirectoryName(filePath);
+                if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
+
+                // Write content to file
+                File.WriteAllText(filePath, e2kContent);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Error writing E2K to file: {ex.Message}", ex);
             }
         }
     }

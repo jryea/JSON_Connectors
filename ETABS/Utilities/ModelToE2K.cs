@@ -23,7 +23,7 @@ namespace ETABS.Utilities
     /// </summary>
     public class ModelToE2K
     {
-        private readonly ControlsExport _controlsExport;    
+        private readonly ControlsExport _controlsExport;
         private readonly StoriesExport _storiesExport;
         private readonly GridsExport _gridsExport;
         private readonly DiaphragmsExport _diaphragmsExport;
@@ -115,14 +115,18 @@ namespace ETABS.Utilities
                 // Export point coordinates (needed before structural elements)
                 string pointsSection = _pointCoordinatesExport.ConvertToE2K(model.Elements, model.ModelLayout);
                 sb.AppendLine(pointsSection);
-
-                // Create the area connectivities exporter with the point mapping
-                var areaConnectivitiesExport = new AreaConnectivitiesExport(_pointCoordinatesExport.PointMapping);
-
-                // Export area connectivities (needed before area assignments)
-                string areaSection = areaConnectivitiesExport.ConvertToE2K(model.Elements);
-                sb.AppendLine(areaSection);
                 sb.AppendLine();
+
+                // Create the consolidated area elements exporter with the point mapping
+                var areaElementsExport = new AreaElementsExport(_pointCoordinatesExport.PointMapping);
+
+                // Export area elements (both connectivities and assignments)
+                string areaElementsSection = areaElementsExport.ConvertToE2K(
+                    model.Elements,
+                    model.ModelLayout.Levels,
+                    model.Properties.WallProperties,
+                    model.Properties.FloorProperties);
+                sb.AppendLine(areaElementsSection);
 
                 WriteFooter(sb, model.Metadata.ProjectInfo);
 
@@ -130,7 +134,6 @@ namespace ETABS.Utilities
                 string baseE2kContent = sb.ToString();
 
                 return baseE2kContent;
-
             }
             catch (Exception ex)
             {
@@ -160,7 +163,5 @@ namespace ETABS.Utilities
             // End of model file marker
             sb.AppendLine("  END OF MODEL FILE");
         }
-
-     
     }
 }

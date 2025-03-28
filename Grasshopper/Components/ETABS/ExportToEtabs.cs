@@ -12,7 +12,7 @@ namespace Grasshopper.Components
     public class ExportToEtabs : GH_Component
     {
         public ExportToEtabs()
-            : base("JSON to E2K", "J2E2K",
+            : base("Export To Etabs", "E2K",
                 "Converts JSON model to ETABS E2K format",
                 "IMEG", "Export")
         {
@@ -80,9 +80,6 @@ namespace Grasshopper.Components
                 DA.SetData(0, $"Successfully exported to {filePath}");
                 DA.SetData(1, true);
                 DA.SetData(2, e2kContent);
-
-                // Write the complete E2K file
-                File.WriteAllText(filePath, e2kContent);
             }
 
             catch (Exception ex)

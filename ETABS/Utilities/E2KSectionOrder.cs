@@ -17,7 +17,7 @@ namespace ETABS.Export
         {
             "PROGRAM INFORMATION",
             "CONTROLS",
-            "STORIES",
+            "STORIES - IN SEQUENCE FROM TOP",  // Updated to match the full section name
             "GRIDS",
             "DIAPHRAGM NAMES",
             "MATERIAL PROPERTIES",

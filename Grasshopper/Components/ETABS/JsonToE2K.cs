@@ -4,6 +4,8 @@ using Grasshopper.Kernel;
 using ETABS.Export;
 using ETABS;
 using System.Collections.Generic;
+using Rhino.FileIO;
+using static System.Resources.ResXFileRef;
 
 namespace Grasshopper.Components
 {
@@ -34,16 +36,16 @@ namespace Grasshopper.Components
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             // Get input data
-            string json = string.Empty;
-            string outputPath = string.Empty;
+            string jsonInput = string.Empty;
+            string filePath = string.Empty;
             string customE2K = string.Empty;
 
-            if (!DA.GetData(0, ref json)) return;
-            if (!DA.GetData(1, ref outputPath)) return;
+            if (!DA.GetData(0, ref jsonInput)) return;
+            if (!DA.GetData(1, ref filePath)) return;
             DA.GetData(2, ref customE2K);
 
             // Validate input
-            if (string.IsNullOrWhiteSpace(json))
+            if (string.IsNullOrWhiteSpace(jsonInput))
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "JSON input is empty or invalid");
                 DA.SetData(0, "Error: JSON input is empty or invalid");
@@ -51,7 +53,7 @@ namespace Grasshopper.Components
                 return;
             }
 
-            if (string.IsNullOrWhiteSpace(outputPath))
+            if (string.IsNullOrWhiteSpace(filePath))
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Output path is empty or invalid");
                 DA.SetData(0, "Error: Output path is empty or invalid");
@@ -62,25 +64,25 @@ namespace Grasshopper.Components
             try
             {
                 // Ensure the directory exists
-                string directory = Path.GetDirectoryName(outputPath);
+                string directory = Path.GetDirectoryName(filePath);
                 if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
                 {
                     Directory.CreateDirectory(directory);
                 }
 
                 // Create exporter
-                var exporter = new GrasshopperToETABS();
+                var converter = new GrasshopperToETABS();
 
-                // Generate E2K content 
-                string finalE2K = exporter.ConvertToE2K(json, customE2K, outputPath);
-
+                // Get both outputs from the same source
+                string e2kContent = converter.ProcessModel(jsonInput, customE2K, filePath);
+      
                 // Set output
-                DA.SetData(0, $"Successfully exported to {outputPath}");
+                DA.SetData(0, $"Successfully exported to {filePath}");
                 DA.SetData(1, true);
-                DA.SetData(2, finalE2K);
+                DA.SetData(2, e2kContent);
 
                 // Write the complete E2K file
-                File.WriteAllText(outputPath, finalE2K);
+                File.WriteAllText(filePath, e2kContent);
             }
 
             catch (Exception ex)

@@ -6,7 +6,7 @@ using System.Collections.Generic;
 
 namespace Grasshopper.Components.Core.Export.Metadata
 {
-    public class ProjectInfoComponent : GH_Component
+    public class ProjectInfoComponent : ComponentBase
     {
         /// <summary>
         /// Initializes a new instance of the ProjectInfo component.

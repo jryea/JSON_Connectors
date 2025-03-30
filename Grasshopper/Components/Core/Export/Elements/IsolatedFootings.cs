@@ -7,7 +7,7 @@ using Grasshopper.Utilities;
 
 namespace Grasshopper.Components.Core.Export.Elements
 {
-    public class IsolatedFootingCollectorComponent : GH_Component
+    public class IsolatedFootingCollectorComponent : ComponentBase
     {
         public IsolatedFootingCollectorComponent()
           : base("Isolated Footings", "Footings",

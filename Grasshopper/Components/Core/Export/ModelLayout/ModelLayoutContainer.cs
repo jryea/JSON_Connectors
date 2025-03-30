@@ -6,7 +6,7 @@ using Grasshopper.Utilities;
 
 namespace Grasshopper.Components.Core.Export.ModelLayout
 {
-    public class LayoutContainerComponent : GH_Component
+    public class LayoutContainerComponent : ComponentBase
     {
         public LayoutContainerComponent()
           : base("Model Layout", "Layout",

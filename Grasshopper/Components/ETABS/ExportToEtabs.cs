@@ -4,12 +4,11 @@ using Grasshopper.Kernel;
 using ETABS.Export;
 using ETABS;
 using System.Collections.Generic;
-using Rhino.FileIO;
-using static System.Resources.ResXFileRef;
+using Grasshopper.Components.Core;
 
 namespace Grasshopper.Components
 {
-    public class ExportToEtabs : GH_Component
+    public class ExportToEtabs : ComponentBase
     {
         public ExportToEtabs()
             : base("Export To Etabs", "E2K",

@@ -6,7 +6,7 @@ using Grasshopper.Utilities;
 
 namespace Grasshopper.Components.Core.Export.ModelLayout
 {
-    public class FloorTypeCollectorComponent : GH_Component
+    public class FloorTypeCollectorComponent : ComponentBase
     {
         public FloorTypeCollectorComponent()
           : base("Floor Types", "FloorTypes",

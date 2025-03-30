@@ -6,7 +6,7 @@ using Core.Models.Metadata;
 
 namespace Grasshopper.Components.Core.Export.Metadata
 {
-    public class UnitsComponent : GH_Component
+    public class UnitsComponent : ComponentBase
     {
         /// <summary>
         /// Initializes a new instance of the Units component.

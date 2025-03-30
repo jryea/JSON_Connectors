@@ -9,7 +9,7 @@ using Grasshopper.Utilities;
 
 namespace Grasshopper.Components.Core.Export.Elements
 {
-    public class BraceCollectorComponent : GH_Component
+    public class BraceCollectorComponent : ComponentBase
     {
         public BraceCollectorComponent()
           : base("Braces", "Braces",

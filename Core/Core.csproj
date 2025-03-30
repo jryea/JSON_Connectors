@@ -5,14 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="Resources\IMEG_Logo_Grasshopper.png" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <EmbeddedResource Include="Resources\IMEG_Logo_Grasshopper.png" />
-  </ItemGroup>
-
-  <ItemGroup>
+    <Folder Include="Resources\" />
     <Folder Include="Validation\" />
   </ItemGroup>
 

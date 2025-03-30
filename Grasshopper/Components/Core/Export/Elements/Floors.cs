@@ -11,7 +11,7 @@ using Grasshopper.Kernel.Types;
 
 namespace Grasshopper.Components.Core.Export.Elements
 {
-    public class FloorCollectorComponent : GH_Component
+    public class FloorCollectorComponent : ComponentBase
     {
         public FloorCollectorComponent()
           : base("Floors", "Floors",

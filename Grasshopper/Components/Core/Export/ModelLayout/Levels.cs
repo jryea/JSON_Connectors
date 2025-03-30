@@ -6,7 +6,7 @@ using Grasshopper.Utilities;
 
 namespace Grasshopper.Components.Core.Export.ModelLayout
 {
-    public class LevelCollectorComponent : GH_Component
+    public class LevelCollectorComponent : ComponentBase
     {
         public LevelCollectorComponent()
           : base("Levels", "Levels",

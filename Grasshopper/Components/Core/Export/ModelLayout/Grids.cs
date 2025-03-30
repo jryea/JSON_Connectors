@@ -8,7 +8,7 @@ using Grasshopper.Utilities;
 
 namespace Grasshopper.Components.Core.Export.ModelLayout
 {
-    public class GridCollectorComponent : GH_Component
+    public class GridCollectorComponent : ComponentBase
     {
         public GridCollectorComponent()
           : base("Grids", "Grids",

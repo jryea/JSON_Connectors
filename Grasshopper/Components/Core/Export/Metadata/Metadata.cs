@@ -6,7 +6,7 @@ using Core.Models.Metadata;
 
 namespace Grasshopper.Components.Core.Export.Metadata
 {
-    public class MetadataComponent : GH_Component
+    public class MetadataComponent : ComponentBase
     {
         /// <summary>
         /// Initializes a new instance of the Metadata component.

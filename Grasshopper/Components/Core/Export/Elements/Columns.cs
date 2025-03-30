@@ -12,7 +12,7 @@ using System.Linq;
 
 namespace Grasshopper.Components.Core.Export.Elements
 {
-    public class ColumnCollectorComponent : GH_Component
+    public class ColumnCollectorComponent : ComponentBase
     {
         public ColumnCollectorComponent()
           : base("Columns", "Columns",

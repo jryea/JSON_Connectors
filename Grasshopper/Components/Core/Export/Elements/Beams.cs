@@ -9,7 +9,7 @@ using Grasshopper.Utilities;
 
 namespace Grasshopper.Components.Core.Export.Elements
 {
-    public class BeamCollectorComponent : GH_Component
+    public class BeamCollectorComponent : ComponentBase
     {
         public BeamCollectorComponent()
           : base("Beams", "Beams",

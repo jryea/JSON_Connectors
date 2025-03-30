@@ -6,7 +6,7 @@ using Grasshopper.Utilities;
 
 namespace Grasshopper.Components.Core.Export.Elements
 {
-    public class ElementContainerComponent : GH_Component
+    public class ElementContainerComponent : ComponentBase
     {
         public ElementContainerComponent()
           : base("Element Container", "Elements",

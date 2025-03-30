@@ -9,7 +9,7 @@ using Grasshopper.Utilities;
 
 namespace Grasshopper.Components.Core.Export.Elements
 {
-    public class WallCollectorComponent : GH_Component
+    public class WallCollectorComponent : ComponentBase
     {
         public WallCollectorComponent()
           : base("Walls", "Walls",

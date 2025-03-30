@@ -40,7 +40,7 @@ namespace ETABS.Utilities
             _gridsExport = new GridsExport();
             _diaphragmsExport = new DiaphragmsExport();
             _materialsExport = new MaterialsExport();
-
+            _framePropertiesExport = new FramePropertiesExport();
             _wallPropertiesExport = new WallPropertiesExport();
             _loadsExport = new LoadPatternsExport();
             _pointCoordinatesExport = new PointCoordinatesExport();
@@ -99,7 +99,9 @@ namespace ETABS.Utilities
                 // Export frame sections
                 if (model.Properties != null && model.Properties.FrameProperties.Count > 0)
                 {
-                    string framePropertiesSection = _framePropertiesExport.ConvertToE2K(model.Properties.FrameProperties);
+                    string framePropertiesSection = _framePropertiesExport.ConvertToE2K(
+                        model.Properties.FrameProperties, 
+                        model.Properties.Materials);
                     sb.AppendLine(framePropertiesSection);
                     sb.AppendLine();
                 }
@@ -107,7 +109,9 @@ namespace ETABS.Utilities
                 // Export wall properties
                 if (model.Properties != null && model.Properties.WallProperties.Count > 0)
                 {
-                    string wallPropertiesSection = _wallPropertiesExport.ConvertToE2K(model.Properties.WallProperties);
+                    string wallPropertiesSection = _wallPropertiesExport.ConvertToE2K
+                        (model.Properties.WallProperties,
+                        model.Properties.Materials);
                     sb.AppendLine(wallPropertiesSection);
                     sb.AppendLine();
                 }

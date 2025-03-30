@@ -1,22 +1,21 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using Core.Models.Properties;
 using Utils = Core.Utilities.Utilities;
 
 namespace ETABS.Export.Properties
 {
-    /// <summary>
-    /// Converts Core WallProperties objects to ETABS E2K format text
-    /// </summary>
+    // Converts Core WallProperties objects to ETABS E2K format text
     public class WallPropertiesExport
     {
-        /// <summary>
-        /// Converts a collection of WallProperties objects to E2K format text
-        /// </summary>
-        /// <param name="wallProperties">Collection of WallProperties objects</param>
-        /// <returns>E2K format text for wall properties</returns>
-        public string ConvertToE2K(IEnumerable<WallProperties> wallProperties)
+        private IEnumerable<Material> _materials;
+
+       
+        // Converts a collection of WallProperties objects to E2K format text
+        public string ConvertToE2K(IEnumerable<WallProperties> wallProperties, IEnumerable<Material> materials)
         {
+            _materials = materials;
             StringBuilder sb = new StringBuilder();
 
             // E2K Wall Properties Section Header
@@ -36,11 +35,7 @@ namespace ETABS.Export.Properties
             return sb.ToString();
         }
 
-        /// <summary>
-        /// Formats a single WallProperties object as E2K shell property
-        /// </summary>
-        /// <param name="wallProp">Wall properties object</param>
-        /// <returns>Formatted E2K shell property string</returns>
+        // Formats a single WallProperties object as E2K shell property
         private string FormatWallProperty(WallProperties wallProp)
         {
             // Check for null or empty name
@@ -50,17 +45,13 @@ namespace ETABS.Export.Properties
             }
 
             // Get Wall Material
-
+            string materialName = _materials.FirstOrDefault(m => m.Id == wallProp.MaterialId)?.Name ?? "Unknown";
 
             // Format: SHELLPROP "name" PROPTYPE "Wall" MATERIAL "material" MODELINGTYPE "ShellThin" WALLTHICKNESS thickness
-            return $"  SHELLPROP  \"{wallProp.Name}\"  PROPTYPE  \"Wall\"  MATERIAL \"{wallProp.MaterialId}\"  MODELINGTYPE \"ShellThin\"  WALLTHICKNESS {wallProp.Thickness}";
+            return $"  SHELLPROP  \"{wallProp.Name}\"  PROPTYPE  \"Wall\"  MATERIAL \"{materialName}\"  MODELINGTYPE \"ShellThin\"  WALLTHICKNESS {wallProp.Thickness}";
         }
 
-        /// <summary>
-        /// Formats wall stiffness modifiers (standard values used in practice)
-        /// </summary>
-        /// <param name="wallProp">Wall properties object</param>
-        /// <returns>Formatted E2K wall modifiers string</returns>
+        // Formats wall stiffness modifiers (standard values used in practice)
         private string FormatWallModifiers(WallProperties wallProp)
         {
             // Standard wall modifiers used in practice:
@@ -70,11 +61,7 @@ namespace ETABS.Export.Properties
             return $"\tSHELLPROP  \"{wallProp.Name}\"  F11MOD 0.5 F22MOD 0.5 M11MOD 0.01 M22MOD 0.01";
         }
 
-        /// <summary>
-        /// Converts a single WallProperties object to E2K format text
-        /// </summary>
-        /// <param name="wallProp">WallProperties object</param>
-        /// <returns>E2K format text for wall property</returns>
+        // Converts a single WallProperties object to E2K format text
         public string ConvertToE2K(WallProperties wallProp)
         {
             StringBuilder sb = new StringBuilder();

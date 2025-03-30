@@ -20,23 +20,15 @@ namespace ETABS.Export.Elements
         private readonly Dictionary<string, string> _floorIdMapping = new Dictionary<string, string>();
         private readonly Dictionary<Point2D, string> _pointMapping;
 
-        /// <summary>
-        /// Constructor that takes a point mapping dictionary
-        /// </summary>
-        /// <param name="pointMapping">Dictionary mapping points to their IDs</param>
+        
+        // Constructor that takes a point mapping dictionary
         public AreaElementsExport(Dictionary<Point2D, string> pointMapping)
         {
             _pointMapping = pointMapping ?? new Dictionary<Point2D, string>();
         }
 
-        /// <summary>
-        /// Processes the structural elements and creates both connectivities and assignments sections
-        /// </summary>
-        /// <param name="elements">Collection of structural elements</param>
-        /// <param name="levels">Collection of levels</param>
-        /// <param name="wallProperties">Collection of wall properties</param>
-        /// <param name="floorProperties">Collection of floor properties</param>
-        /// <returns>E2K format text for area elements (both connectivities and assignments)</returns>
+   
+        // Processes the structural elements and creates both connectivities and assignments sections
         public string ConvertToE2K(
             ElementContainer elements,
             IEnumerable<Level> levels,
@@ -59,11 +51,7 @@ namespace ETABS.Export.Elements
 
         #region Connectivities Methods
 
-        /// <summary>
-        /// Processes area connectivities for walls and floors
-        /// </summary>
-        /// <param name="elements">Collection of structural elements</param>
-        /// <returns>E2K format text for area connectivities</returns>
+        // Processes area connectivities for walls and floors
         private string ProcessAreaConnectivities(ElementContainer elements)
         {
             StringBuilder sb = new StringBuilder();
@@ -77,7 +65,7 @@ namespace ETABS.Export.Elements
                 for (int i = 0; i < elements.Walls.Count; i++)
                 {
                     Wall wall = elements.Walls[i];
-                    if (wall.Points != null && wall.Points.Count >= 3)
+                    if (wall.Points != null && wall.Points.Count >= 2)
                     {
                         // Use consistent naming convention (W1, W2, etc.)
                         string wallId = $"W{i + 1}";
@@ -114,18 +102,21 @@ namespace ETABS.Export.Elements
             return sb.ToString();
         }
 
-        /// <summary>
-        /// Formats a wall connectivity for the E2K file
-        /// </summary>
-        /// <param name="wall">Wall element</param>
-        /// <param name="wallId">Consistent wall ID to use</param>
-        /// <returns>Formatted string for the E2K file</returns>
+        // Formats a wall connectivity for the E2K file
         private string FormatWallConnectivity(Wall wall, string wallId)
         {
             StringBuilder sb = new StringBuilder();
 
             // Get the number of vertices
             int numVertices = wall.Points.Count;
+
+            // If there are only two points, duplicate them to form a closed polygon
+            if (numVertices == 2)
+            {
+                wall.Points.Add(wall.Points[1]);
+                wall.Points.Add(wall.Points[0]);
+                numVertices = 4;
+            }
 
             sb.Append($"  AREA \"{wallId}\" PANEL {numVertices}");
 
@@ -136,25 +127,13 @@ namespace ETABS.Export.Elements
                 sb.Append($" \"{pointId}\"");
             }
 
-            // Repeat the first point to close the polygon if not already closed
-            if (wall.Points.Count > 0 && !Utils.ArePointsEqual(wall.Points[0], wall.Points[wall.Points.Count - 1]))
-            {
-                string firstPointId = Utils.GetPointId(wall.Points[0], _pointMapping);
-                sb.Append($" \"{firstPointId}\"");
-            }
-
             // Add additional parameters (fixed values for now)
             sb.Append(" 1 1 0 0");
 
             return sb.ToString();
         }
 
-        /// <summary>
-        /// Formats a floor connectivity for the E2K file
-        /// </summary>
-        /// <param name="floor">Floor element</param>
-        /// <param name="floorId">Consistent floor ID to use</param>
-        /// <returns>Formatted string for the E2K file</returns>
+        // Formats a floor connectivity for the E2K file
         private string FormatFloorConnectivity(Floor floor, string floorId)
         {
             StringBuilder sb = new StringBuilder();
@@ -180,20 +159,9 @@ namespace ETABS.Export.Elements
             return sb.ToString();
         }
 
-        #endregion
-
-        #region Assignments Methods
-
-        /// <summary>
-        /// Processes area assignments for walls and floors
-        /// </summary>
-        /// <param name="elements">Collection of structural elements</param>
-        /// <param name="levels">Collection of levels</param>
-        /// <param name="wallProperties">Collection of wall properties</param>
-        /// <param name="floorProperties">Collection of floor properties</param>
-        /// <returns>E2K format text for area assignments</returns>
+        // Processes area assignments for walls and floors
         private string ProcessAreaAssignments(
-            ElementContainer elements,
+        ElementContainer elements,
             IEnumerable<Level> levels,
             IEnumerable<WallProperties> wallProperties,
             IEnumerable<FloorProperties> floorProperties)
@@ -202,6 +170,12 @@ namespace ETABS.Export.Elements
 
             // E2K Area Assignments Header
             sb.AppendLine("$ AREA ASSIGNS");
+
+            // Convert levels to a sorted list for easier access
+            var sortedLevels = levels.OrderBy(l => l.Elevation).ToList();
+
+            // Create a dictionary to map level IDs to level names
+            var levelDict = sortedLevels.ToDictionary(l => l.Id, l => l);
 
             // Process wall assignments
             if (elements.Walls != null && elements.Walls.Count > 0)
@@ -219,64 +193,116 @@ namespace ETABS.Export.Elements
                     if (wallProp == null)
                         continue;
 
-                    // Generate story assignments for all levels except the base
-                    // Typically start from Story1 and go up
-                    for (int i = 1; i <= 15; i++)  // Assuming up to Story15
+                    // Find the base and top levels for this wall
+                    if (!string.IsNullOrEmpty(wall.BaseLevelId) && !string.IsNullOrEmpty(wall.TopLevelId))
                     {
-                        string storyName = $"Story{i}";
+                        Level baseLevel = null;
+                        Level topLevel = null;
 
-                        string areaAssign = FormatAreaAssign(
-                            areaId,
-                            storyName,
-                            wallProp.Name,
-                            "DEFAULT",
-                            "Yes",
-                            "MIDDLE",
-                            "No");
+                        // Try to find the levels in our dictionary
+                        levelDict.TryGetValue(wall.BaseLevelId, out baseLevel);
+                        levelDict.TryGetValue(wall.TopLevelId, out topLevel);
 
-                        sb.AppendLine(areaAssign);
+                        if (baseLevel != null && topLevel != null)
+                        {
+                            // Find the level directly above the base level
+                            Level nextLevel = sortedLevels.FirstOrDefault(l => l.Elevation > baseLevel.Elevation);
+
+                            // Find all levels between (and including) nextLevel and top levels
+                            foreach (var level in sortedLevels)
+                            {
+                                // Only include levels from nextLevel to top (inclusive)
+                                if (level.Elevation >= nextLevel.Elevation && level.Elevation <= topLevel.Elevation)
+                                {
+                                    string areaAssign = FormatAreaAssign(
+                                        areaId,
+                                        level.Name,
+                                        wallProp.Name,
+                                        "DEFAULT",
+                                        "Yes",
+                                        "MIDDLE",
+                                        "No");
+
+                                    sb.AppendLine(areaAssign);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            // If we can't find the levels, assign to all levels as a fallback
+                            foreach (var level in sortedLevels)
+                            {
+                                string areaAssign = FormatAreaAssign(
+                                    areaId,
+                                    level.Name,
+                                    wallProp.Name,
+                                    "DEFAULT",
+                                    "Yes",
+                                    "MIDDLE",
+                                    "No");
+
+                                sb.AppendLine(areaAssign);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // If no base/top levels specified, assign to all levels as fallback
+                        foreach (var level in sortedLevels)
+                        {
+                            string areaAssign = FormatAreaAssign(
+                                areaId,
+                                level.Name,
+                                wallProp.Name,
+                                "DEFAULT",
+                                "Yes",
+                                "MIDDLE",
+                                "No");
+
+                            sb.AppendLine(areaAssign);
+                        }
                     }
                 }
+            }
 
-                // Process floor assignments
-                if (elements.Floors != null && elements.Floors.Count > 0)
+            // Process floor assignments
+            if (elements.Floors != null && elements.Floors.Count > 0)
+            {
+                foreach (var floor in elements.Floors)
                 {
-                    foreach (var floor in elements.Floors)
+                    if (!_floorIdMapping.ContainsKey(floor.Id))
+                        continue;
+
+                    // Get the E2K area ID from the mapping
+                    string areaId = _floorIdMapping[floor.Id];
+
+                    // Get the floor properties
+                    FloorProperties floorProps = Utils.FindFloorProperties(floorProperties, floor.FloorPropertiesId);
+                    if (floorProps == null)
+                        continue;
+
+                    // Find the level this floor belongs to
+                    Level floorLevel = Utils.FindLevel(sortedLevels, floor.LevelId);
+                    if (floorLevel == null)
+                        continue;
+
+                    // Create an area assign entry for this floor at its level
+                    string areaAssign = FormatAreaAssign(
+                        areaId,
+                        floorLevel.Name,
+                        floorProps.Name,
+                        "DEFAULT",
+                        "No",
+                        "MIDDLE",
+                        "No");
+
+                    sb.AppendLine(areaAssign);
+
+                    // Add diaphragm information if present
+                    if (!string.IsNullOrEmpty(floor.DiaphragmId))
                     {
-                        if (!_floorIdMapping.ContainsKey(floor.Id))
-                            continue;
-
-                        // Get the E2K area ID from the mapping
-                        string areaId = _floorIdMapping[floor.Id];
-
-                        // Get the floor properties
-                        FloorProperties floorProps = Utils.FindFloorProperties(floorProperties, floor.FloorPropertiesId);
-                        if (floorProps == null)
-                            continue;
-
-                        // Find the level this floor belongs to
-                        Level floorLevel = Utils.FindLevel(levels, floor.LevelId);
-                        if (floorLevel == null)
-                            continue;
-
-                        // Create an area assign entry for this floor at its level
-                        string areaAssign = FormatAreaAssign(
-                            areaId,
-                            floorLevel.Name,
-                            floorProps.Name,
-                            "DEFAULT",
-                            "No",
-                            "MIDDLE",
-                            "No");
-
-                        sb.AppendLine(areaAssign);
-
-                        // Add diaphragm information if present
-                        if (!string.IsNullOrEmpty(floor.DiaphragmId))
-                        {
-                            string diaphragmAssign = $"  AREAASSIGN \"{areaId}\" \"{floorLevel.Name}\" DIAPH \"{floor.DiaphragmId}\"";
-                            sb.AppendLine(diaphragmAssign);
-                        }
+                        string diaphragmAssign = $"  AREAASSIGN \"{areaId}\" \"{floorLevel.Name}\" DIAPH \"{floor.DiaphragmId}\"";
+                        sb.AppendLine(diaphragmAssign);
                     }
                 }
             }
@@ -284,17 +310,9 @@ namespace ETABS.Export.Elements
             return sb.ToString();
         }
 
-        /// <summary>
-        /// Formats an area assignment line for E2K format
-        /// </summary>
-        /// <param name="areaId">ID of the area</param>
-        /// <param name="story">Story or level name</param>
-        /// <param name="section">Section or property name</param>
-        /// <param name="meshType">Mesh type (e.g., "DEFAULT")</param>
-        /// <param name="addRestraint">Add restraint flag (e.g., "Yes" or "No")</param>
-        /// <param name="cardinalPoint">Cardinal point (e.g., "MIDDLE")</param>
-        /// <param name="transformStiffness">Transform stiffness flag (e.g., "Yes" or "No")</param>
-        /// <returns>Formatted area assignment line in E2K format</returns>
+
+        
+        // Formats an area assignment line for E2K format
         private string FormatAreaAssign(
             string areaId,
             string story,

@@ -12,9 +12,6 @@ using ETABS.Export.Elements;
 using ETABS.Export.Metadata;
 using ETABS.Export.Loads;
 using ETABS.Export.Properties;
-using System.Reflection;
-using System.Xml.Linq;
-using static Core.Utilities.IdGenerator;
 
 namespace ETABS.Utilities
 {
@@ -130,10 +127,7 @@ namespace ETABS.Utilities
 
                 WriteFooter(sb, model.Metadata.ProjectInfo);
 
-                // Generate the base E2K content
-                string baseE2kContent = sb.ToString();
-
-                return baseE2kContent;
+                return sb.ToString();
             }
             catch (Exception ex)
             {

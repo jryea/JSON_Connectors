@@ -3,6 +3,7 @@ using Rhino.Geometry;
 using System;
 using System.Collections.Generic;
 using Core.Models.Elements;
+using Core.Models.ModelLayout;
 using Core.Models.Properties;
 using Grasshopper.Utilities;
 
@@ -21,9 +22,11 @@ namespace Grasshopper.Components.Core.Export.Elements
         {
             pManager.AddCurveParameter("Curves", "C", "Curves representing wall centerlines", GH_ParamAccess.list);
             pManager.AddGenericParameter("Properties", "P", "Wall properties", GH_ParamAccess.list);
+            pManager.AddGenericParameter("Base Level", "BL", "Base level of the wall", GH_ParamAccess.list);
+            pManager.AddGenericParameter("Top Level", "TL", "Top level of the wall", GH_ParamAccess.list);
             pManager.AddGenericParameter("Pier/Spandrel", "PS", "Pier/spandrel configuration (optional)", GH_ParamAccess.list);
 
-            pManager[2].Optional = true;
+            pManager[4].Optional = true;
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
@@ -36,6 +39,8 @@ namespace Grasshopper.Components.Core.Export.Elements
             // Input collection
             List<Curve> curves = new List<Curve>();
             List<object> propObjs = new List<object>();
+            List<object> baseLevelObjs = new List<object>();
+            List<object> topLevelObjs = new List<object>();
             List<object> pierSpandrelObjs = new List<object>();
 
             // Check if we have valid inputs
@@ -51,7 +56,19 @@ namespace Grasshopper.Components.Core.Export.Elements
                 return;
             }
 
-            DA.GetDataList(2, pierSpandrelObjs);
+            if (!DA.GetDataList(2, baseLevelObjs))
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "No base levels provided for walls");
+                return;
+            }
+
+            if (!DA.GetDataList(3, topLevelObjs))
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "No top levels provided for walls");
+                return;
+            }
+
+            DA.GetDataList(4, pierSpandrelObjs);
 
             // Validate input counts
             if (curves.Count == 0)
@@ -66,10 +83,24 @@ namespace Grasshopper.Components.Core.Export.Elements
                 return;
             }
 
-            if (curves.Count != propObjs.Count)
+            if (baseLevelObjs.Count == 0)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "No base levels provided for walls");
+                return;
+            }
+
+            if (topLevelObjs.Count == 0)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "No top levels provided for walls");
+                return;
+            }
+
+            // Check that the number of items match
+            if (curves.Count != propObjs.Count || curves.Count != baseLevelObjs.Count || curves.Count != topLevelObjs.Count)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
-                    $"Number of curves ({curves.Count}) must match number of properties ({propObjs.Count})");
+                    $"Number of curves ({curves.Count}) must match number of properties ({propObjs.Count}), " +
+                    $"base levels ({baseLevelObjs.Count}), and top levels ({topLevelObjs.Count})");
                 return;
             }
 
@@ -117,78 +148,60 @@ namespace Grasshopper.Components.Core.Export.Elements
                     continue;
                 }
 
+                // Extract objects from inputs
                 WallProperties wallProps = ExtractObject<WallProperties>(propObjs[i], "WallProperties");
+                Level baseLevel = ExtractObject<Level>(baseLevelObjs[i], "BaseLevel");
+                Level topLevel = ExtractObject<Level>(topLevelObjs[i], "TopLevel");
                 object pierSpandrel = pierSpandrelObjs.Count > i ? pierSpandrelObjs[i] : null;
 
+                // Validate extracted objects
                 if (wallProps == null)
                 {
                     AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Invalid properties at index {i}");
                     continue;
                 }
 
-                // Sample points along the curve to create wall points
-                try
+                if (baseLevel == null)
                 {
-                    List<Point2D> points = new List<Point2D>();
-
-                    // Determine appropriate number of points based on curve length
-                    // More robust calculation with minimum and maximum limits
-                    int numPoints = Math.Max(2, Math.Min(100, (int)(curveLength / 12.0) + 1));
-
-                    // Use curve division with parameter checks
-                    if (numPoints == 2)
-                    {
-                        // For very short curves, just use start and end points
-                        Point3d startPoint = curve.PointAtStart;
-                        Point3d endPoint = curve.PointAtEnd;
-                        points.Add(new Point2D(startPoint.X * 12, startPoint.Y * 12));
-                        points.Add(new Point2D(endPoint.X * 12, endPoint.Y * 12));
-                    }
-                    else
-                    {
-                        // Sample along the curve at regular intervals
-                        for (int j = 0; j < numPoints; j++)
-                        {
-                            try
-                            {
-                                double t = (double)j / (numPoints - 1);
-                                if (t >= 0 && t <= 1)
-                                {
-                                    Point3d point = curve.PointAt(t);
-                                    points.Add(new Point2D(point.X * 12, point.Y * 12));
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
-                                    $"Failed to get point on curve at index {i}, parameter {j}: {ex.Message}");
-                                // Continue with other points
-                            }
-                        }
-                    }
-
-                    // Check if we have enough points to create a wall
-                    if (points.Count < 2)
-                    {
-                        AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
-                            $"Could not extract enough points from curve at index {i}");
-                        continue;
-                    }
-
-                    Wall wall = new Wall
-                    {
-                        Points = points,
-                        PropertiesId = wallProps.Name,
-                        PierSpandrelId = pierSpandrel?.ToString()
-                    };
-
-                    walls.Add(new GH_Wall(wall));
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Invalid base level at index {i}");
+                    continue;
                 }
-                catch (Exception ex)
+
+                if (topLevel == null)
                 {
-                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
-                        $"Error creating wall at index {i}: {ex.Message}");
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Invalid top level at index {i}");
+                    continue;
                 }
+
+                // Check that top level is above base level
+                if (topLevel.Elevation <= baseLevel.Elevation)
+                {
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
+                        $"Top level ({topLevel.Name}, elevation: {topLevel.Elevation}) must be above base level ({baseLevel.Name}, elevation: {baseLevel.Elevation}) at index {i}");
+                    continue;
+                }
+
+                // Get start and end points of the curve
+                List<Point2D> points = GetStartAndEndPoints(curve);
+
+                // Check if we have enough points to create a wall
+                if (points.Count < 2)
+                {
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
+                        $"Could not extract enough points from curve at index {i}");
+                    continue;
+                }
+
+                Wall wall = new Wall
+                {
+                    Points = points,
+                    PropertiesId = wallProps.Id,
+                    BaseLevelId = baseLevel.Id,
+                    TopLevelId = topLevel.Id,
+                    PierSpandrelId = pierSpandrel?.ToString()
+                };
+
+                walls.Add(new GH_Wall(wall));
             }
 
             // Return success message
@@ -204,6 +217,19 @@ namespace Grasshopper.Components.Core.Export.Elements
             }
 
             DA.SetDataList(0, walls);
+        }
+
+        private List<Point2D> GetStartAndEndPoints(Curve curve)
+        {
+            List<Point2D> points = new List<Point2D>();
+
+            // For very short curves, just use start and end points
+            Point3d startPoint = curve.PointAtStart;
+            Point3d endPoint = curve.PointAtEnd;
+            points.Add(new Point2D(startPoint.X * 12, startPoint.Y * 12));
+            points.Add(new Point2D(endPoint.X * 12, endPoint.Y * 12));
+
+            return points;
         }
 
         private T ExtractObject<T>(object obj, string typeName) where T : class
@@ -228,6 +254,16 @@ namespace Grasshopper.Components.Core.Export.Elements
                         return null;
                     }
                     return new WallProperties { Name = name } as T;
+                }
+                else if (obj is string && typeof(T) == typeof(Level))
+                {
+                    string name = (string)obj;
+                    if (string.IsNullOrWhiteSpace(name))
+                    {
+                        AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Empty string ID provided for Level");
+                        return null;
+                    }
+                    return new Level(name, null, 0) as T;
                 }
 
                 // Try cast from Grasshopper types

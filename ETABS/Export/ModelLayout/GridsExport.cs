@@ -5,16 +5,11 @@ using Utils = Core.Utilities.Utilities;
 
 namespace ETABS.Export.ModelLayout
 {
-    /// <summary>
-    /// Converts Core Grid objects to ETABS E2K format text
-    /// </summary>
+
+    // Converts Core Grid objects to ETABS E2K format text
     public class GridsExport
     {
-        /// <summary>
-        /// Converts a collection of Grid objects to E2K format text
-        /// </summary>
-        /// <param name="grids">Collection of Grid objects</param>
-        /// <returns>E2K format text for grids</returns>
+        // Converts a collection of Grid objects to E2K format text
         public string ConvertToE2K(List<Grid> grids)
         {
             StringBuilder sb = new StringBuilder();
@@ -26,9 +21,8 @@ namespace ETABS.Export.ModelLayout
             foreach (var grid in grids)
             {
                 // Determine direction (X or Y) based on coordinates
-
                 bool isYDirection = Utils.AreLinePointsVertical(grid.StartPoint, grid.EndPoint);
-                string direction = isYDirection ? "Y" : "X";
+                string direction = isYDirection ? "X" : "Y";
 
                 // Determine coordinate value
                 double coordinate = isYDirection ? grid.StartPoint.X : grid.StartPoint.Y;

@@ -19,6 +19,16 @@ namespace Core.Models.Elements
         public List<Point2D> Points { get; set; } = new List<Point2D>();
 
         /// <summary>
+        /// ID of the base level for this wall
+        /// </summary>
+        public string BaseLevelId { get; set; }
+
+        /// <summary>
+        /// ID of the top level for this wall
+        /// </summary>
+        public string TopLevelId { get; set; }
+
+        /// <summary>
         /// ID of the properties for this wall
         /// </summary>
         public string PropertiesId { get; set; }

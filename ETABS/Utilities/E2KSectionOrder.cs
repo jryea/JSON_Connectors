@@ -7,9 +7,7 @@ using Core.Models;
 
 namespace ETABS.Export
 {
-    /// <summary>
-    /// Class to specify the order of sections in an E2K file
-    /// </summary>
+    // Class to specify the order of sections in an E2K file
     public class E2KSectionOrder
     {
         // List of section headers in the correct order
@@ -17,7 +15,7 @@ namespace ETABS.Export
         {
             "PROGRAM INFORMATION",
             "CONTROLS",
-            "STORIES - IN SEQUENCE FROM TOP",  // Updated to match the full section name
+            "STORIES - IN SEQUENCE FROM TOP", 
             "GRIDS",
             "DIAPHRAGM NAMES",
             "MATERIAL PROPERTIES",
@@ -59,11 +57,8 @@ namespace ETABS.Export
             "LOG"
         };
 
-        /// <summary>
-        /// Gets the index of a section in the predefined order
-        /// </summary>
-        /// <param name="sectionName">Name of the section</param>
-        /// <returns>Index of the section in the order list, or int.MaxValue if not found</returns>
+       
+        // Gets the index of a section in the predefined order
         public static int GetSectionOrderIndex(string sectionName)
         {
             for (int i = 0; i < SectionOrder.Count; i++)

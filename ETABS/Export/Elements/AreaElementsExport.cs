@@ -309,8 +309,6 @@ namespace ETABS.Export.Elements
 
             return sb.ToString();
         }
-
-
         
         // Formats an area assignment line for E2K format
         private string FormatAreaAssign(

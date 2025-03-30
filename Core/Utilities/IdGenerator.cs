@@ -2,9 +2,8 @@
 
 namespace Core.Utilities
 {
-    /// <summary>
-    /// Utility for generating unique IDs for structural model elements
-    /// </summary>
+ 
+    // Utility for generating unique IDs for structural model elements
     public static class IdGenerator
     {
         // Element type prefixes
@@ -51,11 +50,7 @@ namespace Core.Utilities
             public const string LOAD_COMBINATION = "LC";
         }
 
-        /// <summary>
-        /// Generates a unique ID with a prefix for a specific element type
-        /// </summary>
-        /// <param name="prefix">Element type prefix</param>
-        /// <returns>A unique ID</returns>
+        // Generates a unique ID with a prefix for a specific element type
         public static string Generate(string prefix)
         {
             // Create a unique identifier using a GUID
@@ -65,10 +60,7 @@ namespace Core.Utilities
             return $"{prefix}-{uniquePart}";
         }
 
-        /// <summary>
-        /// Generates a unique model ID
-        /// </summary>
-        /// <returns>A unique model ID</returns>
+        // Generates a unique model ID
         public static string GenerateModelId()
         {
             return Guid.NewGuid().ToString("N").Substring(0, 10).ToUpper();

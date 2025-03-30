@@ -48,6 +48,7 @@ namespace Core.Utilities
             }
             return null;
         }
+
         public static string GetPointId(Point2D point, Dictionary<Point2D, string> pointMapping)
         {
             // Check for exact match
@@ -86,12 +87,7 @@ namespace Core.Utilities
             return "0";
         }
 
-        /// <summary>
-        /// Checks if two points are equal within a small tolerance
-        /// </summary>
-        /// <param name="p1">First point</param>
-        /// <param name="p2">Second point</param>
-        /// <returns>True if points are equal within tolerance</returns>
+        // Checks if two points are equal within a small tolerance
         public static bool ArePointsEqual(Point2D p1, Point2D p2)
         {
             const double tolerance = 0.001;

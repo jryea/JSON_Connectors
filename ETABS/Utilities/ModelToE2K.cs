@@ -24,8 +24,9 @@ namespace ETABS.Utilities
         private readonly StoriesExport _storiesExport;
         private readonly GridsExport _gridsExport;
         private readonly DiaphragmsExport _diaphragmsExport;
-        private readonly WallPropertiesExport _wallPropertiesExport;
         private readonly MaterialsExport _materialsExport;
+        private readonly FramePropertiesExport _framePropertiesExport;
+        private readonly WallPropertiesExport _wallPropertiesExport;
         private readonly LoadPatternsExport _loadsExport;
         private readonly PointCoordinatesExport _pointCoordinatesExport;
 
@@ -38,8 +39,9 @@ namespace ETABS.Utilities
             _storiesExport = new StoriesExport();
             _gridsExport = new GridsExport();
             _diaphragmsExport = new DiaphragmsExport();
-            _wallPropertiesExport = new WallPropertiesExport();
             _materialsExport = new MaterialsExport();
+
+            _wallPropertiesExport = new WallPropertiesExport();
             _loadsExport = new LoadPatternsExport();
             _pointCoordinatesExport = new PointCoordinatesExport();
         }
@@ -94,6 +96,14 @@ namespace ETABS.Utilities
                     sb.AppendLine();
                 }
 
+                // Export frame sections
+                if (model.Properties != null && model.Properties.FrameProperties.Count > 0)
+                {
+                    string framePropertiesSection = _framePropertiesExport.ConvertToE2K(model.Properties.FrameProperties);
+                    sb.AppendLine(framePropertiesSection);
+                    sb.AppendLine();
+                }
+
                 // Export wall properties
                 if (model.Properties != null && model.Properties.WallProperties.Count > 0)
                 {
@@ -103,7 +113,7 @@ namespace ETABS.Utilities
                 }
 
                 if (model.Loads.LoadDefinitions.Count > 0)
-                {
+                { 
                     string loadsSection = _loadsExport.ConvertToE2K(model.Loads);
                     sb.AppendLine(loadsSection);
                     sb.AppendLine();
@@ -113,6 +123,16 @@ namespace ETABS.Utilities
                 string pointsSection = _pointCoordinatesExport.ConvertToE2K(model.Elements, model.ModelLayout);
                 sb.AppendLine(pointsSection);
                 sb.AppendLine();
+
+                // Create the consolidated line elements exporter with the point mapping
+                var lineElementsExport = new LineElementsExport(_pointCoordinatesExport.PointMapping);
+
+                // Export line elements (both connectivities and assignments)  
+                string lineElementsSection = lineElementsExport.ConvertToE2K(
+                    model.Elements,
+                    model.ModelLayout.Levels,
+                    model.Properties.FrameProperties);
+                sb.AppendLine(lineElementsSection);
 
                 // Create the consolidated area elements exporter with the point mapping
                 var areaElementsExport = new AreaElementsExport(_pointCoordinatesExport.PointMapping);

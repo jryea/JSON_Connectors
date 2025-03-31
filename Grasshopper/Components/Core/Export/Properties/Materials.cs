@@ -14,7 +14,6 @@ namespace Grasshopper.Components.Core.Export.Properties
               "IMEG", "Properties")
         {
         }
-
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("Names", "N", "Names for each material", GH_ParamAccess.list);

@@ -2,18 +2,19 @@
 using System.Collections.Generic;
 using Grasshopper.Kernel;
 using Rhino.Geometry;
-using Core.Models.Loads;
+using CM = Core.Models.Loads;
 using Grasshopper.Components.Core;
+using Grasshopper.Utilities;
 using System.Drawing;
 
 namespace Grasshopper.Components
 {
     public class LoadDefinitionComponent : ComponentBase
     {
-        // Initializes a new instance of the LoadPatternComponent class.
+        // Initializes a new instance of the LoadDefinitionComponent class.
         public LoadDefinitionComponent()
-          : base("Load Pattern", "LoadPattern",
-              "Creates a load pattern definition",
+          : base("Load Definition", "LoadDefinition",
+              "Creates a load definition",
               "IMEG", "Loads")
         {
         }
@@ -30,7 +31,7 @@ namespace Grasshopper.Components
         // Registers all the output parameters for this component.
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddGenericParameter("Load Pattern", "LP", "Load pattern definition", GH_ParamAccess.item);
+            pManager.AddGenericParameter("Load Definition", "LD", "Load definition", GH_ParamAccess.item);
         }
 
         // This is the method that actually does the work.
@@ -47,15 +48,15 @@ namespace Grasshopper.Components
             DA.GetData(2, ref selfWeight);
 
             // Create the load definition
-            LoadDefinition loadDef = new LoadDefinition
+            CM.LoadDefinition loadDef = new CM.LoadDefinition
             {
                 Name = name,
                 Type = type,
                 SelfWeight = selfWeight
             };
 
-            // Output the load definition
-            DA.SetData(0, loadDef);
+            // Output the load definition wrapped in a Goo object
+            DA.SetData(0, new GH_LoadDefinition(loadDef));
         }
 
         // Gets the unique ID for this component. Do not change this ID after release.

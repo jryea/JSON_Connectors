@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Core.Utilities;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -11,9 +12,12 @@ namespace Core.Models.Loads
     /// </summary>
     public class LoadDefinition
     {
-        public string Id { get; set; } = Guid.NewGuid().ToString();
-        public string Type { get; set; }
+        public string Id { get; set; }
+        public string Type { get; set; }  
         public string Name { get; set; }
-        public Dictionary<string, object> Properties { get; set; } = new Dictionary<string, object>();
+        public LoadDefinition() 
+        {
+            Id = IdGenerator.Generate(IdGenerator.Loads.LOAD_DEFINITION);
+        }
     }
 }

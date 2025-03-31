@@ -9,7 +9,7 @@ namespace Core.Models.Loads
     /// </summary>
     public class LoadCombination
     {
-        public string Id { get; set; } = Guid.NewGuid().ToString();
-        public string LoadDefinitionId { get; set; }
+        public string Id { get; set; }
+        public List<string> LoadDefinitionIds { get; set; }
     }
 }

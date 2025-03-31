@@ -28,7 +28,7 @@ namespace ETABS.Export.Loads
             foreach (var loadDef in loads.LoadDefinitions)
             {
                 string loadType = ConvertLoadTypeToE2K(loadDef.Type);
-                double selfWeight = GetSelfWeight(loadDef);
+                double selfWeight = loadDef.SelfWeight;
                 sb.AppendLine($"  LOADPATTERN \"{loadDef.Name}\"  TYPE  \"{loadType}\"  SELFWEIGHT  {selfWeight}");
             }
 
@@ -70,20 +70,6 @@ namespace ETABS.Export.Loads
                 default:
                     return "Other"; // Default load type
             }
-        }
-
-        private double GetSelfWeight(LoadDefinition loadDef)
-        {
-            // Check if the load definition has a selfWeight property
-            if (loadDef.Properties != null &&
-                loadDef.Properties.ContainsKey("selfWeight") &&
-                loadDef.Properties["selfWeight"] is double selfWeight)
-            {
-                return selfWeight;
-            }
-
-            // Otherwise, return 1 for dead load and 0 for other load types
-            return loadDef.Type?.ToLower() == "dead" ? 1.0 : 0.0;
         }
     }
 }

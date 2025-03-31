@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Grasshopper.Components.Core.Export.Loads
 {
-    internal class ShellProps
+    internal class SurfaceLoad
     {
     }
 }

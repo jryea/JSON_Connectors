@@ -15,9 +15,7 @@ using ETABS.Export.Properties;
 
 namespace ETABS.Utilities
 {
-    /// <summary>
-    /// Main exporter class for converting JSON building structure to ETABS E2K format
-    /// </summary>
+    // Main exporter class for converting JSON building structure to ETABS E2K format
     public class ModelToE2K
     {
         private readonly ControlsExport _controlsExport;
@@ -52,10 +50,7 @@ namespace ETABS.Utilities
             _pointCoordinatesExport = new PointCoordinatesExport();
         }
 
-        /// <summary>
-        /// Exports a building structure model to ETABS E2K format
-        /// </summary>
-        /// <param name="model">Building structure model</param>
+        // Exports a building structure model to ETABS E2K format
         public string ExportToE2K(BaseModel model)
         {
             try
@@ -171,9 +166,9 @@ namespace ETABS.Utilities
                 }
 
                 // Export load cases
-                string loadCasesSection = _loadCasesExport.ConvertToE2K(model.Loads);
-                sb.AppendLine(loadCasesSection);
-                sb.AppendLine();
+                //string loadCasesSection = _loadCasesExport.ConvertToE2K(model.Loads);
+                //sb.AppendLine(loadCasesSection);
+                //sb.AppendLine();
 
                 // Export load combinations
                 string loadCombinationsSection = _loadCombinationsExport.ConvertToE2K(model.Loads);

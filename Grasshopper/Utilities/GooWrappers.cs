@@ -327,7 +327,7 @@ namespace Grasshopper.Utilities
         public override string ToString()
         {
             if (Value == null) return "Null SurfaceLoad";
-            return $"SurfaceLoad: Layout={Value.LayoutTypeId}, Dead={Value.DeadId}, Live={Value.LiveId}";
+            return $"SurfaceLoad: Layout={Value.LayoutTypeId}, Dead={Value.DeadLoadId}, Live={Value.LiveLoadId}";
         }
     }
 
@@ -341,7 +341,7 @@ namespace Grasshopper.Utilities
         public override string ToString()
         {
             if (Value == null) return "Null LoadCombination";
-            return $"LoadCombo: Def={Value.LoadDefinitionId}";
+            return $"LoadCombo: Def={Value.LoadDefinitionIds}";
         }
     }
 

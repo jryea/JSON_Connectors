@@ -6,7 +6,7 @@ using Grasshopper.Utilities;
 
 namespace Grasshopper.Components.Core.Export.Properties
 {
-    public class DiaphragmCollectorComponent : GH_Component
+    public class DiaphragmCollectorComponent : ComponentBase
     {
         public DiaphragmCollectorComponent()
           : base("Diaphragms", "Diaphragms",

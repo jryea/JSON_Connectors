@@ -8,9 +8,7 @@ namespace Grasshopper.Components.Core.Export.Metadata
 {
     public class ProjectInfoComponent : ComponentBase
     {
-        /// <summary>
-        /// Initializes a new instance of the ProjectInfo component.
-        /// </summary>
+        // Initializes a new instance of the ProjectInfo component.
         public ProjectInfoComponent()
           : base("Project Info", "ProjInfo",
               "Creates project information for the structural model",
@@ -18,26 +16,19 @@ namespace Grasshopper.Components.Core.Export.Metadata
         {
         }
 
-        /// <summary>
-        /// Registers all the input parameters for this component.
-        /// </summary>
+        // Registers all the input parameters for this component.
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("Project Name", "N", "Name of the project", GH_ParamAccess.item, "New Project");
         }
 
-        /// <summary>
-        /// Registers all the output parameters for this component.
-        /// </summary>
+        // Registers all the output parameters for this component.
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
             pManager.AddGenericParameter("Project Info", "PI", "Project information for the structural model", GH_ParamAccess.item);
         }
 
-        /// <summary>
-        /// This is the method that actually does the work.
-        /// </summary>
-        /// <param name="DA">The DA object is used to retrieve from inputs and store in outputs.</param>
+        // This is the method that actually does the work.
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             // Retrieve input data
@@ -73,20 +64,7 @@ namespace Grasshopper.Components.Core.Export.Metadata
             }
         }
 
-        /// <summary>
-        /// Provides an Icon for the component.
-        /// </summary>
-        protected override Bitmap Icon
-        {
-            get
-            {
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// Gets the unique ID for this component. Do not change this ID after release.
-        /// </summary>
+        // Gets the unique ID for this component. Do not change this ID after release.
         public override Guid ComponentGuid => new Guid("C4D5E6F7-A8B9-0C1D-2E3F-4A5B6C7D8E9F");
     }
 }

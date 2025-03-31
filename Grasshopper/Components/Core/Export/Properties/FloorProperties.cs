@@ -8,11 +8,9 @@ using GH_Type = Grasshopper.Kernel.Types;
 
 namespace Grasshopper.Components.Core.Export.Properties
 {
-    public class FloorPropertiesCollectorComponent : GH_Component
+    public class FloorPropertiesCollectorComponent : ComponentBase
     {
-        /// <summary>
-        /// Initializes a new instance of the FloorPropertiesCollector class.
-        /// </summary>
+        // Initializes a new instance of the FloorPropertiesCollector class.
         public FloorPropertiesCollectorComponent()
           : base("Floor Properties", "FloorProps",
               "Creates floor property definitions for the structural model",
@@ -20,9 +18,7 @@ namespace Grasshopper.Components.Core.Export.Properties
         {
         }
 
-        /// <summary>
-        /// Registers all the input parameters for this component.
-        /// </summary>
+        // Registers all the input parameters for this component.
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("Names", "N", "Name for each floor property", GH_ParamAccess.list);
@@ -35,18 +31,15 @@ namespace Grasshopper.Components.Core.Export.Properties
             pManager[4].Optional = true;
         }
 
-        /// <summary>
-        /// Registers all the output parameters for this component.
-        /// </summary>
+      
+        // Registers all the output parameters for this component.
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
             pManager.AddGenericParameter("Floor Properties", "FP", "Floor property definitions for the structural model", GH_ParamAccess.list);
         }
 
-        /// <summary>
-        /// This is the method that actually does the work.
-        /// </summary>
-        /// <param name="DA">The DA object is used to retrieve from inputs and store in outputs.</param>
+      
+        // This is the method that actually does the work.
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             // Retrieve input data
@@ -227,20 +220,8 @@ namespace Grasshopper.Components.Core.Export.Properties
                 return "Unknown";
         }
 
-        /// <summary>
-        /// Provides an Icon for the component.
-        /// </summary>
-        protected override Bitmap Icon
-        {
-            get
-            {
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// Gets the unique ID for this component. Do not change this ID after release.
-        /// </summary>
+    
+        // Gets the unique ID for this component. Do not change this ID after release.
         public override Guid ComponentGuid => new Guid("5A6B7C8D-9E0F-1A2B-3C4D-5E6F7A8B9C0D");
     }
 }

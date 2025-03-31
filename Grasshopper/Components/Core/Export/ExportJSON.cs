@@ -13,7 +13,7 @@ using Grasshopper.Utilities;
 
 namespace Grasshopper.Components.Core.Export
 {
-    public class ExportJSONComponent : GH_Component
+    public class ExportJSONComponent : ComponentBase
     {
         public ExportJSONComponent()
           : base("Export JSON", "ExpJSON",

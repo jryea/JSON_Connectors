@@ -6,7 +6,7 @@ using Grasshopper.Utilities;
 
 namespace Grasshopper.Components.Core.Export.Properties
 {
-    public class MaterialCollectorComponent : GH_Component
+    public class MaterialCollectorComponent : ComponentBase
     {
         public MaterialCollectorComponent()
           : base("Materials", "Materials",

@@ -1,21 +1,20 @@
 ﻿using System;
 using System.Drawing;
 using Grasshopper.Kernel;
+using Grasshopper.Utilities;
 
-namespace IMEGToolbarInfo
+public class IMEGToolbarInfo : GH_AssemblyInfo
 {
-    public class IMEGToolbarInfo : GH_AssemblyInfo
-    {
-        public override string Name => "IMEG Toolbar";
+    public override string Name => "JSON Connectors"; // Use a consistent name across assemblies
 
-        public override string Version => "1.0.0";
+    public override Bitmap Icon => Helpers.GetLogo();
 
-        public override Bitmap Icon => null;
+    public override string Description => "JSON connectors for structural interoperability";
 
-        public override string Description => "IMEG tools";
+    // Ensure this GUID is unique and consistent
+    public override Guid Id => new Guid("48ce1b0b-18fc-45b7-abf4-22b110a37b64");
 
-        public override Guid Id => new Guid("80D76120-2908-4CE5-BDEA-1A24A47F4FDF");
+    public override string AuthorName => "IMEG";
 
-        public override string AuthorName => "IMEG";
-    }
+    public override string AuthorContact => "https://www.imegcorp.com";
 }

@@ -3,14 +3,13 @@ using System.Collections.Generic;
 using System.Drawing;
 using Grasshopper.Kernel;
 using Core.Models.Metadata;
+using Grasshopper.Components.Core;
 
 namespace Grasshopper.Components.Core.Export.Metadata
 {
     public class MetadataComponent : ComponentBase
     {
-        /// <summary>
-        /// Initializes a new instance of the Metadata component.
-        /// </summary>
+        // Initializes a new instance of the Metadata component.
         public MetadataComponent()
           : base("Metadata", "Meta",
               "Creates a complete metadata package for the structural model",
@@ -18,9 +17,7 @@ namespace Grasshopper.Components.Core.Export.Metadata
         {
         }
 
-        /// <summary>
-        /// Registers all the input parameters for this component.
-        /// </summary>
+        // Registers all the input parameters for this component.
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             // Option 1: Use pre-created components
@@ -28,19 +25,13 @@ namespace Grasshopper.Components.Core.Export.Metadata
             pManager.AddGenericParameter("Units", "U", "Units definition (optional)", GH_ParamAccess.item);
         }
 
-        /// <summary>
-        /// Registers all the output parameters for this component.
-        /// </summary>
+        // Registers all the output parameters for this component.
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
             pManager.AddGenericParameter("Metadata", "PI", "Metadata for the structural model", GH_ParamAccess.item);
         }
 
-        /// <summary>
-        /// This is the method that actually does the work.
-        /// </summary>
-        /// <param name="DA">The DA object is used to retrieve from inputs and store in outputs.</param>
-        /// s
+        // This is the method that actually does the work.
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             // Retrieve input data - pre-created components
@@ -68,20 +59,7 @@ namespace Grasshopper.Components.Core.Export.Metadata
             }
         }
 
-        /// <summary>
-        /// Provides an Icon for the component.
-        /// </summary>
-        protected override Bitmap Icon
-        {
-            get
-            {
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// Gets the unique ID for this component. Do not change this ID after release.
-        /// </summary>
+        // Gets the unique ID for this component. Do not change this ID after release.
         public override Guid ComponentGuid => new Guid("E5F6A7B8-C9D0-1E2F-3A4B-5C6D7E8F9A0B");
     }
 }

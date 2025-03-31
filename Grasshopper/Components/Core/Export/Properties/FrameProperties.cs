@@ -6,21 +6,17 @@ using Core.Models.Properties;
 
 namespace Grasshopper.Components.Core.Export.Properties
 {
-    public class FramePropertiesCollectorComponent : GH_Component
+    public class FramePropertiesCollectorComponent : ComponentBase
     {
-        /// <summary>
-        /// Initializes a new instance of the FramePropertiesCollector class.
-        /// </summary>
+        // Initializes a new instance of the FramePropertiesCollector class.
         public FramePropertiesCollectorComponent()
-          : base("Frame Property", "FrameProp",
+          : base("Frame Properties", "FrameProp",
               "Creates frame property definitions for beams, columns, and braces",
               "IMEG", "Properties")
         {
         }
 
-        /// <summary>
-        /// Registers all the input parameters for this component.
-        /// </summary>
+        // Registers all the input parameters for this component.
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("Name", "N", "Name for the frame property", GH_ParamAccess.item);
@@ -36,18 +32,14 @@ namespace Grasshopper.Components.Core.Export.Properties
             pManager[5].Optional = true;
         }
 
-        /// <summary>
-        /// Registers all the output parameters for this component.
-        /// </summary>
+        // Registers all the output parameters for this component.
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
             pManager.AddGenericParameter("Frame Property", "FP", "Frame property definition for the structural model", GH_ParamAccess.item);
         }
 
-        /// <summary>
-        /// This is the method that actually does the work.
-        /// </summary>
-        /// <param name="DA">The DA object is used to retrieve from inputs and store in outputs.</param>
+    
+        // This is the method that actually does the work.
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             // Retrieve input data
@@ -130,29 +122,6 @@ namespace Grasshopper.Components.Core.Export.Properties
             }
         }
 
-        private Material ExtractMaterial(object materialObj)
-        {
-            // Direct reference
-            if (materialObj is Material material)
-                return material;
-
-            // Through wrapper
-            if (materialObj is Utilities.GH_Material ghMaterial)
-                return ghMaterial.Value;
-
-            // Try by name/string (for backward compatibility)
-            if (materialObj is string materialName && !string.IsNullOrWhiteSpace(materialName))
-            {
-                return new Material
-                {
-                    Name = materialName,
-                    Type = "Unknown"
-                };
-            }
-
-            return null;
-        }
-
         private void SetDefaultDimensions(FrameProperties frameProperty, string shape)
         {
             if (shape.StartsWith("W", StringComparison.OrdinalIgnoreCase) ||
@@ -186,20 +155,8 @@ namespace Grasshopper.Components.Core.Export.Properties
             }
         }
 
-        /// <summary>
-        /// Provides an Icon for the component.
-        /// </summary>
-        protected override Bitmap Icon
-        {
-            get
-            {
-                return null;
-            }
-        }
 
-        /// <summary>
-        /// Gets the unique ID for this component. Do not change this ID after release.
-        /// </summary>
+        // Gets the unique ID for this component. Do not change this ID after release.
         public override Guid ComponentGuid => new Guid("D1E2F3A4-B5C6-D7E8-F9A0-B1C2D3E4F5A6");
     }
 }

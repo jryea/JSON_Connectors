@@ -27,7 +27,10 @@ namespace ETABS.Utilities
         private readonly MaterialsExport _materialsExport;
         private readonly FramePropertiesExport _framePropertiesExport;
         private readonly WallPropertiesExport _wallPropertiesExport;
-        private readonly LoadPatternsExport _loadsExport;
+        private readonly LoadPatternsExport _loadPatternsExport;
+        private readonly LoadCasesExport _loadCasesExport;
+        private readonly LoadCombinationsExport _loadCombinationsExport;
+        private readonly ShellPropsExport _shellPropsExport;
         private readonly PointCoordinatesExport _pointCoordinatesExport;
 
         // Add an injector instance
@@ -42,7 +45,10 @@ namespace ETABS.Utilities
             _materialsExport = new MaterialsExport();
             _framePropertiesExport = new FramePropertiesExport();
             _wallPropertiesExport = new WallPropertiesExport();
-            _loadsExport = new LoadPatternsExport();
+            _loadPatternsExport = new LoadPatternsExport();
+            _loadCasesExport = new LoadCasesExport();
+            _loadCombinationsExport = new LoadCombinationsExport();
+            _shellPropsExport = new ShellPropsExport();
             _pointCoordinatesExport = new PointCoordinatesExport();
         }
 
@@ -100,7 +106,7 @@ namespace ETABS.Utilities
                 if (model.Properties != null && model.Properties.FrameProperties.Count > 0)
                 {
                     string framePropertiesSection = _framePropertiesExport.ConvertToE2K(
-                        model.Properties.FrameProperties, 
+                        model.Properties.FrameProperties,
                         model.Properties.Materials);
                     sb.AppendLine(framePropertiesSection);
                     sb.AppendLine();
@@ -116,12 +122,10 @@ namespace ETABS.Utilities
                     sb.AppendLine();
                 }
 
-                if (model.Loads.LoadDefinitions.Count > 0)
-                { 
-                    string loadsSection = _loadsExport.ConvertToE2K(model.Loads);
-                    sb.AppendLine(loadsSection);
-                    sb.AppendLine();
-                }
+                // Export load patterns
+                string loadPatternsSection = _loadPatternsExport.ConvertToE2K(model.Loads);
+                sb.AppendLine(loadPatternsSection);
+                sb.AppendLine();
 
                 // Export point coordinates (needed before structural elements)
                 string pointsSection = _pointCoordinatesExport.ConvertToE2K(model.Elements, model.ModelLayout);
@@ -137,6 +141,7 @@ namespace ETABS.Utilities
                     model.ModelLayout.Levels,
                     model.Properties.FrameProperties);
                 sb.AppendLine(lineElementsSection);
+                sb.AppendLine();
 
                 // Create the consolidated area elements exporter with the point mapping
                 var areaElementsExport = new AreaElementsExport(_pointCoordinatesExport.PointMapping);
@@ -148,7 +153,37 @@ namespace ETABS.Utilities
                     model.Properties.WallProperties,
                     model.Properties.FloorProperties);
                 sb.AppendLine(areaElementsSection);
+                sb.AppendLine();
 
+                // Export shell uniform load sets
+                if (model.Loads.SurfaceLoads.Count > 0)
+                {
+                    string shellPropsSection = _shellPropsExport.ConvertToE2K(
+                        model.Loads.SurfaceLoads,
+                        model.Loads.LoadDefinitions);
+                    sb.AppendLine(shellPropsSection);
+                    sb.AppendLine();
+
+                    // Export area loads
+                    string areaLoadsSection = _shellPropsExport.FormatAreaLoads(model.Loads.SurfaceLoads);
+                    sb.AppendLine(areaLoadsSection);
+                    sb.AppendLine();
+                }
+
+                // Export load cases
+                string loadCasesSection = _loadCasesExport.ConvertToE2K(model.Loads);
+                sb.AppendLine(loadCasesSection);
+                sb.AppendLine();
+
+                // Export load combinations
+                string loadCombinationsSection = _loadCombinationsExport.ConvertToE2K(model.Loads);
+                sb.AppendLine(loadCombinationsSection);
+                sb.AppendLine();
+
+                // Add standard analysis options section
+                WriteAnalysisOptions(sb);
+
+                // Write the footer
                 WriteFooter(sb, model.Metadata.ProjectInfo);
 
                 return sb.ToString();
@@ -165,21 +200,41 @@ namespace ETABS.Utilities
             sb.AppendLine("\tPROGRAM  \"ETABS\"  VERSION \"21.2.0\"\n");
         }
 
+        private void WriteAnalysisOptions(StringBuilder sb)
+        {
+            // Add standard analysis options section based on E2K Mission Bay file
+            sb.AppendLine("$ ANALYSIS OPTIONS");
+            sb.AppendLine("  ACTIVEDOF \"UX UY UZ RX RY RZ\"  ");
+            sb.AppendLine("  MODELHINGESINLINKS \"Yes\"  HINGEDAMPINGOPTION \"KT\"  ");
+            sb.AppendLine("  PDELTA  METHOD \"NONE\"  ");
+            sb.AppendLine("  AUTOMESHOPTIONS  MESHTYPE  \"GENERAL\"  FLOORMESHMAXSIZE  144 WALLMESHMAXSIZE  60 ");
+            sb.AppendLine();
+
+            // Add mass source section
+            sb.AppendLine("$ MASS SOURCE");
+            sb.AppendLine("  MASSSOURCE  \"MsSrc1\"    INCLUDEELEMENTS \"No\"    INCLUDEADDEDMASS \"No\"    INCLUDELOADS \"Yes\"    INCLUDEMOVE \"No\"    INCLUDELATERALMASS \"Yes\"    INCLUDEVERTICALMASS \"No\"    LUMPATSTORIES \"Yes\"    ISDEFAULT \"Yes\"  ");
+            sb.AppendLine("  MASSSOURCELOAD  \"MsSrc1\"  \"SW\"  1 ");
+            sb.AppendLine("  MASSSOURCELOAD  \"MsSrc1\"  \"SDL\"  1 ");
+            sb.AppendLine();
+        }
+
         private void WriteFooter(StringBuilder sb, ProjectInfo projectInfo)
         {
             // Project Information section
             sb.AppendLine("$ PROJECT INFORMATION");
-            sb.AppendLine($"  PROJECTINFO  COMPANYNAME \"IMEG\"  MODELNAME \"{projectInfo.ProjectName}.e2k\"");
+            sb.AppendLine($"  PROJECTINFO    COMPANYNAME \"IMEG\"    MODELNAME \"{projectInfo.ProjectName}\"  ");
             sb.AppendLine();
 
             // Log section
             sb.AppendLine("$ LOG");
             sb.AppendLine("  STARTCOMMENTS  ");
-            sb.AppendLine("  END  ");
+            sb.AppendLine($"ETABS Nonlinear  21.2.0 File saved as {projectInfo.ProjectName}.EDB at {DateTime.Now}");
+            sb.AppendLine("  ENDCOMMENTS  ");
             sb.AppendLine();
 
             // End of model file marker
-            sb.AppendLine("  END OF MODEL FILE");
+            sb.AppendLine("  END");
+            sb.AppendLine("$ END OF MODEL FILE");
         }
     }
 }

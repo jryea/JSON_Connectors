@@ -4,9 +4,8 @@ using System.Text;
 
 namespace Core.Models.Loads
 {
-    /// <summary>
-    /// Container for all loads in the structural model
-    /// </summary>
+    // Container for all loads in the structural model
+   
     public class LoadContainer
     {
         public List<LoadDefinition> LoadDefinitions { get; set; } = new List<LoadDefinition>();

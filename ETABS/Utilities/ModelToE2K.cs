@@ -150,7 +150,7 @@ namespace ETABS.Utilities
                 sb.AppendLine(areaElementsSection);
                 sb.AppendLine();
 
-                // Export shell uniform load sets
+                //Export shell uniform load sets
                 if (model.Loads.SurfaceLoads.Count > 0)
                 {
                     string shellPropsSection = _shellPropsExport.ConvertToE2K(
@@ -166,9 +166,9 @@ namespace ETABS.Utilities
                 }
 
                 // Export load cases
-                //string loadCasesSection = _loadCasesExport.ConvertToE2K(model.Loads);
-                //sb.AppendLine(loadCasesSection);
-                //sb.AppendLine();
+                string loadCasesSection = _loadCasesExport.ConvertToE2K(model.Loads);
+                sb.AppendLine(loadCasesSection);
+                sb.AppendLine();
 
                 // Export load combinations
                 string loadCombinationsSection = _loadCombinationsExport.ConvertToE2K(model.Loads);

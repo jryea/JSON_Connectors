@@ -29,7 +29,7 @@ namespace Grasshopper.Components
         {
             pManager.AddTextParameter("Result", "R", "Result of the export operation", GH_ParamAccess.item);
             pManager.AddBooleanParameter("Success", "S", "True if export was successful", GH_ParamAccess.item);
-            pManager.AddTextParameter("JSON", "J", "JSON representation of the model", GH_ParamAccess.item);
+            pManager.AddTextParameter("E2K", "E2K", "ETABS E2K export", GH_ParamAccess.item);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)

@@ -20,14 +20,14 @@ namespace ETABS.Export.Elements
         private readonly Dictionary<string, string> _floorIdMapping = new Dictionary<string, string>();
         private readonly Dictionary<Point2D, string> _pointMapping;
 
-        
+
         // Constructor that takes a point mapping dictionary
         public AreaElementsExport(Dictionary<Point2D, string> pointMapping)
         {
             _pointMapping = pointMapping ?? new Dictionary<Point2D, string>();
         }
 
-   
+
         // Processes the structural elements and creates both connectivities and assignments sections
         public string ConvertToE2K(
             ElementContainer elements,
@@ -214,9 +214,12 @@ namespace ETABS.Export.Elements
                                 // Only include levels from nextLevel to top (inclusive)
                                 if (level.Elevation >= nextLevel.Elevation && level.Elevation <= topLevel.Elevation)
                                 {
+                                    // Add "Story" prefix to level name
+                                    string storyName = $"Story{level.Name}";
+
                                     string areaAssign = FormatAreaAssign(
                                         areaId,
-                                        level.Name,
+                                        storyName,
                                         wallProp.Name,
                                         "DEFAULT",
                                         "Yes",
@@ -232,9 +235,12 @@ namespace ETABS.Export.Elements
                             // If we can't find the levels, assign to all levels as a fallback
                             foreach (var level in sortedLevels)
                             {
+                                // Add "Story" prefix to level name
+                                string storyName = $"Story{level.Name}";
+
                                 string areaAssign = FormatAreaAssign(
                                     areaId,
-                                    level.Name,
+                                    storyName,
                                     wallProp.Name,
                                     "DEFAULT",
                                     "Yes",
@@ -250,9 +256,12 @@ namespace ETABS.Export.Elements
                         // If no base/top levels specified, assign to all levels as fallback
                         foreach (var level in sortedLevels)
                         {
+                            // Add "Story" prefix to level name
+                            string storyName = $"Story{level.Name}";
+
                             string areaAssign = FormatAreaAssign(
                                 areaId,
-                                level.Name,
+                                storyName,
                                 wallProp.Name,
                                 "DEFAULT",
                                 "Yes",
@@ -286,10 +295,13 @@ namespace ETABS.Export.Elements
                     if (floorLevel == null)
                         continue;
 
+                    // Add "Story" prefix to level name
+                    string storyName = $"Story{floorLevel.Name}";
+
                     // Create an area assign entry for this floor at its level
                     string areaAssign = FormatAreaAssign(
                         areaId,
-                        floorLevel.Name,
+                        storyName,
                         floorProps.Name,
                         "DEFAULT",
                         "No",
@@ -301,7 +313,7 @@ namespace ETABS.Export.Elements
                     // Add diaphragm information if present
                     if (!string.IsNullOrEmpty(floor.DiaphragmId))
                     {
-                        string diaphragmAssign = $"  AREAASSIGN \"{areaId}\" \"{floorLevel.Name}\" DIAPH \"{floor.DiaphragmId}\"";
+                        string diaphragmAssign = $"  AREAASSIGN \"{areaId}\" \"{storyName}\" DIAPH \"{floor.DiaphragmId}\"";
                         sb.AppendLine(diaphragmAssign);
                     }
                 }
@@ -309,7 +321,7 @@ namespace ETABS.Export.Elements
 
             return sb.ToString();
         }
-        
+
         // Formats an area assignment line for E2K format
         private string FormatAreaAssign(
             string areaId,

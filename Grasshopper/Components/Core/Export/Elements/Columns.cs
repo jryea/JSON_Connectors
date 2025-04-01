@@ -73,7 +73,7 @@ namespace Grasshopper.Components.Core.Export.Elements
 
             List<GH_Column> columns = new List<GH_Column>();
 
-            // Process each column in this branch
+            // Process each column in this list
             for (int i = 0; i < lines.Count; i++)
             {
                 // Get the corresponding level and property for this branch
@@ -85,7 +85,7 @@ namespace Grasshopper.Components.Core.Export.Elements
                 if (baseLevel == null || topLevel == null || frameProps == null || line == null)
                 {
                     AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
-                        $"Invalid level or properties at branch index {i}");
+                        $"Invalid level or properties at list index {i}");
                     continue;
                 }
 

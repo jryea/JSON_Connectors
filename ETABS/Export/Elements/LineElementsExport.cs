@@ -9,7 +9,6 @@ using Utils = Core.Utilities.Utilities;
 
 namespace ETABS.Export.Elements
 {
-   
     // Exports line elements (beams, columns, braces) for the E2K file format
     public class LineElementsExport
     {
@@ -18,7 +17,7 @@ namespace ETABS.Export.Elements
         private readonly Dictionary<string, string> _columnIdMapping = new Dictionary<string, string>();
         private readonly Dictionary<string, string> _braceIdMapping = new Dictionary<string, string>();
         private readonly Dictionary<Point2D, string> _pointMapping;
-    
+
         // Constructor that takes a point mapping dictionary
         public LineElementsExport(Dictionary<Point2D, string> pointMapping)
         {
@@ -45,8 +44,6 @@ namespace ETABS.Export.Elements
             return sb.ToString();
         }
 
-       
-      
         // Processes line connectivities for beams, columns, and braces
         private string ProcessLineConnectivities(ElementContainer elements)
         {
@@ -118,12 +115,7 @@ namespace ETABS.Export.Elements
             return sb.ToString();
         }
 
-        /// <summary>
-        /// Formats a beam connectivity for the E2K file
-        /// </summary>
-        /// <param name="beam">Beam element</param>
-        /// <param name="beamId">Consistent beam ID to use</param>
-        /// <returns>Formatted string for the E2K file</returns>
+        // Formats a beam connectivity for the E2K file
         private string FormatBeamConnectivity(Beam beam, string beamId)
         {
             string startPointId = Utils.GetPointId(beam.StartPoint, _pointMapping);
@@ -133,12 +125,7 @@ namespace ETABS.Export.Elements
             return $"  LINE  \"{beamId}\"  BEAM  \"{startPointId}\"  \"{endPointId}\"  0";
         }
 
-        /// <summary>
-        /// Formats a column connectivity for the E2K file
-        /// </summary>
-        /// <param name="column">Column element</param>
-        /// <param name="columnId">Consistent column ID to use</param>
-        /// <returns>Formatted string for the E2K file</returns>
+        // Formats a column connectivity for the E2K file
         private string FormatColumnConnectivity(Column column, string columnId)
         {
             string startPointId = Utils.GetPointId(column.StartPoint, _pointMapping);
@@ -148,12 +135,7 @@ namespace ETABS.Export.Elements
             return $"  LINE  \"{columnId}\"  COLUMN  \"{startPointId}\"  \"{endPointId}\"  1";
         }
 
-        /// <summary>
-        /// Formats a brace connectivity for the E2K file
-        /// </summary>
-        /// <param name="brace">Brace element</param>
-        /// <param name="braceId">Consistent brace ID to use</param>
-        /// <returns>Formatted string for the E2K file</returns>
+        // Formats a brace connectivity for the E2K file
         private string FormatBraceConnectivity(Brace brace, string braceId)
         {
             string startPointId = Utils.GetPointId(brace.StartPoint, _pointMapping);
@@ -163,13 +145,7 @@ namespace ETABS.Export.Elements
             return $"  LINE  \"{braceId}\"  BRACE  \"{startPointId}\"  \"{endPointId}\"  0";
         }
 
-        /// <summary>
-        /// Processes line assignments for beams, columns, and braces
-        /// </summary>
-        /// <param name="elements">Collection of structural elements</param>
-        /// <param name="levels">Collection of levels</param>
-        /// <param name="frameProperties">Collection of frame properties</param>
-        /// <returns>E2K format text for line assignments</returns>
+        // Processes line assignments for beams, columns, and braces
         private string ProcessLineAssignments(
             ElementContainer elements,
             IEnumerable<Level> levels,
@@ -179,6 +155,9 @@ namespace ETABS.Export.Elements
 
             // E2K Line Assignments Header
             sb.AppendLine("$ LINE ASSIGNS");
+
+            // Convert levels to a sorted list for easier access
+            var sortedLevels = levels.OrderBy(l => l.Elevation).ToList();
 
             // Process beam assignments
             if (elements.Beams != null && elements.Beams.Count > 0)
@@ -201,16 +180,20 @@ namespace ETABS.Export.Elements
                     if (beamLevel == null)
                         continue;
 
-                    // Create a line assign entry for this beam at its level
+                    // For beams, we also want to use the top level
+                    // Since beams only have a single level, we'll use that level
+                    // But this matches the pattern for columns and braces
+
+                    // Add "Story" prefix to level name (except for level 0, which should be "Base")
+                    string storyName = beamLevel.Name == "0" ? "Base" : $"Story{beamLevel.Name}";
                     string lineAssign = FormatLineAssign(
                         lineId,
-                        beamLevel.Name,
+                        storyName,
                         frameProp.Name,
                         24, // Default value for max station spacing
                         "YES", // Auto mesh
                         "YES" // Mesh at intersections
                     );
-
                     sb.AppendLine(lineAssign);
                 }
             }
@@ -236,13 +219,27 @@ namespace ETABS.Export.Elements
                     if (baseLevel == null)
                         continue;
 
+                    // The level IDs and elevations are correct - "0" is the base level (ground floor) and higher numbers 
+                    // are higher floors. The level naming is working as intended.
+                    Level topLevel = null;
+                    if (!string.IsNullOrEmpty(column.TopLevelId))
+                    {
+                        topLevel = Utils.FindLevel(levels, column.TopLevelId);
+                    }
+
+                    // If top level not specified or not found, use base level as a fallback
+                    Level storyLevel = topLevel != null ? topLevel : baseLevel;
+
+                    // Add "Story" prefix to level name (except for level 0, which should be "Base")
+                    string storyName = storyLevel.Name == "0" ? "Base" : $"Story{storyLevel.Name}";
+
                     // Determine end releases - columns usually have "M2J M3J" at base and "PINNED" above
                     string release = "M2J M3J"; // Base level typically has moment releases at the bottom
 
-                    // Format the column assignment
+                    // Format the column assignment - always using the top story
                     string lineAssign = FormatColumnAssign(
                         lineId,
-                        baseLevel.Name,
+                        storyName,
                         frameProp.Name,
                         release,
                         3, // Minimum number of stations
@@ -252,34 +249,8 @@ namespace ETABS.Export.Elements
 
                     sb.AppendLine(lineAssign);
 
-                    // If column extends to higher levels, create assignments for those as well
-                    // For upper stories, change release to "PINNED"
-                    if (!string.IsNullOrEmpty(column.TopLevelId) && column.TopLevelId != column.BaseLevelId)
-                    {
-                        Level topLevel = Utils.FindLevel(levels, column.TopLevelId);
-                        if (topLevel != null)
-                        {
-                            // Create assignments for all intermediate levels between base and top
-                            foreach (var level in levels)
-                            {
-                                // Skip the base level (already processed) and levels outside the column span
-                                if (level.Id == baseLevel.Id || level.Elevation <= baseLevel.Elevation || level.Elevation > topLevel.Elevation)
-                                    continue;
-
-                                string upperLevelAssign = FormatColumnAssign(
-                                    lineId,
-                                    level.Name,
-                                    frameProp.Name,
-                                    "PINNED", // Upper levels typically have pinned connections
-                                    3, // Minimum number of stations
-                                    "YES", // Auto mesh
-                                    "YES" // Mesh at intersections
-                                );
-
-                                sb.AppendLine(upperLevelAssign);
-                            }
-                        }
-                    }
+                    // We're only using the top level assignment, so no need to create assignments for intermediate levels
+                    // Removing the code that creates assignments for intermediate levels
                 }
             }
 
@@ -304,10 +275,23 @@ namespace ETABS.Export.Elements
                     if (baseLevel == null)
                         continue;
 
-                    // Format the brace assignment
+                    // Find the top level for this brace
+                    Level topLevel = null;
+                    if (!string.IsNullOrEmpty(brace.TopLevelId))
+                    {
+                        topLevel = Utils.FindLevel(levels, brace.TopLevelId);
+                    }
+
+                    // If top level not specified or not found, use base level as a fallback
+                    Level storyLevel = topLevel != null ? topLevel : baseLevel;
+
+                    // Add "Story" prefix to level name
+                    string storyName = $"Story{storyLevel.Name}";
+
+                    // Format the brace assignment - always using the top story
                     string lineAssign = FormatBraceAssign(
                         lineId,
-                        baseLevel.Name,
+                        storyName,
                         frameProp.Name,
                         "PINNED", // Braces typically have pinned connections
                         24, // Default value for max station spacing
@@ -320,27 +304,30 @@ namespace ETABS.Export.Elements
                     // If brace extends to higher levels, create assignments for those as well
                     if (!string.IsNullOrEmpty(brace.TopLevelId) && brace.TopLevelId != brace.BaseLevelId)
                     {
-                        Level topLevel = Utils.FindLevel(levels, brace.TopLevelId);
-                        if (topLevel != null)
+                        Level nextLevel = sortedLevels.FirstOrDefault(l => l.Elevation > baseLevel.Elevation);
+                        if (nextLevel != null)
                         {
-                            // Create assignments for all intermediate levels between base and top
-                            foreach (var level in levels)
+                            // Find all levels between (and including) nextLevel and top levels
+                            foreach (var level in sortedLevels)
                             {
-                                // Skip the base level (already processed) and levels outside the brace span
-                                if (level.Id == baseLevel.Id || level.Elevation <= baseLevel.Elevation || level.Elevation > topLevel.Elevation)
-                                    continue;
+                                // Only include levels from nextLevel to top (inclusive)
+                                if (level.Elevation >= nextLevel.Elevation && level.Elevation <= topLevel.Elevation)
+                                {
+                                    // Add "Story" prefix to level name
+                                    string upperStoryName = $"Story{level.Name}";
 
-                                string upperLevelAssign = FormatBraceAssign(
-                                    lineId,
-                                    level.Name,
-                                    frameProp.Name,
-                                    "PINNED", // Braces typically have pinned connections
-                                    24, // Default value for max station spacing
-                                    "YES", // Auto mesh
-                                    "YES" // Mesh at intersections
-                                );
+                                    string upperLevelAssign = FormatBraceAssign(
+                                        lineId,
+                                        upperStoryName,
+                                        frameProp.Name,
+                                        "PINNED", // Braces typically have pinned connections
+                                        24, // Default value for max station spacing
+                                        "YES", // Auto mesh
+                                        "YES" // Mesh at intersections
+                                    );
 
-                                sb.AppendLine(upperLevelAssign);
+                                    sb.AppendLine(upperLevelAssign);
+                                }
                             }
                         }
                     }
@@ -350,16 +337,7 @@ namespace ETABS.Export.Elements
             return sb.ToString();
         }
 
-        /// <summary>
-        /// Formats a beam assignment line for E2K format
-        /// </summary>
-        /// <param name="lineId">ID of the line element</param>
-        /// <param name="story">Story or level name</param>
-        /// <param name="section">Section or property name</param>
-        /// <param name="maxStaSpc">Maximum station spacing</param>
-        /// <param name="autoMesh">Auto mesh flag (e.g., "YES" or "NO")</param>
-        /// <param name="meshAtIntersections">Mesh at intersections flag (e.g., "YES" or "NO")</param>
-        /// <returns>Formatted line assignment for a beam in E2K format</returns>
+        // Formats a beam assignment line for E2K format
         private string FormatLineAssign(
             string lineId,
             string story,
@@ -372,17 +350,7 @@ namespace ETABS.Export.Elements
             return $"  LINEASSIGN  \"{lineId}\"  \"{story}\"  SECTION \"{section}\"  MAXSTASPC {maxStaSpc} AUTOMESH \"{autoMesh}\"  MESHATINTERSECTIONS \"{meshAtIntersections}\"";
         }
 
-        /// <summary>
-        /// Formats a column assignment line for E2K format
-        /// </summary>
-        /// <param name="lineId">ID of the line element</param>
-        /// <param name="story">Story or level name</param>
-        /// <param name="section">Section or property name</param>
-        /// <param name="release">End release code</param>
-        /// <param name="minNumSta">Minimum number of stations</param>
-        /// <param name="autoMesh">Auto mesh flag (e.g., "YES" or "NO")</param>
-        /// <param name="meshAtIntersections">Mesh at intersections flag (e.g., "YES" or "NO")</param>
-        /// <returns>Formatted line assignment for a column in E2K format</returns>
+        // Formats a column assignment line for E2K format
         private string FormatColumnAssign(
             string lineId,
             string story,
@@ -393,20 +361,10 @@ namespace ETABS.Export.Elements
             string meshAtIntersections)
         {
             // Format: LINEASSIGN  "C1"  "Story1"  SECTION "18"  RELEASE "M2J M3J"  MINNUMSTA 3 AUTOMESH "YES"  MESHATINTERSECTIONS "YES"
-            return $"  LINEASSIGN  \"{lineId}\"  \"{story}\"  SECTION \"{section}\"  RELEASE \"{release}\"MINNUMSTA {minNumSta} AUTOMESH \"{autoMesh}\"  MESHATINTERSECTIONS \"{meshAtIntersections}\"";
+            return $"  LINEASSIGN  \"{lineId}\"  \"{story}\"  SECTION \"{section}\"  RELEASE \"{release}\" MINNUMSTA {minNumSta} AUTOMESH \"{autoMesh}\"  MESHATINTERSECTIONS \"{meshAtIntersections}\"";
         }
 
-        /// <summary>
-        /// Formats a brace assignment line for E2K format
-        /// </summary>
-        /// <param name="lineId">ID of the line element</param>
-        /// <param name="story">Story or level name</param>
-        /// <param name="section">Section or property name</param>
-        /// <param name="release">End release code</param>
-        /// <param name="maxStaSpc">Maximum station spacing</param>
-        /// <param name="autoMesh">Auto mesh flag (e.g., "YES" or "NO")</param>
-        /// <param name="meshAtIntersections">Mesh at intersections flag (e.g., "YES" or "NO")</param>
-        /// <returns>Formatted line assignment for a brace in E2K format</returns>
+        // Formats a brace assignment line for E2K format
         private string FormatBraceAssign(
             string lineId,
             string story,
@@ -419,6 +377,5 @@ namespace ETABS.Export.Elements
             // Format similar to columns but with different defaults
             return $"  LINEASSIGN  \"{lineId}\"  \"{story}\"  SECTION \"{section}\"  RELEASE \"{release}\"  MAXSTASPC {maxStaSpc} AUTOMESH \"{autoMesh}\"  MESHATINTERSECTIONS \"{meshAtIntersections}\"";
         }
-     
     }
 }

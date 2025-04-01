@@ -155,7 +155,6 @@ namespace Grasshopper.Components.Core.Export.Properties
             }
         }
 
-
         // Gets the unique ID for this component. Do not change this ID after release.
         public override Guid ComponentGuid => new Guid("D1E2F3A4-B5C6-D7E8-F9A0-B1C2D3E4F5A6");
     }

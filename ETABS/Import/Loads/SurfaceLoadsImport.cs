@@ -4,7 +4,7 @@ using System.Text;
 
 namespace ETABS.Import.Loads
 {
-    internal class SurfaceLoads
+    internal class SurfaceLoadsImport
     {
     }
 }

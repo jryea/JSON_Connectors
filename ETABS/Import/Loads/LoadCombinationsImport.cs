@@ -2,9 +2,9 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace ETABS.Import.Metadata
+namespace ETABS.Import.Loads
 {
-    internal class ProjectInfo
+    internal class LoadCombinationsImport
     {
     }
 }

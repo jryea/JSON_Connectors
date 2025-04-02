@@ -4,7 +4,7 @@ using System.Text;
 
 namespace ETABS.Import.Metadata
 {
-    internal class Units
+    internal class UnitsImport
     {
     }
 }

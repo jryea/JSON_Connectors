@@ -41,12 +41,12 @@ namespace Core.Models.Properties
         /// <summary>
         /// Additional slab-specific properties
         /// </summary>
-        public Dictionary<string, object> SlabProperties { get; set; } = new Dictionary<string, object>();
+        public string DeckPropertiesId { get; set; }
 
         /// <summary>
         /// Additional deck-specific properties
         /// </summary>
-        public Dictionary<string, object> DeckProperties { get; set; } = new Dictionary<string, object>();
+        public string SlabPropertiesId { get; set; }  
 
         /// <summary>
         /// Creates a new FloorProperties with a generated ID
@@ -54,8 +54,6 @@ namespace Core.Models.Properties
         public FloorProperties()
         {
             Id = IdGenerator.Generate(IdGenerator.Properties.FLOOR_PROPERTIES);
-            SlabProperties = new Dictionary<string, object>();
-            DeckProperties = new Dictionary<string, object>();
         }
 
         /// <summary>
@@ -65,7 +63,7 @@ namespace Core.Models.Properties
         /// <param name="type">Type of floor</param>
         /// <param name="thickness">Thickness of the floor in model units</param>
         /// <param name="materialId">ID of the material for this floor</param>
-        public FloorProperties(string name, string type, double thickness, string materialId) : this()
+        public FloorProperties(string name, string type, double thickness, string materialId, string SlabPropertiesId, string DeckPropertiesId ) : this()
         {
             Name = name;
             Type = type;

@@ -158,11 +158,6 @@ namespace ETABS.Utilities
                         model.Loads.LoadDefinitions);
                     sb.AppendLine(shellPropsSection);
                     sb.AppendLine();
-
-                    // Export area loads
-                    string areaLoadsSection = _shellPropsExport.FormatAreaLoads(model.Loads.SurfaceLoads);
-                    sb.AppendLine(areaLoadsSection);
-                    sb.AppendLine();
                 }
 
                 // Export load cases
@@ -174,9 +169,6 @@ namespace ETABS.Utilities
                 string loadCombinationsSection = _loadCombinationsExport.ConvertToE2K(model.Loads);
                 sb.AppendLine(loadCombinationsSection);
                 sb.AppendLine();
-
-                // Add standard analysis options section
-                WriteAnalysisOptions(sb);
 
                 // Write the footer
                 WriteFooter(sb, model.Metadata.ProjectInfo);
@@ -193,24 +185,6 @@ namespace ETABS.Utilities
         {
             sb.AppendLine("$ PROGRAM INFORMATION");
             sb.AppendLine("\tPROGRAM  \"ETABS\"  VERSION \"21.2.0\"\n");
-        }
-
-        private void WriteAnalysisOptions(StringBuilder sb)
-        {
-            // Add standard analysis options section based on E2K Mission Bay file
-            sb.AppendLine("$ ANALYSIS OPTIONS");
-            sb.AppendLine("  ACTIVEDOF \"UX UY UZ RX RY RZ\"  ");
-            sb.AppendLine("  MODELHINGESINLINKS \"Yes\"  HINGEDAMPINGOPTION \"KT\"  ");
-            sb.AppendLine("  PDELTA  METHOD \"NONE\"  ");
-            sb.AppendLine("  AUTOMESHOPTIONS  MESHTYPE  \"GENERAL\"  FLOORMESHMAXSIZE  144 WALLMESHMAXSIZE  60 ");
-            sb.AppendLine();
-
-            // Add mass source section
-            sb.AppendLine("$ MASS SOURCE");
-            sb.AppendLine("  MASSSOURCE  \"MsSrc1\"    INCLUDEELEMENTS \"No\"    INCLUDEADDEDMASS \"No\"    INCLUDELOADS \"Yes\"    INCLUDEMOVE \"No\"    INCLUDELATERALMASS \"Yes\"    INCLUDEVERTICALMASS \"No\"    LUMPATSTORIES \"Yes\"    ISDEFAULT \"Yes\"  ");
-            sb.AppendLine("  MASSSOURCELOAD  \"MsSrc1\"  \"SW\"  1 ");
-            sb.AppendLine("  MASSSOURCELOAD  \"MsSrc1\"  \"SDL\"  1 ");
-            sb.AppendLine();
         }
 
         private void WriteFooter(StringBuilder sb, ProjectInfo projectInfo)

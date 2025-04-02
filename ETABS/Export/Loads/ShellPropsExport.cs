@@ -76,58 +76,8 @@ namespace ETABS.Export.Loads
             return sb.ToString();
         }
 
-        /// <summary>
-        /// Formats shell uniform load object assignments for affected areas
-        /// </summary>
-        /// <param name="surfaceLoads">Collection of SurfaceLoad objects</param>
-        /// <returns>E2K format text for area loads</returns>
-        public string FormatAreaLoads(IEnumerable<SurfaceLoad> surfaceLoads)
-        {
-            StringBuilder sb = new StringBuilder();
-
-            // E2K Shell Object Loads Header
-            sb.AppendLine("$ SHELL OBJECT LOADS");
-
-            if (surfaceLoads == null || !surfaceLoads.Any())
-            {
-                // If no surface loads, add default for F1
-                sb.AppendLine("  AREALOAD  \"F1\"  \"Story1\"  TYPE \"UNIFLOADSET\"  \"0 TYPICAL\"  ");
-                return sb.ToString();
-            }
-
-            // Process each surface load
-            foreach (var surfLoad in surfaceLoads)
-            {
-                if (string.IsNullOrEmpty(surfLoad.LayoutTypeId))
-                    continue;
-
-                string loadSetName = GetLoadSetName(surfLoad);
-                string floorId = "F1"; // Default to F1 if no real mapping is available
-
-                // In a full implementation, this would map the LayoutTypeId to actual floor IDs
-                // For now, we'll use a simple F prefix + index
-                if (surfLoad.LayoutTypeId.Contains("FT-"))
-                {
-                    // Extract some identifier from the floor type
-                    string idPart = surfLoad.LayoutTypeId.Replace("FT-", "");
-                    floorId = $"F{Math.Abs(idPart.GetHashCode() % 5) + 1}"; // Map to F1 through F5
-                }
-
-                // Add area load assignments for typical stories
-                for (int i = 1; i <= 4; i++) // Assuming 4 stories based on previous info
-                {
-                    sb.AppendLine($"  AREALOAD  \"{floorId}\"  \"Story{i}\"  TYPE \"UNIFLOADSET\"  \"{loadSetName}\"  ");
-                }
-            }
-
-            return sb.ToString();
-        }
-
-        /// <summary>
-        /// Gets a formatted name for the load set
-        /// </summary>
-        /// <param name="surfLoad">SurfaceLoad object</param>
-        /// <returns>Formatted load set name</returns>
+      
+        // Gets a formatted name for the load set
         private string GetLoadSetName(SurfaceLoad surfLoad)
         {
             // If the surface load has a proper ID, use it
@@ -146,12 +96,8 @@ namespace ETABS.Export.Loads
             return "0 TYPICAL";
         }
 
-        /// <summary>
         /// Gets a load value from a load definition with appropriate defaults by type
-        /// </summary>
-        /// <param name="loadDef">Load definition object</param>
-        /// <param name="defaultType">Default type to use if no specific value found</param>
-        /// <returns>Load value in ETABS units (lb/in²)</returns>
+ 
         private double GetLoadValue(LoadDefinition loadDef, string defaultType)
         {
             // Default values in psf (pounds per square foot)

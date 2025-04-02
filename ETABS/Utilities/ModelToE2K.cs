@@ -25,6 +25,7 @@ namespace ETABS.Utilities
         private readonly MaterialsExport _materialsExport;
         private readonly FramePropertiesExport _framePropertiesExport;
         private readonly WallPropertiesExport _wallPropertiesExport;
+        private readonly FloorPropertiesExport _floorPropertiesExport; // Added FloorPropertiesExport
         private readonly LoadPatternsExport _loadPatternsExport;
         private readonly LoadCasesExport _loadCasesExport;
         private readonly LoadCombinationsExport _loadCombinationsExport;
@@ -43,6 +44,7 @@ namespace ETABS.Utilities
             _materialsExport = new MaterialsExport();
             _framePropertiesExport = new FramePropertiesExport();
             _wallPropertiesExport = new WallPropertiesExport();
+            _floorPropertiesExport = new FloorPropertiesExport(); // Initialize FloorPropertiesExport
             _loadPatternsExport = new LoadPatternsExport();
             _loadCasesExport = new LoadCasesExport();
             _loadCombinationsExport = new LoadCombinationsExport();
@@ -107,11 +109,21 @@ namespace ETABS.Utilities
                     sb.AppendLine();
                 }
 
+                // Export floor properties (slab properties)
+                if (model.Properties != null && model.Properties.FloorProperties.Count > 0)
+                {
+                    string floorPropertiesSection = _floorPropertiesExport.ConvertToE2K(
+                        model.Properties.FloorProperties,
+                        model.Properties.Materials);
+                    sb.AppendLine(floorPropertiesSection);
+                    sb.AppendLine();
+                }
+
                 // Export wall properties
                 if (model.Properties != null && model.Properties.WallProperties.Count > 0)
                 {
-                    string wallPropertiesSection = _wallPropertiesExport.ConvertToE2K
-                        (model.Properties.WallProperties,
+                    string wallPropertiesSection = _wallPropertiesExport.ConvertToE2K(
+                        model.Properties.WallProperties,
                         model.Properties.Materials);
                     sb.AppendLine(wallPropertiesSection);
                     sb.AppendLine();

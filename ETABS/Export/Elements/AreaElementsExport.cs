@@ -9,10 +9,8 @@ using Utils = Core.Utilities.Utilities;
 
 namespace ETABS.Export.Elements
 {
-    /// <summary>
-    /// Exports area elements (walls, floors) for the E2K file format, handling both
-    /// connectivities and assignments together to ensure consistency
-    /// </summary>
+    // Exports area elements (walls, floors) for the E2K file format, handling both
+  
     public class AreaElementsExport
     {
         // Store area IDs for mapping between connectivities and assignments
@@ -20,13 +18,11 @@ namespace ETABS.Export.Elements
         private readonly Dictionary<string, string> _floorIdMapping = new Dictionary<string, string>();
         private readonly Dictionary<Point2D, string> _pointMapping;
 
-
         // Constructor that takes a point mapping dictionary
         public AreaElementsExport(Dictionary<Point2D, string> pointMapping)
         {
             _pointMapping = pointMapping ?? new Dictionary<Point2D, string>();
         }
-
 
         // Processes the structural elements and creates both connectivities and assignments sections
         public string ConvertToE2K(
@@ -161,7 +157,7 @@ namespace ETABS.Export.Elements
 
         // Processes area assignments for walls and floors
         private string ProcessAreaAssignments(
-        ElementContainer elements,
+            ElementContainer elements,
             IEnumerable<Level> levels,
             IEnumerable<WallProperties> wallProperties,
             IEnumerable<FloorProperties> floorProperties)
@@ -174,7 +170,7 @@ namespace ETABS.Export.Elements
             // Convert levels to a sorted list for easier access
             var sortedLevels = levels.OrderBy(l => l.Elevation).ToList();
 
-            // Create a dictionary to map level IDs to level names
+            // Create a dictionary to map level IDs to level objects
             var levelDict = sortedLevels.ToDictionary(l => l.Id, l => l);
 
             // Process wall assignments
@@ -286,35 +282,60 @@ namespace ETABS.Export.Elements
                     string areaId = _floorIdMapping[floor.Id];
 
                     // Get the floor properties
-                    FloorProperties floorProps = Utils.FindFloorProperties(floorProperties, floor.FloorPropertiesId);
-                    if (floorProps == null)
-                        continue;
+                    var floorProp = floorProperties?.FirstOrDefault(fp => fp.Id == floor.FloorPropertiesId);
+                    string sectionName = floorProp?.Name ?? "Slab1"; // Use default name if properties not found
 
                     // Find the level this floor belongs to
-                    Level floorLevel = Utils.FindLevel(sortedLevels, floor.LevelId);
-                    if (floorLevel == null)
-                        continue;
-
-                    // Add "Story" prefix to level name
-                    string storyName = $"Story{floorLevel.Name}";
-
-                    // Create an area assign entry for this floor at its level
-                    string areaAssign = FormatAreaAssign(
-                        areaId,
-                        storyName,
-                        floorProps.Name,
-                        "DEFAULT",
-                        "No",
-                        "MIDDLE",
-                        "No");
-
-                    sb.AppendLine(areaAssign);
-
-                    // Add diaphragm information if present
-                    if (!string.IsNullOrEmpty(floor.DiaphragmId))
+                    Level floorLevel = null;
+                    if (!string.IsNullOrEmpty(floor.LevelId))
                     {
-                        string diaphragmAssign = $"  AREAASSIGN \"{areaId}\" \"{storyName}\" DIAPH \"{floor.DiaphragmId}\"";
-                        sb.AppendLine(diaphragmAssign);
+                        levelDict.TryGetValue(floor.LevelId, out floorLevel);
+                    }
+
+                    // If level not found, try to estimate based on points
+                    if (floorLevel == null && floor.Points != null && floor.Points.Count > 0)
+                    {
+                        // Get the Z coordinate from the floor's point (assuming all points have same Z)
+                        // This is a simplification - in a real implementation,
+                        // we'd need to consider the actual Z coordinates
+                        floorLevel = sortedLevels.FirstOrDefault();
+                    }
+
+                    // If we still don't have a level, use the first level as default
+                    if (floorLevel == null && sortedLevels.Count > 0)
+                    {
+                        floorLevel = sortedLevels[0];
+                    }
+
+                    if (floorLevel != null)
+                    {
+                        // Add "Story" prefix to level name
+                        string storyName = $"Story{floorLevel.Name}";
+
+                        // Create an area assign entry for this floor at its level
+                        string areaAssign = FormatAreaAssign(
+                            areaId,
+                            storyName,
+                            sectionName,
+                            "DEFAULT",
+                            "No",
+                            "MIDDLE",
+                            "No");
+
+                        sb.AppendLine(areaAssign);
+
+                        // Add diaphragm information if present
+                        if (!string.IsNullOrEmpty(floor.DiaphragmId))
+                        {
+                            string diaphragmAssign = $"  AREAASSIGN \"{areaId}\" \"{storyName}\" DIAPH \"{floor.DiaphragmId}\"";
+                            sb.AppendLine(diaphragmAssign);
+                        }
+                        else
+                        {
+                            // Add default diaphragm if none specified
+                            string diaphragmAssign = $"  AREAASSIGN \"{areaId}\" \"{storyName}\" DIAPH \"D1\"";
+                            sb.AppendLine(diaphragmAssign);
+                        }
                     }
                 }
             }

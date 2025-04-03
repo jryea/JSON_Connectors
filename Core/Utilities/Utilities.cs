@@ -9,6 +9,9 @@ namespace Core.Utilities
 {
     public static class Utilities
     {
+        // Tolerance for point comparisons
+        private const double PointTolerance = 1e-6;
+
         public static bool AreLinePointsVertical(Point3D startPt, Point3D endPt)
         {
             return Math.Abs(endPt.Y - startPt.Y) > Math.Abs(endPt.X - startPt.X);
@@ -51,16 +54,19 @@ namespace Core.Utilities
 
         public static string GetPointId(Point2D point, Dictionary<Point2D, string> pointMapping)
         {
-            // Check for exact match
+            if (point == null || pointMapping == null || pointMapping.Count == 0)
+                return "0";
+
+            // Check for exact match using precise coordinates
             foreach (var entry in pointMapping)
             {
-                if (Math.Abs(entry.Key.X - point.X) < 0.001 && Math.Abs(entry.Key.Y - point.Y) < 0.001)
+                if (ArePointsEqual(entry.Key, point))
                 {
                     return entry.Value;
                 }
             }
 
-            // If no exact match found, try to find the closest point
+            // If no exact match found within tolerance, try to find the closest point
             double minDistance = double.MaxValue;
             string closestPointId = "0";
 
@@ -90,8 +96,10 @@ namespace Core.Utilities
         // Checks if two points are equal within a small tolerance
         public static bool ArePointsEqual(Point2D p1, Point2D p2)
         {
-            const double tolerance = 0.001;
-            return Math.Abs(p1.X - p2.X) < tolerance && Math.Abs(p1.Y - p2.Y) < tolerance;
+            if (p1 == null || p2 == null)
+                return false;
+
+            return Math.Abs(p1.X - p2.X) < PointTolerance && Math.Abs(p1.Y - p2.Y) < PointTolerance;
         }
     }
 }

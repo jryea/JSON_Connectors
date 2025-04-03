@@ -13,7 +13,7 @@ namespace ETABS.Export.Elements
     public class PointCoordinatesExport
     {
         // Dictionary to store point IDs for reference by other exporters
-        private Dictionary<Point2D, string> _pointMapping = new Dictionary<Point2D, string>();
+        private Dictionary<Point2D, string> _pointMapping = new Dictionary<Point2D, string>(new Point2DComparer());
 
         /// <summary>
         /// Gets the point mapping dictionary for use by other exporters
@@ -153,8 +153,8 @@ namespace ETABS.Export.Elements
         private void AddUniquePoint(Dictionary<string, Point2D> uniquePoints, Dictionary<string, string> coordinateToId,
                                    Point2D point, ref int counter)
         {
-            // Create a unique key based on coordinates (with some tolerance)
-            string key = $"{Math.Round(point.X, 2)},{Math.Round(point.Y, 2)}";
+            // Create a unique key based on coordinates with fixed precision (6 decimal places)
+            string key = $"{Math.Round(point.X, 6)},{Math.Round(point.Y, 6)}";
 
             if (!uniquePoints.ContainsKey(key))
             {
@@ -175,6 +175,42 @@ namespace ETABS.Export.Elements
         {
             // Format: POINT  "1"  -6843.36  -821.33
             return $"  POINT  \"{name}\"  {point.X:F2}  {point.Y:F2}";
+        }
+    }
+
+    /// <summary>
+    /// Custom comparer for Point2D objects to ensure proper equality checking
+    /// </summary>
+    public class Point2DComparer : IEqualityComparer<Point2D>
+    {
+        private const double Tolerance = 1e-6;
+
+        public bool Equals(Point2D x, Point2D y)
+        {
+            if (x == null && y == null)
+                return true;
+            if (x == null || y == null)
+                return false;
+
+            return Math.Abs(x.X - y.X) < Tolerance && Math.Abs(x.Y - y.Y) < Tolerance;
+        }
+
+        public int GetHashCode(Point2D obj)
+        {
+            if (obj == null)
+                return 0;
+
+            // Round to fixed precision for consistent hash codes
+            double roundedX = Math.Round(obj.X, 6);
+            double roundedY = Math.Round(obj.Y, 6);
+
+            unchecked
+            {
+                int hash = 17;
+                hash = hash * 23 + roundedX.GetHashCode();
+                hash = hash * 23 + roundedY.GetHashCode();
+                return hash;
+            }
         }
     }
 }

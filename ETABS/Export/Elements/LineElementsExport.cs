@@ -33,11 +33,6 @@ namespace ETABS.Export.Elements
         {
             StringBuilder sb = new StringBuilder();
 
-            // Clear debug log
-            _debugLog.Clear();
-            _debugLog.AppendLine("$ DEBUG LINE ELEMENTS LOG");
-            _debugLog.AppendLine("$ ======================");
-
             // First process the connectivities
             string connectivitiesSection = ProcessLineConnectivities(elements);
             sb.AppendLine(connectivitiesSection);

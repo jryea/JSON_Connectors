@@ -52,42 +52,21 @@ namespace Core.Utilities
             return null;
         }
 
-        // Add this method to the Utilities class with debugging capabilities
-        public static string GetPointId(Point2D point, Dictionary<Point2D, string> pointMapping, StringBuilder debugLog = null)
+        public static string GetPointId(Point2D point, Dictionary<Point2D, string> pointMapping)
         {
             if (point == null || pointMapping == null || pointMapping.Count == 0)
-            {
-                if (debugLog != null)
-                    debugLog.AppendLine("$ GetPointId: Null point or empty mapping, returning '0'");
                 return "0";
-            }
 
-            // Log the target point we're looking for
-            if (debugLog != null)
-                debugLog.AppendLine($"$ GetPointId: Looking for point X={point.X}, Y={point.Y}");
-
-            // Check for exact match (within tolerance)
+            // Check for exact match using precise coordinates
             foreach (var entry in pointMapping)
             {
-                // Check if the points match within tolerance
-                bool pointsMatch = ArePointsEqual(entry.Key, point);
-
-                if (debugLog != null)
+                if (ArePointsEqual(entry.Key, point))
                 {
-                    debugLog.AppendLine($"$ Comparing with mapped point X={entry.Key.X}, Y={entry.Key.Y}, ID={entry.Value}");
-                    debugLog.AppendLine($"$ Distance: {Math.Sqrt(Math.Pow(entry.Key.X - point.X, 2) + Math.Pow(entry.Key.Y - point.Y, 2))}");
-                    debugLog.AppendLine($"$ Points match within tolerance: {pointsMatch}");
-                }
-
-                if (pointsMatch)
-                {
-                    if (debugLog != null)
-                        debugLog.AppendLine($"$ MATCH FOUND: Using point ID {entry.Value}");
                     return entry.Value;
                 }
             }
 
-            // If no exact match found, find closest point
+            // If no exact match found within tolerance, try to find the closest point
             double minDistance = double.MaxValue;
             string closestPointId = "0";
 
@@ -97,9 +76,6 @@ namespace Core.Utilities
                     Math.Pow(entry.Key.X - point.X, 2) +
                     Math.Pow(entry.Key.Y - point.Y, 2));
 
-                if (debugLog != null)
-                    debugLog.AppendLine($"$ Distance to point ID {entry.Value}: {distance}");
-
                 if (distance < minDistance)
                 {
                     minDistance = distance;
@@ -107,17 +83,13 @@ namespace Core.Utilities
                 }
             }
 
-            // Use closest point if within reasonable tolerance
+            // Only use closest point if it's within a reasonable tolerance
             if (minDistance < 0.1)
             {
-                if (debugLog != null)
-                    debugLog.AppendLine($"$ Using closest point ID {closestPointId} with distance {minDistance}");
                 return closestPointId;
             }
 
             // Default to "0" if no match found
-            if (debugLog != null)
-                debugLog.AppendLine("$ No suitable match found, returning '0'");
             return "0";
         }
 

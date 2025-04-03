@@ -18,7 +18,7 @@ namespace Grasshopper.Components.Core.Export
         public ExportJSONComponent()
           : base("Export JSON", "ExpJSON",
               "Export a complete structural model to JSON file",
-              "IMEG", "Export")
+              "IMEG", "Import/Export")
         {
         }
 

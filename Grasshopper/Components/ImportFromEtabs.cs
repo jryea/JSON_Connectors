@@ -13,7 +13,7 @@ namespace Grasshopper.Components
         public ImportFromEtabs()
             : base("Import From Etabs", "E2K2J",
                 "Converts ETABS E2K format to JSON model",
-                "IMEG", "Import")
+                "IMEG", "Import/Export")
         {
         }
 

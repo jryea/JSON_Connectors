@@ -8,13 +8,12 @@ using Core.Models.ModelLayout;
 namespace ETABS.Export.Elements
 {
     /// <summary>
-    /// Exports point coordinates for the E2K file format with additional debugging
+    /// Exports point coordinates for the E2K file format
     /// </summary>
     public class PointCoordinatesExport
     {
         // Dictionary to store point IDs for reference by other exporters
-        private Dictionary<Point2D, string> _pointMapping = new Dictionary<Point2D, string>();
-        private StringBuilder _debugLog = new StringBuilder();
+        private Dictionary<Point2D, string> _pointMapping = new Dictionary<Point2D, string>(new Point2DComparer());
 
         /// <summary>
         /// Gets the point mapping dictionary for use by other exporters
@@ -31,44 +30,16 @@ namespace ETABS.Export.Elements
         {
             StringBuilder sb = new StringBuilder();
 
-            // Clear debug log
-            _debugLog.Clear();
-            _debugLog.AppendLine("$ DEBUG POINT COORDINATES LOG");
-            _debugLog.AppendLine("$ ===========================");
-
             // E2K Point Coordinates Header
             sb.AppendLine("$ POINT COORDINATES");
 
             // Clear any existing point mapping
             _pointMapping.Clear();
 
-            // Dictionaries for tracking unique points
+            // Dictionary to store unique points by coordinate key
             Dictionary<string, Point2D> uniquePoints = new Dictionary<string, Point2D>();
             Dictionary<string, string> coordinateToId = new Dictionary<string, string>();
             int pointCounter = 1;
-
-            // Log beam points for debugging
-            _debugLog.AppendLine("$ BEAM POINT COLLECTION");
-            if (elements.Beams != null && elements.Beams.Count > 0)
-            {
-                for (int i = 0; i < elements.Beams.Count; i++)
-                {
-                    var beam = elements.Beams[i];
-                    _debugLog.AppendLine($"$ Beam {i + 1} (ID: {beam.Id}):");
-
-                    if (beam.StartPoint != null)
-                    {
-                        _debugLog.AppendLine($"$   StartPoint: X={beam.StartPoint.X}, Y={beam.StartPoint.Y}, LevelId={beam.LevelId}");
-                        AddUniquePoint(uniquePoints, coordinateToId, beam.StartPoint, ref pointCounter, $"Beam {i + 1} StartPoint");
-                    }
-
-                    if (beam.EndPoint != null)
-                    {
-                        _debugLog.AppendLine($"$   EndPoint: X={beam.EndPoint.X}, Y={beam.EndPoint.Y}, LevelId={beam.LevelId}");
-                        AddUniquePoint(uniquePoints, coordinateToId, beam.EndPoint, ref pointCounter, $"Beam {i + 1} EndPoint");
-                    }
-                }
-            }
 
             // Process Walls
             if (elements.Walls != null && elements.Walls.Count > 0)
@@ -79,7 +50,7 @@ namespace ETABS.Export.Elements
                     {
                         foreach (var point in wall.Points)
                         {
-                            AddUniquePoint(uniquePoints, coordinateToId, point, ref pointCounter, "Wall Point");
+                            AddUniquePoint(uniquePoints, coordinateToId, point, ref pointCounter);
                         }
                     }
                 }
@@ -94,9 +65,22 @@ namespace ETABS.Export.Elements
                     {
                         foreach (var point in floor.Points)
                         {
-                            AddUniquePoint(uniquePoints, coordinateToId, point, ref pointCounter, "Floor Point");
+                            AddUniquePoint(uniquePoints, coordinateToId, point, ref pointCounter);
                         }
                     }
+                }
+            }
+
+            // Process Beams
+            if (elements.Beams != null && elements.Beams.Count > 0)
+            {
+                foreach (var beam in elements.Beams)
+                {
+                    if (beam.StartPoint != null)
+                        AddUniquePoint(uniquePoints, coordinateToId, beam.StartPoint, ref pointCounter);
+
+                    if (beam.EndPoint != null)
+                        AddUniquePoint(uniquePoints, coordinateToId, beam.EndPoint, ref pointCounter);
                 }
             }
 
@@ -106,10 +90,10 @@ namespace ETABS.Export.Elements
                 foreach (var column in elements.Columns)
                 {
                     if (column.StartPoint != null)
-                        AddUniquePoint(uniquePoints, coordinateToId, column.StartPoint, ref pointCounter, "Column StartPoint");
+                        AddUniquePoint(uniquePoints, coordinateToId, column.StartPoint, ref pointCounter);
 
                     if (column.EndPoint != null)
-                        AddUniquePoint(uniquePoints, coordinateToId, column.EndPoint, ref pointCounter, "Column EndPoint");
+                        AddUniquePoint(uniquePoints, coordinateToId, column.EndPoint, ref pointCounter);
                 }
             }
 
@@ -119,10 +103,10 @@ namespace ETABS.Export.Elements
                 foreach (var brace in elements.Braces)
                 {
                     if (brace.StartPoint != null)
-                        AddUniquePoint(uniquePoints, coordinateToId, brace.StartPoint, ref pointCounter, "Brace StartPoint");
+                        AddUniquePoint(uniquePoints, coordinateToId, brace.StartPoint, ref pointCounter);
 
                     if (brace.EndPoint != null)
-                        AddUniquePoint(uniquePoints, coordinateToId, brace.EndPoint, ref pointCounter, "Brace EndPoint");
+                        AddUniquePoint(uniquePoints, coordinateToId, brace.EndPoint, ref pointCounter);
                 }
             }
 
@@ -134,22 +118,15 @@ namespace ETABS.Export.Elements
                     if (grid.StartPoint != null)
                     {
                         var point = new Point2D(grid.StartPoint.X, grid.StartPoint.Y);
-                        AddUniquePoint(uniquePoints, coordinateToId, point, ref pointCounter, "Grid StartPoint");
+                        AddUniquePoint(uniquePoints, coordinateToId, point, ref pointCounter);
                     }
 
                     if (grid.EndPoint != null)
                     {
                         var point = new Point2D(grid.EndPoint.X, grid.EndPoint.Y);
-                        AddUniquePoint(uniquePoints, coordinateToId, point, ref pointCounter, "Grid EndPoint");
+                        AddUniquePoint(uniquePoints, coordinateToId, point, ref pointCounter);
                     }
                 }
-            }
-
-            // Debug output of unique point keys and their assigned IDs
-            _debugLog.AppendLine("$ UNIQUE POINTS COLLECTION");
-            foreach (var entry in uniquePoints)
-            {
-                _debugLog.AppendLine($"$ Key: {entry.Key}, Point: X={entry.Value.X}, Y={entry.Value.Y}, ID: {coordinateToId[entry.Key]}");
             }
 
             // Format and write all unique points
@@ -163,17 +140,6 @@ namespace ETABS.Export.Elements
                 _pointMapping[entry.Value] = pointId;
             }
 
-            // Debug output of final point mapping
-            _debugLog.AppendLine("$ FINAL POINT MAPPING");
-            foreach (var entry in _pointMapping)
-            {
-                _debugLog.AppendLine($"$ Point: X={entry.Key.X}, Y={entry.Key.Y}, ID: {entry.Value}");
-            }
-
-            // Add debug log to output
-            sb.AppendLine();
-            sb.Append(_debugLog.ToString());
-
             return sb.ToString();
         }
 
@@ -184,26 +150,18 @@ namespace ETABS.Export.Elements
         /// <param name="coordinateToId">Dictionary mapping coordinate keys to point IDs</param>
         /// <param name="point">Point to add</param>
         /// <param name="counter">Reference to the point counter for naming</param>
-        /// <param name="source">Source description for debugging</param>
         private void AddUniquePoint(Dictionary<string, Point2D> uniquePoints, Dictionary<string, string> coordinateToId,
-                                   Point2D point, ref int counter, string source)
+                                   Point2D point, ref int counter)
         {
-            // For debugging, we'll use as exact precision as possible to identify issues
-            // Create a key based on coordinates with fixed precision
-            string key = $"{point.X.ToString("F10")},{point.Y.ToString("F10")}";
-            _debugLog.AppendLine($"$   Adding point from {source}: X={point.X}, Y={point.Y}, Key={key}");
+            // Create a unique key based on coordinates with fixed precision (6 decimal places)
+            string key = $"{Math.Round(point.X, 6)},{Math.Round(point.Y, 6)}";
 
             if (!uniquePoints.ContainsKey(key))
             {
-                _debugLog.AppendLine($"$     New unique point added with ID {counter}");
                 uniquePoints.Add(key, point);
                 string pointId = counter.ToString();
                 coordinateToId[key] = pointId;
                 counter++;
-            }
-            else
-            {
-                _debugLog.AppendLine($"$     Duplicate point, using existing ID {coordinateToId[key]}");
             }
         }
 
@@ -216,7 +174,43 @@ namespace ETABS.Export.Elements
         private string FormatPointLine(string name, Point2D point)
         {
             // Format: POINT  "1"  -6843.36  -821.33
-            return $"  POINT  \"{name}\"  {point.X.ToString("F10")}  {point.Y.ToString("F10")}";
+            return $"  POINT  \"{name}\"  {point.X:F2}  {point.Y:F2}";
+        }
+    }
+
+    /// <summary>
+    /// Custom comparer for Point2D objects to ensure proper equality checking
+    /// </summary>
+    public class Point2DComparer : IEqualityComparer<Point2D>
+    {
+        private const double Tolerance = 1e-6;
+
+        public bool Equals(Point2D x, Point2D y)
+        {
+            if (x == null && y == null)
+                return true;
+            if (x == null || y == null)
+                return false;
+
+            return Math.Abs(x.X - y.X) < Tolerance && Math.Abs(x.Y - y.Y) < Tolerance;
+        }
+
+        public int GetHashCode(Point2D obj)
+        {
+            if (obj == null)
+                return 0;
+
+            // Round to fixed precision for consistent hash codes
+            double roundedX = Math.Round(obj.X, 6);
+            double roundedY = Math.Round(obj.Y, 6);
+
+            unchecked
+            {
+                int hash = 17;
+                hash = hash * 23 + roundedX.GetHashCode();
+                hash = hash * 23 + roundedY.GetHashCode();
+                return hash;
+            }
         }
     }
 }

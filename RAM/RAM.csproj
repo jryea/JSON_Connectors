@@ -41,28 +41,43 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Core\Models\BaseModel.cs" />
     <Compile Include="Export\Elements\BeamExporter.cs" />
     <Compile Include="Export\Elements\FloorExporter.cs" />
     <Compile Include="Export\Loads\LoadExporter.cs" />
     <Compile Include="Export\Loads\SurfaceLoadExporter.cs" />
     <Compile Include="Export\Properties\CompositeDeckPropertiesExporter.cs" />
     <Compile Include="Export\Properties\SlabPropertiesExporter.cs" />
-    <Compile Include="Export\ModelLayout\BaseExporter.cs" />
+    <Compile Include="Export\IRAMExporter.cs" />
     <Compile Include="Export\ModelLayout\FloorTypeExporter.cs" />
     <Compile Include="Export\ModelLayout\GridExporter.cs" />
     <Compile Include="Export\Elements\LayoutBeam.cs" />
     <Compile Include="Export\Elements\ColumnExporter.cs" />
     <Compile Include="Export\Elements\WallExporter.cs" />
-    <Compile Include="Import\NewFile.cs" />
+    <Compile Include="Import\Elements\BeamImporter.cs" />
+    <Compile Include="Import\Elements\ColumnImporter.cs" />
+    <Compile Include="Import\Elements\FloorImporter.cs" />
+    <Compile Include="Import\Elements\WallImporter.cs" />
+    <Compile Include="JSONToRAMConverter.cs" />
+    <Compile Include="Import\Loads\LoadCombinationImporter.cs" />
+    <Compile Include="Import\Loads\LoadDefinitionImporter.cs" />
+    <Compile Include="Import\Loads\SurfaceLoadImporter.cs" />
+    <Compile Include="Import\ModelLayout\GridImporter.cs" />
+    <Compile Include="Import\Properties\FrameSectionPropertiesImporter.cs" />
+    <Compile Include="Import\Properties\MaterialImporter.cs" />
+    <Compile Include="Import\Metadata\MetadataImporter.cs" />
     <Compile Include="Export\Properties\FrameSectionExporter.cs" />
     <Compile Include="Export\Properties\MaterialExporter.cs" />
     <Compile Include="Export\Properties\NonCompositeDeckPropertiesExporter.cs" />
     <Compile Include="Export\ModelLayout\StoryExporter.cs" />
     <Compile Include="Export\RAMExportConfiguration.cs" />
     <Compile Include="Export\RAMExporter.cs" />
+    <Compile Include="Import\Properties\CompositeDeckProperties.cs" />
+    <Compile Include="Import\Properties\NonCompositeDeckProperties.cs" />
+    <Compile Include="Import\Properties\SlabPropertiesImporter.cs" />
+    <Compile Include="Import\Properties\WallPropertiesImporter.cs" />
+    <Compile Include="Import\RAMImporter.cs" />
+    <Compile Include="Import\ModelLayout\StoryImporter.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Utilities\Helpers.cs" />
     <Compile Include="Utilities\ModelValidator.cs" />
     <Compile Include="Utilities\RAMConnector.cs" />
     <Compile Include="Utilities\RAMModelConverter.cs" />
@@ -78,6 +93,68 @@
     <Folder Include="Core\Utilities\" />
     <Folder Include="Diagnostics\" />
     <Folder Include="Export\Metadata\" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Core\Core.csproj">
+      <Project>{80d76120-2908-4ce5-bdea-1a24a47f4fdf}</Project>
+      <Name>Core</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <COMReference Include="RAMCOLUMNLib">
+      <Guid>{A8BDB66B-31BE-4B0C-A3E9-79B40F84E4E5}</Guid>
+      <VersionMajor>1</VersionMajor>
+      <VersionMinor>0</VersionMinor>
+      <Lcid>0</Lcid>
+      <WrapperTool>tlbimp</WrapperTool>
+      <Isolated>False</Isolated>
+      <EmbedInteropTypes>True</EmbedInteropTypes>
+    </COMReference>
+    <COMReference Include="RAMConcAnalysisLib">
+      <Guid>{3FF3AF3F-6A52-41F0-ACF0-A35721540615}</Guid>
+      <VersionMajor>1</VersionMajor>
+      <VersionMinor>0</VersionMinor>
+      <Lcid>0</Lcid>
+      <WrapperTool>tlbimp</WrapperTool>
+      <Isolated>False</Isolated>
+      <EmbedInteropTypes>True</EmbedInteropTypes>
+    </COMReference>
+    <COMReference Include="RAMCONCRETEBEAMLib">
+      <Guid>{98F0C551-2ABD-4017-B1A4-85BC92AA8117}</Guid>
+      <VersionMajor>1</VersionMajor>
+      <VersionMinor>0</VersionMinor>
+      <Lcid>0</Lcid>
+      <WrapperTool>tlbimp</WrapperTool>
+      <Isolated>False</Isolated>
+      <EmbedInteropTypes>True</EmbedInteropTypes>
+    </COMReference>
+    <COMReference Include="RAMCONCRETECOLUMNLib">
+      <Guid>{AEAFEDE7-3283-11D5-82B4-0050DA0AA886}</Guid>
+      <VersionMajor>1</VersionMajor>
+      <VersionMinor>0</VersionMinor>
+      <Lcid>0</Lcid>
+      <WrapperTool>tlbimp</WrapperTool>
+      <Isolated>False</Isolated>
+      <EmbedInteropTypes>True</EmbedInteropTypes>
+    </COMReference>
+    <COMReference Include="RAMCONCRETESHEARWALLLib">
+      <Guid>{89FE88C8-0655-42CB-B129-0A337D56C746}</Guid>
+      <VersionMajor>1</VersionMajor>
+      <VersionMinor>0</VersionMinor>
+      <Lcid>0</Lcid>
+      <WrapperTool>tlbimp</WrapperTool>
+      <Isolated>False</Isolated>
+      <EmbedInteropTypes>True</EmbedInteropTypes>
+    </COMReference>
+    <COMReference Include="RAMDATAACCESSLib">
+      <Guid>{045F59D6-DBB7-4A8C-97ED-9BA47C4C5EC9}</Guid>
+      <VersionMajor>1</VersionMajor>
+      <VersionMinor>0</VersionMinor>
+      <Lcid>0</Lcid>
+      <WrapperTool>tlbimp</WrapperTool>
+      <Isolated>False</Isolated>
+      <EmbedInteropTypes>True</EmbedInteropTypes>
+    </COMReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace RAM.Core.Models
+namespace RAM.Import.Properties
 {
-    internal class BaseModel
+    internal class WallPropertiesImporter
     {
     }
 }

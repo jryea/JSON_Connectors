@@ -11,9 +11,9 @@ using Grasshopper_RAM.Utilities;
 
 namespace JSON_Connectors.Connectors.RAM.Export
 {
-    public class LayoutColumn : GH_Component
+    public class ColumnExporter : GH_Component
     {
-        public LayoutColumn()
+        public ColumnExporter()
             : base("Layout Column", "RMCC", "Create Layout Columns in RAM", "SPEED", "RAM")
         {
         }

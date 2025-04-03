@@ -13,9 +13,9 @@ using System.Drawing.Text;
 
 namespace JSON_Connectors.Connectors.RAM.Export
 {
-    public class LayoutWall : GH_Component
+    public class WallExporter : GH_Component
     {
-        public LayoutWall()
+        public WallExporter()
             : base("Layout Wall", "RMW", "Create RAM layout wall", "SPEED", "RAM")
         {
         }

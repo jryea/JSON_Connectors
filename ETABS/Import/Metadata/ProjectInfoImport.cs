@@ -4,11 +4,16 @@ using Core.Models.Metadata;
 
 namespace ETABS.Import.Metadata
 {
-    // Imports project information from ETABS E2K file
+    /// <summary>
+    /// Imports project information from ETABS E2K file
+    /// </summary>
     public class ProjectInfoImport
     {
-        // Imports project information from E2K PROJECT INFORMATION section
-    
+        /// <summary>
+        /// Imports project information from E2K PROJECT INFORMATION section
+        /// </summary>
+        /// <param name="projectInfoSection">The PROJECT INFORMATION section content from E2K file</param>
+        /// <returns>ProjectInfo object with imported data</returns>
         public ProjectInfo Import(string projectInfoSection)
         {
             var projectInfo = new ProjectInfo
@@ -52,8 +57,12 @@ namespace ETABS.Import.Metadata
             return projectInfo;
         }
 
-        // Extracts additional project information from PROGRAM INFORMATION and LOG sections
-      
+        /// <summary>
+        /// Extracts additional project information from PROGRAM INFORMATION and LOG sections
+        /// </summary>
+        /// <param name="programInfoSection">The PROGRAM INFORMATION section content</param>
+        /// <param name="logSection">The LOG section content</param>
+        /// <param name="projectInfo">The ProjectInfo object to update</param>
         public void ExtractAdditionalInfo(string programInfoSection, string logSection, ProjectInfo projectInfo)
         {
             // Extract ETABS version information
@@ -88,4 +97,70 @@ namespace ETABS.Import.Metadata
                 {
                     string dateString = savedDateMatch.Groups[1].Value.Trim();
 
-                    // Try to parse
+                    // Try to parse the date
+                    if (DateTime.TryParse(dateString, out DateTime savedDate))
+                    {
+                        // Update creation date if it's set to default
+                        if (projectInfo.CreationDate == DateTime.Now)
+                        {
+                            projectInfo.CreationDate = savedDate;
+                        }
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Extracts project information from the TITLE lines in the CONTROLS section
+        /// </summary>
+        /// <param name="controlsSection">The CONTROLS section content from E2K file</param>
+        /// <param name="projectInfo">The ProjectInfo object to update</param>
+        public void ExtractFromControls(string controlsSection, ProjectInfo projectInfo)
+        {
+            if (string.IsNullOrWhiteSpace(controlsSection))
+                return;
+
+            // Extract TITLE1 (usually company name)
+            // Format: TITLE1 "IMEG"
+            var title1Pattern = new Regex(@"TITLE1\s+""([^""]+)""",
+                RegexOptions.Singleline);
+
+            var title1Match = title1Pattern.Match(controlsSection);
+            if (title1Match.Success && title1Match.Groups.Count >= 2)
+            {
+                string companyName = title1Match.Groups[1].Value.Trim();
+                // Store in extended property if needed
+            }
+
+            // Extract TITLE2 (usually project name)
+            // Format: TITLE2 "TestProject.e2k"
+            var title2Pattern = new Regex(@"TITLE2\s+""([^""]+)""",
+                RegexOptions.Singleline);
+
+            var title2Match = title2Pattern.Match(controlsSection);
+            if (title2Match.Success && title2Match.Groups.Count >= 2)
+            {
+                string fileName = title2Match.Groups[1].Value.Trim();
+
+                // Extract project name from filename
+                if (!string.IsNullOrEmpty(fileName))
+                {
+                    string projectName = fileName;
+
+                    // Remove file extension if present
+                    int dotIndex = projectName.LastIndexOf('.');
+                    if (dotIndex > 0)
+                    {
+                        projectName = projectName.Substring(0, dotIndex);
+                    }
+
+                    // Update project name if not already set
+                    if (string.IsNullOrEmpty(projectInfo.ProjectName))
+                    {
+                        projectInfo.ProjectName = projectName;
+                    }
+                }
+            }
+        }
+    }
+}

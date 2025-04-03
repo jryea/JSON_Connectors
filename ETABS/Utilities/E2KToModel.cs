@@ -99,8 +99,9 @@ namespace ETABS.Utilities
                 // Parse floor properties
                 if (e2kSections.ContainsKey("SLAB PROPERTIES") || e2kSections.ContainsKey("DECK PROPERTIES"))
                 {
-                    string slabSection = e2kSections.GetValueOrDefault("SLAB PROPERTIES", "");
-                    string deckSection = e2kSections.GetValueOrDefault("DECK PROPERTIES", "");
+                   
+                    string slabSection = e2kSections.TryGetValue("SLAB PROPERTIES", out string slabValue) ? slabValue : "";
+                    string deckSection = e2kSections.TryGetValue("DECK PROPERTIES", out string deckValue) ? deckValue : "";
                     model.Properties.FloorProperties = ImportFloorProperties(slabSection, deckSection);
                 }
 

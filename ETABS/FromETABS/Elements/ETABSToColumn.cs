@@ -14,7 +14,7 @@ namespace ETABS.Import.Elements
     /// </summary>
     public class ETABSToColumn
     {
-        private readonly ETABSToPoints _pointsCollector;
+        private readonly PointsCollector _pointsCollector;
         private readonly LineConnectivityParser _connectivityParser;
         private readonly LineAssignmentParser _assignmentParser;
         private readonly Dictionary<string, Level> _levelsByName = new Dictionary<string, Level>();
@@ -28,7 +28,7 @@ namespace ETABS.Import.Elements
         /// <param name="connectivityParser">Line connectivity parser</param>
         /// <param name="assignmentParser">Line assignment parser</param>
         public ETABSToColumn(
-            ETABSToPoints pointsCollector,
+            PointsCollector pointsCollector,
             LineConnectivityParser connectivityParser,
             LineAssignmentParser assignmentParser)
         {

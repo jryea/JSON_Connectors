@@ -13,7 +13,7 @@ namespace ETABS.Import.Elements
 
     public class ETABSToBrace
     {
-        private readonly ETABSToPoints _pointsCollector;
+        private readonly PointsCollector _pointsCollector;
         private readonly LineConnectivityParser _connectivityParser;
         private readonly LineAssignmentParser _assignmentParser;
         private readonly Dictionary<string, Level> _levelsByName = new Dictionary<string, Level>();
@@ -23,7 +23,7 @@ namespace ETABS.Import.Elements
         // Initializes a new instance of BraceImport
         
         public ETABSToBrace(
-            ETABSToPoints pointsCollector,
+            PointsCollector pointsCollector,
             LineConnectivityParser connectivityParser,
             LineAssignmentParser assignmentParser)
         {

@@ -22,7 +22,7 @@ namespace ETABS.Utilities
         private readonly ETABSToElements _elementsImporter = new ETABSToElements();
 
         // Utility parsers
-        private readonly ETABSToPoints _pointsCollector = new ETABSToPoints();
+        private readonly PointsCollector _pointsCollector = new PointsCollector();
         private readonly AreaParser _areaParser = new AreaParser();
         private readonly LineConnectivityParser _lineConnectivityParser = new LineConnectivityParser();
         private readonly LineAssignmentParser _lineAssignmentParser = new LineAssignmentParser();

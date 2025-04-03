@@ -11,12 +11,12 @@ namespace ETABS.Import.ModelLayout
     // Imports grid definitions from ETABS E2K file
     public class ETABSToGrid
     {
-        private readonly ETABSToPoints _pointsCollector;
+        private readonly PointsCollector _pointsCollector;
 
         // Initializes a new instance of GridsImport
-        public ETABSToGrid(ETABSToPoints pointsCollector = null)
+        public ETABSToGrid(PointsCollector pointsCollector = null)
         {
-            _pointsCollector = pointsCollector ?? new ETABSToPoints();
+            _pointsCollector = pointsCollector ?? new PointsCollector();
         }
 
         // Imports grids from E2K GRIDS section

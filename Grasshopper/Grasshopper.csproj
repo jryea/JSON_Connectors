@@ -23,12 +23,6 @@
     <Description>Description of Grasshopper</Description>
     <UserSecretsId>f454a5a3-51a2-467a-94f2-53222f0bff87</UserSecretsId>
   </PropertyGroup>
-
-  <ItemGroup>
-    <Compile Remove="Components\RAM\**" />
-    <EmbeddedResource Remove="Components\RAM\**" />
-    <None Remove="Components\RAM\**" />
-  </ItemGroup>
   
   <!-- For Windows only builds -->
   <PropertyGroup Condition="$(TargetFramework.Contains('-windows')) or $(TargetFramework.StartsWith('net4'))">

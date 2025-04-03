@@ -12,7 +12,7 @@ namespace ETABS.Import.Elements
     // Imports wall elements from ETABS E2K file
     public class ETABSToWall
     {
-        private ETABSToPoints _pointsCollector;
+        private PointsCollector _pointsCollector;
         private AreaParser _areaParser;
         private Dictionary<string, Level> _levelsByName = new Dictionary<string, Level>();
         private Dictionary<string, string> _wallPropsByName = new Dictionary<string, string>();
@@ -20,7 +20,7 @@ namespace ETABS.Import.Elements
         private List<Level> _sortedLevels = new List<Level>();
 
         // Initializes a new instance of WallImport
-        public ETABSToWall(ETABSToPoints pointsCollector, AreaParser areaParser)
+        public ETABSToWall(PointsCollector pointsCollector, AreaParser areaParser)
         {
             _pointsCollector = pointsCollector;
             _areaParser = areaParser;

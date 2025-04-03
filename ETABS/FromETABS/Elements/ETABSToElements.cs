@@ -15,7 +15,7 @@ namespace ETABS.Import.Elements
         private readonly ETABSToFloor _etabsToFloor;
         private readonly ETABSToWall _etabsToWall;
 
-        private readonly ETABSToPoints _pointsCollector;
+        private readonly PointsCollector _pointsCollector;
         private readonly LineConnectivityParser _lineConnectivityParser;
         private readonly LineAssignmentParser _lineAssignmentParser;
         private readonly AreaParser _areaParser;
@@ -24,7 +24,7 @@ namespace ETABS.Import.Elements
         public ETABSToElements()
         {
             // Initialize utilities
-            _pointsCollector = new ETABSToPoints();
+            _pointsCollector = new PointsCollector();
             _lineConnectivityParser = new LineConnectivityParser();
             _lineAssignmentParser = new LineAssignmentParser();
             _areaParser = new AreaParser();

@@ -13,7 +13,7 @@ namespace ETABS.Import.Elements
     /// </summary>
     public class ETABSToFloor
     {
-        private readonly ETABSToPoints _pointsCollector;
+        private readonly PointsCollector _pointsCollector;
         private readonly AreaParser _areaParser;
         private readonly Dictionary<string, Level> _levelsByName = new Dictionary<string, Level>();
         private readonly Dictionary<string, string> _floorPropsByName = new Dictionary<string, string>();
@@ -24,7 +24,7 @@ namespace ETABS.Import.Elements
         /// </summary>
         /// <param name="pointsCollector">Points collector for coordinate data</param>
         /// <param name="areaParser">Area parser for floors and walls</param>
-        public ETABSToFloor(ETABSToPoints pointsCollector, AreaParser areaParser)
+        public ETABSToFloor(PointsCollector pointsCollector, AreaParser areaParser)
         {
             _pointsCollector = pointsCollector;
             _areaParser = areaParser;

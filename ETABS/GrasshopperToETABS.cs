@@ -27,7 +27,7 @@ namespace ETABS
                 BaseModel model = JsonConverter.Deserialize(jsonString);
 
                 // Step 2: Convert model to E2K
-                var e2kExport = new ModelToE2K();
+                var e2kExport = new ModelToETABS();
                 string baseE2K = e2kExport.ExportToE2K(model);
 
                 // Step 3: Apply any custom content

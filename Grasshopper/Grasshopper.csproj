@@ -54,6 +54,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.csproj" />
     <ProjectReference Include="..\ETABS\ETABS.csproj" />
+    <ProjectReference Include="..\RAM\RAM.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="GH_IO">

@@ -6,7 +6,6 @@ using Core.Models;
 using Core.Models.Elements;
 using Core.Models.ModelLayout;
 using Core.Models.Properties;
-using RAM.Core.Models;
 using RAMDATAACCESSLib;
 
 namespace RAM.Export

@@ -17,7 +17,7 @@ public class ETABSToGrasshopper
             Dictionary<string, string> e2kSections = e2kParser.ParseE2K(e2kContent);
 
             // Convert E2K sections to BaseModel
-            var e2kImport = new E2KToModel();
+            var e2kImport = new ETABSToModel();
             BaseModel model = e2kImport.ImportFromE2K(e2kSections);
 
             // Serialize to JSON

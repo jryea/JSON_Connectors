@@ -58,38 +58,38 @@ namespace RAM.Export
 
         private void ExportFloorTypes(BaseModel model)
         {
-            var exporter = new FloorTypeExporter(_model);
+            var exporter = new RAMToFloorType(_model);
             exporter.Export(model);
         }
 
         private void ExportGrids(BaseModel model)
         {
-            var exporter = new GridExporter(_model);
+            var exporter = new RAMToGrid(_model);
             exporter.Export(model);
         }
 
         private void ExportStories(BaseModel model)
         {
-            var exporter = new StoryExporter(_model);
+            var exporter = new RAMToStory(_model);
             exporter.Export(model);
         }
 
         private void ExportMaterials(BaseModel model)
         {
-            var exporter = new MaterialExporter(_model);
+            var exporter = new RAMToMaterial(_model);
             exporter.Export(model);
         }
 
         private void ExportProperties(BaseModel model)
         {
             // Export various property types
-            var slabExporter = new SlabPropertiesExporter(_model);
+            var slabExporter = new RAMToSlabProperties(_model);
             slabExporter.Export(model);
 
-            var compDeckExporter = new CompositeDeckPropertiesExporter(_model);
+            var compDeckExporter = new RAMToCompositeDeckProperties(_model);
             compDeckExporter.Export(model);
 
-            var nonCompDeckExporter = new NonCompositeDeckPropertiesExporter(_model);
+            var nonCompDeckExporter = new RAMToNonCompositeDeckProperties(_model);
             nonCompDeckExporter.Export(model);
 
             var surfaceLoadExporter = new SurfaceLoadPropertiesExporter(_model);
@@ -98,10 +98,10 @@ namespace RAM.Export
 
         private void ExportElements(BaseModel model)
         {
-            var beamExporter = new BeamExporter(_model);
+            var beamExporter = new RAMToBeam(_model);
             beamExporter.Export(model);
 
-            var columnExporter = new ColumnExporter(_model);
+            var columnExporter = new RAMToColumn(_model);
             columnExporter.Export(model);
 
             var wallExporter = new WallExporter(_model);

@@ -4,9 +4,7 @@ using System.Text.RegularExpressions;
 
 namespace ETABS.Import.Utilities
 {
-    /// <summary>
-    /// Utility class to parse line connectivities from E2K files
-    /// </summary>
+    // Utility class to parse line connectivities from E2K files
     public class LineConnectivityParser
     {
         // Dictionaries to store the parsed line elements by their ID
@@ -14,9 +12,7 @@ namespace ETABS.Import.Utilities
         public Dictionary<string, LineConnectivity> Columns { get; private set; } = new Dictionary<string, LineConnectivity>();
         public Dictionary<string, LineConnectivity> Braces { get; private set; } = new Dictionary<string, LineConnectivity>();
 
-        /// <summary>
-        /// Line connectivity information
-        /// </summary>
+        // Line connectivity information
         public class LineConnectivity
         {
             public string LineId { get; set; }
@@ -26,10 +22,7 @@ namespace ETABS.Import.Utilities
             public int Angle { get; set; }
         }
 
-        /// <summary>
-        /// Parses the LINE CONNECTIVITIES section from E2K content
-        /// </summary>
-        /// <param name="lineConnectivitiesSection">The LINE CONNECTIVITIES section content from E2K file</param>
+        // Parses the LINE CONNECTIVITIES section from E2K content
         public void ParseLineConnectivities(string lineConnectivitiesSection)
         {
             if (string.IsNullOrWhiteSpace(lineConnectivitiesSection))

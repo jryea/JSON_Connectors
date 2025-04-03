@@ -19,12 +19,7 @@ namespace ETABS.Utilities
         {
         }
 
-        /// <summary>
-        /// Injects custom E2K content into base E2K content
-        /// </summary>
-        /// <param name="baseE2K">Base E2K content</param>
-        /// <param name="customE2K">Custom E2K content to inject</param>
-        /// <returns>Combined E2K content</returns>
+        // Injects custom E2K content into base E2K content
         public string InjectCustomE2K(string baseE2K, string customE2K)
         {
             if (string.IsNullOrWhiteSpace(customE2K))
@@ -37,10 +32,7 @@ namespace ETABS.Utilities
             return InjectCustomSections(baseE2K);
         }
 
-        /// <summary>
-        /// Parse a single E2K text string into sections
-        /// </summary>
-        /// <param name="rawE2KContent">Raw E2K content</param>
+        // Parse a single E2K text string into sections
         public void ParseE2KContent(string rawE2KContent)
         {
             if (string.IsNullOrWhiteSpace(rawE2KContent))
@@ -115,11 +107,7 @@ namespace ETABS.Utilities
             }
         }
 
-        /// <summary>
-        /// Method to inject custom sections into an existing E2K export
-        /// </summary>
-        /// <param name="baseE2kContent">Base E2K content</param>
-        /// <returns>Combined E2K content</returns>
+        // Method to inject custom sections into an existing E2K export
         public string InjectCustomSections(string baseE2kContent)
         {
             if (_customSections.Count == 0)

@@ -89,7 +89,7 @@ namespace RAM
                     }
 
                     // Import model from RAM
-                    var ramImporter = new RAMImporter();
+                    var ramImporter = new ModelToRAM();
                     model = ramImporter.ImportModel(ramFilePath);
                 }
 

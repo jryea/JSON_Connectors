@@ -41,42 +41,24 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Export\Elements\BeamExporter.cs" />
-    <Compile Include="Export\Elements\FloorExporter.cs" />
-    <Compile Include="Export\Loads\LoadExporter.cs" />
-    <Compile Include="Export\Loads\SurfaceLoadExporter.cs" />
-    <Compile Include="Export\Properties\CompositeDeckPropertiesExporter.cs" />
-    <Compile Include="Export\Properties\SlabPropertiesExporter.cs" />
-    <Compile Include="Export\IRAMExporter.cs" />
-    <Compile Include="Export\ModelLayout\FloorTypeExporter.cs" />
-    <Compile Include="Export\ModelLayout\GridExporter.cs" />
-    <Compile Include="Export\Elements\LayoutBeam.cs" />
-    <Compile Include="Export\Elements\ColumnExporter.cs" />
-    <Compile Include="Export\Elements\WallExporter.cs" />
-    <Compile Include="Import\Elements\BeamImporter.cs" />
-    <Compile Include="Import\Elements\ColumnImporter.cs" />
-    <Compile Include="Import\Elements\FloorImporter.cs" />
-    <Compile Include="Import\Elements\WallImporter.cs" />
+    <Compile Include="ToRAM\Elements\BeamToRAM.cs" />
+    <Compile Include="ToRAM\Elements\ColumnToRAM.cs" />
+    <Compile Include="ToRAM\Elements\FloorToRAM.cs" />
+    <Compile Include="ToRAM\Elements\WallToRAM.cs" />
     <Compile Include="JSONToRAMConverter.cs" />
-    <Compile Include="Import\Loads\LoadCombinationImporter.cs" />
-    <Compile Include="Import\Loads\LoadDefinitionImporter.cs" />
-    <Compile Include="Import\Loads\SurfaceLoadImporter.cs" />
-    <Compile Include="Import\ModelLayout\GridImporter.cs" />
-    <Compile Include="Import\Properties\FrameSectionPropertiesImporter.cs" />
-    <Compile Include="Import\Properties\MaterialImporter.cs" />
-    <Compile Include="Import\Metadata\MetadataImporter.cs" />
-    <Compile Include="Export\Properties\FrameSectionExporter.cs" />
-    <Compile Include="Export\Properties\MaterialExporter.cs" />
-    <Compile Include="Export\Properties\NonCompositeDeckPropertiesExporter.cs" />
-    <Compile Include="Export\ModelLayout\StoryExporter.cs" />
-    <Compile Include="Export\RAMExportConfiguration.cs" />
-    <Compile Include="Export\RAMExporter.cs" />
-    <Compile Include="Import\Properties\CompositeDeckProperties.cs" />
-    <Compile Include="Import\Properties\NonCompositeDeckProperties.cs" />
-    <Compile Include="Import\Properties\SlabPropertiesImporter.cs" />
-    <Compile Include="Import\Properties\WallPropertiesImporter.cs" />
-    <Compile Include="Import\RAMImporter.cs" />
-    <Compile Include="Import\ModelLayout\StoryImporter.cs" />
+    <Compile Include="ToRAM\Loads\LoadCombinationToRAM.cs" />
+    <Compile Include="ToRAM\Loads\LoadDefinitionToRAM.cs" />
+    <Compile Include="ToRAM\Loads\SurfaceLoadToRAM.cs" />
+    <Compile Include="ToRAM\ModelLayout\GridToRAM.cs" />
+    <Compile Include="ToRAM\Properties\FrameSectionPropertiesToRAM.cs" />
+    <Compile Include="ToRAM\Properties\MaterialToRAM.cs" />
+    <Compile Include="ToRAM\Metadata\MetadataToRAM.cs" />
+    <Compile Include="ToRAM\Properties\CompositeDeckPropertiesToRAM.cs" />
+    <Compile Include="ToRAM\Properties\NonCompositeDeckToRAM.cs" />
+    <Compile Include="ToRAM\Properties\SlabPropertiesToRAM.cs" />
+    <Compile Include="ToRAM\Properties\WallPropertiesToRAM.cs" />
+    <Compile Include="ToRAM\ModelToRAM.cs" />
+    <Compile Include="ToRAM\ModelLayout\StoryToRAM.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Utilities\ModelValidator.cs" />
     <Compile Include="Utilities\RAMConnector.cs" />
@@ -84,15 +66,7 @@
     <Compile Include="Utilities\RAMModelManager.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="Core\Converters\" />
-    <Folder Include="Core\Models\Elements\" />
-    <Folder Include="Core\Models\Loads\" />
-    <Folder Include="Core\Models\Metadata\" />
-    <Folder Include="Core\Models\ModelLayout\" />
-    <Folder Include="Core\Models\Properties\" />
-    <Folder Include="Core\Utilities\" />
     <Folder Include="Diagnostics\" />
-    <Folder Include="Export\Metadata\" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.csproj">

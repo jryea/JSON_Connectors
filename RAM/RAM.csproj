@@ -43,21 +43,22 @@
   <ItemGroup>
     <Compile Include="Core\Models\BaseModel.cs" />
     <Compile Include="Export\Elements\BeamExporter.cs" />
+    <Compile Include="Export\Elements\FloorExporter.cs" />
+    <Compile Include="Export\Loads\LoadExporter.cs" />
     <Compile Include="Export\Loads\SurfaceLoadExporter.cs" />
     <Compile Include="Export\Properties\CompositeDeckPropertiesExporter.cs" />
-    <Compile Include="Export\Elements\SlabExporter.cs" />
+    <Compile Include="Export\Properties\SlabPropertiesExporter.cs" />
     <Compile Include="Export\ModelLayout\BaseExporter.cs" />
-    <Compile Include="Export\Properties\CompositeDeckProps.cs" />
     <Compile Include="Export\ModelLayout\FloorTypeExporter.cs" />
     <Compile Include="Export\ModelLayout\GridExporter.cs" />
     <Compile Include="Export\Elements\LayoutBeam.cs" />
     <Compile Include="Export\Elements\ColumnExporter.cs" />
     <Compile Include="Export\Elements\WallExporter.cs" />
-    <Compile Include="Export\ModelLayout\NewFile.cs" />
+    <Compile Include="Import\NewFile.cs" />
+    <Compile Include="Export\Properties\FrameSectionExporter.cs" />
+    <Compile Include="Export\Properties\MaterialExporter.cs" />
     <Compile Include="Export\Properties\NonCompositeDeckPropertiesExporter.cs" />
-    <Compile Include="Export\Properties\SlabProps.cs" />
     <Compile Include="Export\ModelLayout\StoryExporter.cs" />
-    <Compile Include="Export\Properties\SurfaceLoadProps.cs" />
     <Compile Include="Export\RAMExportConfiguration.cs" />
     <Compile Include="Export\RAMExporter.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -77,7 +78,6 @@
     <Folder Include="Core\Utilities\" />
     <Folder Include="Diagnostics\" />
     <Folder Include="Export\Metadata\" />
-    <Folder Include="Import\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

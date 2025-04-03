@@ -50,7 +50,6 @@ namespace ETABS.Utilities
             _gridsImport = new GridsImport(_pointsCollector);
         }
 
-        
         // Imports a model from E2K sections
         public BaseModel ImportFromE2K(Dictionary<string, string> e2kSections)
         {
@@ -269,7 +268,9 @@ namespace ETABS.Utilities
             return _unitsImport.Import(controlsSection);
         }
 
+        /// <summary>
         /// Imports levels from E2K STORIES section
+        /// </summary>
         private List<Level> ImportLevels(string storiesSection)
         {
             return _storiesImport.Import(storiesSection);
@@ -320,9 +321,8 @@ namespace ETABS.Utilities
         // Imports load combinations from E2K LOAD COMBINATIONS section
         private List<LoadCombination> ImportLoadCombinations(string loadCombosSection, List<LoadDefinition> loadDefinitions)
         {
-            // Need to implement the LoadCombinationsImport class properly
-            // For now, return an empty list to avoid null reference errors
-            return new List<LoadCombination>();
+            _loadCombinationsImport.SetLoadDefinitions(loadDefinitions);
+            return _loadCombinationsImport.Import(loadCombosSection, loadDefinitions);
         }
 
         // Imports surface loads from E2K SHELL UNIFORM LOAD SETS and SHELL OBJECT LOADS sections

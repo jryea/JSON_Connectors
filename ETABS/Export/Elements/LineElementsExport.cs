@@ -9,7 +9,7 @@ using Utils = Core.Utilities.Utilities;
 
 namespace ETABS.Export.Elements
 {
-    // Exports line elements (beams, columns, braces) for the E2K file format
+    // Exports line elements (beams, columns, braces) for the E2K file format with debugging
     public class LineElementsExport
     {
         // Store line element IDs for mapping between connectivities and assignments
@@ -17,6 +17,7 @@ namespace ETABS.Export.Elements
         private readonly Dictionary<string, string> _columnIdMapping = new Dictionary<string, string>();
         private readonly Dictionary<string, string> _braceIdMapping = new Dictionary<string, string>();
         private readonly Dictionary<Point2D, string> _pointMapping;
+        private StringBuilder _debugLog = new StringBuilder();
 
         // Constructor that takes a point mapping dictionary
         public LineElementsExport(Dictionary<Point2D, string> pointMapping)
@@ -32,6 +33,11 @@ namespace ETABS.Export.Elements
         {
             StringBuilder sb = new StringBuilder();
 
+            // Clear debug log
+            _debugLog.Clear();
+            _debugLog.AppendLine("$ DEBUG LINE ELEMENTS LOG");
+            _debugLog.AppendLine("$ ======================");
+
             // First process the connectivities
             string connectivitiesSection = ProcessLineConnectivities(elements);
             sb.AppendLine(connectivitiesSection);
@@ -40,6 +46,10 @@ namespace ETABS.Export.Elements
             // Then process the assignments using the same mappings
             string assignmentsSection = ProcessLineAssignments(elements, levels, frameProperties);
             sb.AppendLine(assignmentsSection);
+
+            // Add debug log
+            sb.AppendLine();
+            sb.Append(_debugLog.ToString());
 
             return sb.ToString();
         }
@@ -52,22 +62,65 @@ namespace ETABS.Export.Elements
             // E2K Line Connectivities Header
             sb.AppendLine("$ LINE CONNECTIVITIES");
 
+            // Debug log of point mapping
+            _debugLog.AppendLine("$ POINT MAPPING STATE");
+            foreach (var entry in _pointMapping)
+            {
+                _debugLog.AppendLine($"$ Point: X={entry.Key.X}, Y={entry.Key.Y}, ID: {entry.Value}");
+            }
+
             // Process Beams
+            _debugLog.AppendLine("$ BEAM CONNECTIVITIES");
             if (elements.Beams != null && elements.Beams.Count > 0)
             {
                 for (int i = 0; i < elements.Beams.Count; i++)
                 {
                     Beam beam = elements.Beams[i];
+                    _debugLog.AppendLine($"$ Beam {i + 1} (ID: {beam.Id}):");
+                    _debugLog.AppendLine($"$   LevelId: {beam.LevelId}");
+
                     if (beam.StartPoint != null && beam.EndPoint != null)
                     {
+                        // Debug log beam points
+                        _debugLog.AppendLine($"$   StartPoint: X={beam.StartPoint.X}, Y={beam.StartPoint.Y}");
+                        _debugLog.AppendLine($"$   EndPoint: X={beam.EndPoint.X}, Y={beam.EndPoint.Y}");
+
                         // Use consistent naming convention (B1, B2, etc.)
                         string beamId = $"B{i + 1}";
 
                         // Store the mapping for later use in assignments
                         _beamIdMapping[beam.Id] = beamId;
 
-                        string beamLine = FormatBeamConnectivity(beam, beamId);
+                        // Get point IDs with debug output
+                        string startPointId = Utils.GetPointId(beam.StartPoint, _pointMapping);
+                        string endPointId = Utils.GetPointId(beam.EndPoint, _pointMapping);
+
+                        _debugLog.AppendLine($"$   Assigned StartPointId: {startPointId}");
+                        _debugLog.AppendLine($"$   Assigned EndPointId: {endPointId}");
+
+                        // Debug point lookup
+                        _debugLog.AppendLine("$   Point lookup details:");
+                        foreach (var entry in _pointMapping)
+                        {
+                            bool isStartPointMatch = Utils.ArePointsEqual(entry.Key, beam.StartPoint);
+                            bool isEndPointMatch = Utils.ArePointsEqual(entry.Key, beam.EndPoint);
+
+                            if (isStartPointMatch || isEndPointMatch)
+                            {
+                                _debugLog.AppendLine($"$     Comparing with point X={entry.Key.X}, Y={entry.Key.Y}, ID={entry.Value}:");
+                                if (isStartPointMatch)
+                                    _debugLog.AppendLine($"$       StartPoint MATCH");
+                                if (isEndPointMatch)
+                                    _debugLog.AppendLine($"$       EndPoint MATCH");
+                            }
+                        }
+
+                        string beamLine = FormatBeamConnectivity(beam, beamId, startPointId, endPointId);
                         sb.AppendLine(beamLine);
+                    }
+                    else
+                    {
+                        _debugLog.AppendLine("$   WARNING: StartPoint or EndPoint is null");
                     }
                 }
             }
@@ -115,6 +168,13 @@ namespace ETABS.Export.Elements
             return sb.ToString();
         }
 
+        // Formats a beam connectivity for the E2K file with specific point IDs
+        private string FormatBeamConnectivity(Beam beam, string beamId, string startPointId, string endPointId)
+        {
+            // Format: LINE  "B1"  BEAM  "1"  "2"  0
+            return $"  LINE  \"{beamId}\"  BEAM  \"{startPointId}\"  \"{endPointId}\"  0";
+        }
+
         // Formats a beam connectivity for the E2K file
         private string FormatBeamConnectivity(Beam beam, string beamId)
         {
@@ -156,8 +216,7 @@ namespace ETABS.Export.Elements
             // E2K Line Assignments Header
             sb.AppendLine("$ LINE ASSIGNS");
 
-            // Convert levels to a sorted list for easier access
-            var sortedLevels = levels.OrderBy(l => l.Elevation).ToList();
+            // ... rest of the method remains the same ...
 
             // Process beam assignments
             if (elements.Beams != null && elements.Beams.Count > 0)
@@ -179,10 +238,6 @@ namespace ETABS.Export.Elements
                     Level beamLevel = Utils.FindLevel(levels, beam.LevelId);
                     if (beamLevel == null)
                         continue;
-
-                    // For beams, we also want to use the top level
-                    // Since beams only have a single level, we'll use that level
-                    // But this matches the pattern for columns and braces
 
                     // Add "Story" prefix to level name (except for level 0, which should be "Base")
                     string storyName = beamLevel.Name == "0" ? "Base" : $"Story{beamLevel.Name}";
@@ -219,8 +274,7 @@ namespace ETABS.Export.Elements
                     if (baseLevel == null)
                         continue;
 
-                    // The level IDs and elevations are correct - "0" is the base level (ground floor) and higher numbers 
-                    // are higher floors. The level naming is working as intended.
+                    // Find top level
                     Level topLevel = null;
                     if (!string.IsNullOrEmpty(column.TopLevelId))
                     {
@@ -248,9 +302,6 @@ namespace ETABS.Export.Elements
                     );
 
                     sb.AppendLine(lineAssign);
-
-                    // We're only using the top level assignment, so no need to create assignments for intermediate levels
-                    // Removing the code that creates assignments for intermediate levels
                 }
             }
 
@@ -300,37 +351,6 @@ namespace ETABS.Export.Elements
                     );
 
                     sb.AppendLine(lineAssign);
-
-                    // If brace extends to higher levels, create assignments for those as well
-                    if (!string.IsNullOrEmpty(brace.TopLevelId) && brace.TopLevelId != brace.BaseLevelId)
-                    {
-                        Level nextLevel = sortedLevels.FirstOrDefault(l => l.Elevation > baseLevel.Elevation);
-                        if (nextLevel != null)
-                        {
-                            // Find all levels between (and including) nextLevel and top levels
-                            foreach (var level in sortedLevels)
-                            {
-                                // Only include levels from nextLevel to top (inclusive)
-                                if (level.Elevation >= nextLevel.Elevation && level.Elevation <= topLevel.Elevation)
-                                {
-                                    // Add "Story" prefix to level name
-                                    string upperStoryName = $"Story{level.Name}";
-
-                                    string upperLevelAssign = FormatBraceAssign(
-                                        lineId,
-                                        upperStoryName,
-                                        frameProp.Name,
-                                        "PINNED", // Braces typically have pinned connections
-                                        24, // Default value for max station spacing
-                                        "YES", // Auto mesh
-                                        "YES" // Mesh at intersections
-                                    );
-
-                                    sb.AppendLine(upperLevelAssign);
-                                }
-                            }
-                        }
-                    }
                 }
             }
 

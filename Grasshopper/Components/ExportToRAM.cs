@@ -4,6 +4,7 @@ using Grasshopper.Kernel;
 using RAM;
 using System.Collections.Generic;
 using Grasshopper.Components.Core;
+using static System.Resources.ResXFileRef;
 
 namespace Grasshopper.Components
 {
@@ -91,20 +92,9 @@ namespace Grasshopper.Components
 
                 // Convert JSON to RAM
                 var converter = new JSONToRAMConverter();
-                bool success = converter.ConvertJSONToRAM(jsonFilePath, outputPath);
-
-                // Clean up temp file if created
-                if (usingTempFile && File.Exists(jsonFilePath))
-                {
-                    try
-                    {
-                        File.Delete(jsonFilePath);
-                    }
-                    catch
-                    {
-                        // Ignore cleanup errors
-                    }
-                }
+                var result = converter.ConvertJSONToRAM(jsonFilePath, outputPath);
+                bool success = result.Success;
+                string message = result.Message;
 
                 if (success)
                 {
@@ -113,7 +103,7 @@ namespace Grasshopper.Components
                 }
                 else
                 {
-                    DA.SetData(0, "Failed to export model to RAM");
+                    DA.SetData(0, "Failed to export model to RAM: " + message);
                     DA.SetData(1, false);
                 }
             }

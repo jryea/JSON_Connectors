@@ -24,10 +24,6 @@ namespace RAM.Utilities
                 return EMATERIALTYPES.ESteelJoistMat;
             else if (materialType.Contains("steel"))
                 return EMATERIALTYPES.ESteelMat;
-            else if (materialType.Contains("wood"))
-                return EMATERIALTYPES.EWoodMat;
-            else if (materialType.Contains("aluminum"))
-                return EMATERIALTYPES.EAluminumMat;
             else
                 return EMATERIALTYPES.ESteelMat;
         }

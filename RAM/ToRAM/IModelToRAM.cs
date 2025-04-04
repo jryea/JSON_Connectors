@@ -4,9 +4,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace RAM.ToRAM.Elements
+namespace RAM.ToRAM
 {
-    internal class WallToRAM
+    public interface IModelToRAM<T>
     {
+        T Import();
     }
 }

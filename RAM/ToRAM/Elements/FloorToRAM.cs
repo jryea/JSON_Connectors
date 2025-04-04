@@ -6,7 +6,7 @@ using Core.Utilities;
 using RAM.Core.Models;
 using RAMDATAACCESSLib;
 
-namespace RAM.Import
+namespace RAM.ToRAM.Elements
 {
     public class FloorToRAM : IRAMImporter<List<Floor>>
     {

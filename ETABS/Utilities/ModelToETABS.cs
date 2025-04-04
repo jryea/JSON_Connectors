@@ -59,16 +59,6 @@ namespace ETABS.Utilities
             {
                 StringBuilder sb = new StringBuilder();
 
-                // Create diagnostic report
-                string report = DiagnosticTools.BeamDiagnostics.AnalyzeBeamPoints(model);
-                // Write report to file
-                File.WriteAllText("G:\\My Drive\\02 Projects\\06 Interop Platform\\beam_diagnostic_report.txt", report);
-
-                // Generate diagnostic E2K
-                string diagnosticE2K = DiagnosticTools.BeamDiagnostics.GenerateDiagnosticE2K(model);
-                // Write diagnostic E2K to file
-                File.WriteAllText("G:\\My Drive\\02 Projects\\06 Interop Platform\\diagnostic.e2k", diagnosticE2K);
-
                 // Add E2K file header
                 WriteHeader(sb, model.Metadata);
 

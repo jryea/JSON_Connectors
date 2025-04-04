@@ -4,11 +4,10 @@ using System.Collections.Generic;
 using Core.Models.Elements;
 using Core.Models.ModelLayout;
 using Core.Utilities;
-using RAM.Core.Models;
 using RAMDATAACCESSLib;
 
-namespace RAM.Import
-{
+namespace RAM.ToRAM.ModelLayout
+{ 
     public class GridToRAM : IRAMImporter<List<Grid>>
     {
         private IModel _model;

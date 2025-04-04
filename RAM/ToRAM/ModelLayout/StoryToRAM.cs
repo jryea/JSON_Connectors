@@ -4,10 +4,9 @@ using System.Collections.Generic;
 using System.Reflection.Emit;
 using Core.Models.ModelLayout;
 using Core.Utilities;
-using RAM.Core.Models;
 using RAMDATAACCESSLib;
 
-namespace RAM.Import
+namespace RAM.ToRAM.ModelLayout
 {
     public class StoryToRAM : IRAMImporter<List<Level>>
     {

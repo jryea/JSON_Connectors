@@ -41,25 +41,11 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="ToRAM\Elements\BeamToRAM.cs" />
-    <Compile Include="ToRAM\Elements\ColumnToRAM.cs" />
-    <Compile Include="ToRAM\Elements\FloorToRAM.cs" />
-    <Compile Include="ToRAM\Elements\WallToRAM.cs" />
     <Compile Include="JSONToRAMConverter.cs" />
-    <Compile Include="ToRAM\Loads\LoadCombinationToRAM.cs" />
-    <Compile Include="ToRAM\Loads\LoadDefinitionToRAM.cs" />
-    <Compile Include="ToRAM\Loads\SurfaceLoadToRAM.cs" />
-    <Compile Include="ToRAM\ModelLayout\GridToRAM.cs" />
-    <Compile Include="ToRAM\Properties\FrameSectionPropertiesToRAM.cs" />
-    <Compile Include="ToRAM\Properties\MaterialToRAM.cs" />
-    <Compile Include="ToRAM\Metadata\MetadataToRAM.cs" />
-    <Compile Include="ToRAM\Properties\CompositeDeckPropertiesToRAM.cs" />
-    <Compile Include="ToRAM\Properties\NonCompositeDeckToRAM.cs" />
-    <Compile Include="ToRAM\Properties\SlabPropertiesToRAM.cs" />
-    <Compile Include="ToRAM\Properties\WallPropertiesToRAM.cs" />
+    <Compile Include="ToRAM\ModelLayout\FloorTypeToRAM.cs" />
     <Compile Include="ToRAM\ModelToRAM.cs" />
-    <Compile Include="ToRAM\ModelLayout\StoryToRAM.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="ToRAM\IModelToRAM.cs" />
     <Compile Include="Utilities\ModelValidator.cs" />
     <Compile Include="Utilities\RAMConnector.cs" />
     <Compile Include="Utilities\RAMModelConverter.cs" />

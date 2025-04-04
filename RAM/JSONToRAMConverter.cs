@@ -3,24 +3,16 @@ using System;
 using System.IO;
 using Core.Converters;
 using Core.Models;
-using RAM.Core.Models;
-using RAM.Import;
+using RAM.ToRAM;
 using RAM.Utilities;
 using RAMDATAACCESSLib;
 
 namespace RAM
 {
-    /// <summary>
-    /// Provides integration between JSON structural models and RAM import
-    /// </summary>
+    // Provides integration between JSON structural models and RAM import
     public class JSONToRAMConverter
     {
-        /// <summary>
-        /// Converts JSON model to RAM model
-        /// </summary>
-        /// <param name="jsonFilePath">Path to the input JSON file</param>
-        /// <param name="ramFilePath">Path to save the RAM file</param>
-        /// <returns>True if conversion successful, false otherwise</returns>
+        // Converts JSON model to RAM model
         public bool ConvertJSONToRAM(string jsonFilePath, string ramFilePath)
         {
             try
@@ -43,7 +35,7 @@ namespace RAM
                     }
 
                     // Export model to RAM
-                    var ramExporter = new Export.RAMExporter();
+                    var ramExporter = new ModelToRAM();
                     result = ramExporter.ExportModel(model, ramFilePath);
 
                     if (!result)
@@ -65,12 +57,7 @@ namespace RAM
             }
         }
 
-        /// <summary>
-        /// Converts RAM model to JSON model
-        /// </summary>
-        /// <param name="ramFilePath">Path to the input RAM file</param>
-        /// <param name="jsonFilePath">Path to save the JSON file</param>
-        /// <returns>True if conversion successful, false otherwise</returns>
+        // Converts RAM model to JSON model
         public bool ConvertRAMToJSON(string ramFilePath, string jsonFilePath)
         {
             try

@@ -41,7 +41,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="JSONToRAMConverter.cs" />
+    <Compile Include="ToRAM\JSONToRAMConverter.cs" />
     <Compile Include="ToRAM\ModelLayout\FloorTypeToRAM.cs" />
     <Compile Include="ToRAM\ModelToRAM.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

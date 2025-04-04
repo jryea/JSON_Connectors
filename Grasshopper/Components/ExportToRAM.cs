@@ -18,7 +18,7 @@ namespace Grasshopper.Components
 
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("JSON Content/Path", "J", "JSON file content or path", GH_ParamAccess.item);
+            pManager.AddTextParameter("JSON Path", "J", "JSON file content or path", GH_ParamAccess.item);
             pManager.AddTextParameter("Output Path", "P", "Path to save RAM file (.rmx, .rss)", GH_ParamAccess.item);
         }
 
@@ -54,9 +54,9 @@ namespace Grasshopper.Components
 
             // Check file extension
             string extension = Path.GetExtension(outputPath).ToLower();
-            if (extension != ".rmx" && extension != ".rss")
+            if (extension != ".rss")
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Output file should have .rmx or .rss extension");
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Output file should have .rss extension");
             }
 
             try

@@ -10,8 +10,46 @@ using RAMDATAACCESSLib;
 namespace RAM
 {
     // Provides integration between JSON structural models and RAM import
+    // Add this method to JSONToRAMConverter.cs
+    
     public class JSONToRAMConverter
     {
+        public bool CreateSimpleRAMModel(string ramFilePath, string projectName, string floorTypeName)
+        {
+            try
+            {
+                // Create RAM model file
+                using (var modelManager = new RAMModelManager())
+                {
+                    // Create new model with English units
+                    bool result = modelManager.CreateNewModel(ramFilePath, EUnits.eUnitsEnglish);
+                    if (!result)
+                    {
+                        Console.WriteLine("Failed to create RAM model file.");
+                        return false;
+                    }
+
+                    // Get interfaces
+                    RamDataAccess1 ramDataAccess = modelManager.RamDataAccess;
+                    IModel model = ramDataAccess.GetInterfacePointerByEnum(EINTERFACES.IModel_INT) as IModel;
+
+                    // Create a floor type
+                    IFloorTypes floorTypes = model.GetFloorTypes();
+                    floorTypes.Add(floorTypeName);
+
+                    // Save model
+                    modelManager.SaveModel();
+
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error creating simple RAM model: {ex.Message}");
+                return false;
+            }
+        }
+
         // Converts JSON model to RAM model
         public bool ConvertJSONToRAM(string jsonFilePath, string ramFilePath)
         {
@@ -35,8 +73,8 @@ namespace RAM
                     }
 
                     // Export model to RAM
-                    var ramExporter = new ModelToRAM();
-                    result = ramExporter.ExportModel(model, ramFilePath);
+                    var ramExport = new ModelToRAM();
+                    result = ramExport.ExportModel(model, ramFilePath);
 
                     if (!result)
                     {

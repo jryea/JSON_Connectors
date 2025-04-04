@@ -8,7 +8,7 @@ using RAMDATAACCESSLib;
 
 namespace RAM.Utilities
 {
-    public static class RAMModelConverter
+    public static class Helpers
     {
         // Convert material types
         public static EMATERIALTYPES ConvertMaterialType(Material material)

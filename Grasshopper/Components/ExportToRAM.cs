@@ -3,12 +3,10 @@ using System.IO;
 using Grasshopper.Kernel;
 using RAM;
 using System.Collections.Generic;
-using Grasshopper.Components.Core;
-using static System.Resources.ResXFileRef;
 
 namespace Grasshopper.Components
 {
-    public class ExportToRAM : ComponentBase
+    public class ExportToRAM : GH_Component
     {
         public ExportToRAM()
             : base("Export To RAM", "J2RAM",
@@ -19,8 +17,8 @@ namespace Grasshopper.Components
 
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddTextParameter("JSON Path", "J", "JSON file content or path", GH_ParamAccess.item);
-            pManager.AddTextParameter("Output Path", "P", "Path to save RAM file (.rmx, .rss)", GH_ParamAccess.item);
+            pManager.AddTextParameter("JSON Input", "J", "JSON model content or path to JSON file", GH_ParamAccess.item);
+            pManager.AddTextParameter("Output Path", "P", "Path to save RAM file (.rss)", GH_ParamAccess.item);
         }
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
@@ -62,50 +60,25 @@ namespace Grasshopper.Components
 
             try
             {
-                // Check if input is a file path or content
-                string jsonContent;
-                if (File.Exists(jsonInput))
-                {
-                    jsonContent = File.ReadAllText(jsonInput);
-                    AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Reading JSON from file: " + jsonInput);
-                }
-                else
-                {
-                    jsonContent = jsonInput;
-                    AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "Using provided JSON content");
-                }
-
-                // Create temporary JSON file if needed
-                string jsonFilePath;
-                bool usingTempFile = false;
-                if (File.Exists(jsonInput))
-                {
-                    jsonFilePath = jsonInput;
-                }
-                else
-                {
-                    // Create temp file for JSON content
-                    jsonFilePath = Path.Combine(Path.GetTempPath(), "temp_model_" + Guid.NewGuid().ToString() + ".json");
-                    File.WriteAllText(jsonFilePath, jsonContent);
-                    usingTempFile = true;
-                }
-
-                // Convert JSON to RAM
                 var converter = new JSONToRAMConverter();
-                var result = converter.ConvertJSONToRAM(jsonFilePath, outputPath);
-                bool success = result.Success;
-                string message = result.Message;
 
-                if (success)
+                // Determine if the input is a file path or direct JSON content
+                bool isFilePath = File.Exists(jsonInput) && jsonInput.EndsWith(".json", StringComparison.OrdinalIgnoreCase);
+
+                // Call the appropriate converter method based on input type
+                (bool Success, string Message) result;
+
+                if (isFilePath == true)
                 {
-                    DA.SetData(0, "Successfully exported model to RAM: " + outputPath);
-                    DA.SetData(1, true);
+                    result = converter.ConvertJSONFileToRAM(jsonInput, outputPath);
                 }
-                else
+                else 
                 {
-                    DA.SetData(0, "Failed to export model to RAM: " + message);
-                    DA.SetData(1, false);
+                    result = converter.ConvertJSONStringToRAM(jsonInput, outputPath);
                 }
+
+                DA.SetData(0, result.Message);
+                DA.SetData(1, result.Success);
             }
             catch (Exception ex)
             {

@@ -34,7 +34,7 @@ namespace Revit.Import.ModelLayout
                 try
                 {
                     // Convert elevation from inches to feet for Revit
-                    double elevation = jsonLevel.ElevationOrHeight / 12.0;
+                    double elevation = jsonLevel.Elevation / 12.0;
 
                     // Create level in Revit
                     Autodesk.Revit.DB.Level revitLevel = Level.Create(_doc, elevation);

@@ -6,6 +6,7 @@ using Core.Models.Elements;
 using Core.Models.ModelLayout;
 using Core.Models.Properties;
 using Grasshopper.Utilities;
+using Core.Models.Geometry;
 
 namespace Grasshopper.Components.Core.Export.Elements
 {

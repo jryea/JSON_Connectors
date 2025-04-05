@@ -1,10 +1,10 @@
 ﻿using Grasshopper.Kernel;
-using Rhino.Geometry;
+using RG = Rhino.Geometry;
 using System;
 using System.Collections.Generic;
-using Core.Models.Elements;
 using Core.Models.ModelLayout;
 using Grasshopper.Utilities;
+using Core.Models.Geometry;
 
 namespace Grasshopper.Components.Core.Export.ModelLayout
 {
@@ -31,7 +31,7 @@ namespace Grasshopper.Components.Core.Export.ModelLayout
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            List<Line> lines = new List<Line>();
+            List<RG.Line> lines = new List<RG.Line>();
             List<string> names = new List<string>();
             bool showBubbles = false;
 
@@ -49,7 +49,7 @@ namespace Grasshopper.Components.Core.Export.ModelLayout
             List<GH_Grid> grids = new List<GH_Grid>();
             for (int i = 0; i < lines.Count; i++)
             {
-                Line line = lines[i];
+                RG.Line line = lines[i];
                 GridPoint startPoint = new GridPoint(line.FromX * 12, line.FromY * 12, 0, showBubbles);
                 GridPoint endPoint = new GridPoint(line.ToX * 12, line.ToY * 12, 0, showBubbles);
                 Grid grid = new Grid(names[i], startPoint, endPoint);

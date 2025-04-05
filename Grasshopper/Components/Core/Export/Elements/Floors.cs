@@ -8,6 +8,7 @@ using Core.Models.Properties;
 using Core.Models.Loads;
 using Grasshopper.Utilities;
 using Grasshopper.Kernel.Types;
+using Core.Models.Geometry;
 
 namespace Grasshopper.Components.Core.Export.Elements
 {

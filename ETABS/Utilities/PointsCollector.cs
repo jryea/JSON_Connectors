@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
-using Core.Models.Elements;
+using Core.Models.Geometry;
 
 namespace ETABS.Import.Utilities
 {

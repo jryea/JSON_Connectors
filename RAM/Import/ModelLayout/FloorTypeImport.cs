@@ -8,9 +8,7 @@ using RAMDATAACCESSLib;
 
 namespace RAM.Import.ModelLayout
 {
-    /// <summary>
-    /// Imports floor types to RAM from the Core model
-    /// </summary>
+    // Imports floor types to RAM from the Core model
     public class FloorTypeImport
     {
         private IModel _model;
@@ -20,11 +18,7 @@ namespace RAM.Import.ModelLayout
             _model = model;
         }
 
-        /// <summary>
-        /// Imports floor types to RAM
-        /// </summary>
-        /// <param name="floorTypes">Collection of floor types to import</param>
-        /// <returns>Number of floor types imported</returns>
+        // Imports floor types to RAM
         public int Import(IEnumerable<FloorType> floorTypes)
         {
             try

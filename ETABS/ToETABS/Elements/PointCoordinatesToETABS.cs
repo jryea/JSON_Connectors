@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Core.Models.Elements;
+using Core.Models.Geometry;
 using Core.Models.ModelLayout;
 
 namespace ETABS.Export.Elements

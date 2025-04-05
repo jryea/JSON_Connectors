@@ -1,10 +1,11 @@
 ﻿using Grasshopper.Kernel;
-using Rhino.Geometry;
+using RG = Rhino.Geometry;
 using System;
 using System.Collections.Generic;
 using Core.Models.Elements;
 using Core.Models.ModelLayout;
 using Core.Models.Properties;
+using Core.Models.Geometry;
 using Grasshopper.Utilities;
 
 namespace Grasshopper.Components.Core.Export.Elements
@@ -33,7 +34,7 @@ namespace Grasshopper.Components.Core.Export.Elements
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            List<Line> lines = new List<Line>();
+            List<RG.Line> lines = new List<RG.Line>();
             List<object> baseLevelObjs = new List<object>();
             List<object> topLevelObjs = new List<object>();
             List<object> framePropObjs = new List<object>();
@@ -53,7 +54,7 @@ namespace Grasshopper.Components.Core.Export.Elements
             List<GH_Brace> braces = new List<GH_Brace>();
             for (int i = 0; i < lines.Count; i++)
             {
-                Line line = lines[i];
+                RG. Line line = lines[i];
                 Level baseLevel = ExtractObject<Level>(baseLevelObjs[i], "BaseLevel");
                 Level topLevel = ExtractObject<Level>(topLevelObjs[i], "TopLevel");
                 FrameProperties frameProps = ExtractObject<FrameProperties>(framePropObjs[i], "FrameProperties");

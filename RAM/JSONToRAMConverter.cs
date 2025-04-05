@@ -4,22 +4,16 @@ using System.Text;
 using Core.Models;
 using Core.Converters;
 using RAM.Import.ModelLayout;
+using RAM.Import.Elements;
 using RAM.Utilities;
 using RAMDATAACCESSLib;
 
 namespace RAM
 {
-    /// <summary>
-    /// Provides integration between JSON structural models and RAM
-    /// </summary>
+    // Provides integration between JSON structural models and RAM
     public class JSONToRAMConverter
     {
-        /// <summary>
-        /// Converts a JSON file to a RAM model
-        /// </summary>
-        /// <param name="jsonFilePath">Path to the JSON file</param>
-        /// <param name="ramFilePath">Path to save the RAM model file</param>
-        /// <returns>Result tuple with success flag and message</returns>
+        // Converts a JSON file to a RAM model
         public (bool Success, string Message) ConvertJSONFileToRAM(string jsonFilePath, string ramFilePath)
         {
             try
@@ -38,12 +32,7 @@ namespace RAM
             }
         }
 
-        /// <summary>
-        /// Converts a JSON string to a RAM model
-        /// </summary>
-        /// <param name="jsonString">JSON string representing the building model</param>
-        /// <param name="ramFilePath">Path to save the RAM model file</param>
-        /// <returns>Result tuple with success flag and message</returns>
+        // Converts a JSON string to a RAM model
         public (bool Success, string Message) ConvertJSONStringToRAM(string jsonString, string ramFilePath)
         {
             try
@@ -71,29 +60,124 @@ namespace RAM
                     return (false, "Failed to deserialize JSON model.");
                 }
 
-                if (model.ModelLayout == null || model.ModelLayout.FloorTypes == null || model.ModelLayout.FloorTypes.Count == 0)
+                if (model.ModelLayout == null)
                 {
-                    return (false, "No floor types found in the model.");
+                    return (false, "No model layout found in the model.");
                 }
 
                 // Create a new RAM model
                 using (var modelManager = new RAMModelManager())
                 {
-                    // Create new model with English units
-                    bool result = modelManager.CreateNewModel(ramFilePath, EUnits.eUnitsEnglish);
+                    // Determine the appropriate units from the model
+                    EUnits ramUnits = EUnits.eUnitsEnglish;  // Default to English units
+                    string lengthUnit = "inches";
+
+                    if (model.Metadata != null && model.Metadata.Units != null)
+                    {
+                        lengthUnit = model.Metadata.Units.Length ?? "inches";
+
+                        // Determine RAM units based on model units
+                        if (lengthUnit.ToLower().Contains("meter") ||
+                            lengthUnit.ToLower().Contains("millimeter") ||
+                            lengthUnit.ToLower().Contains("centimeter"))
+                        {
+                            ramUnits = EUnits.eUnitsMetric;
+                        }
+                    }
+
+                    // Create new model with appropriate units
+                    bool result = modelManager.CreateNewModel(ramFilePath, ramUnits);
                     if (!result)
                     {
                         return (false, "Failed to create RAM model file.");
                     }
 
-                    // Import floor types using the dedicated class
+                    // Import floor types first (required for grids and stories)
                     var floorTypeImporter = new FloorTypeImport(modelManager.Model);
-                    int floorTypeCount = floorTypeImporter.Import(model.ModelLayout.FloorTypes);
+                    int floorTypeCount = 0;
+                    if (model.ModelLayout.FloorTypes != null && model.ModelLayout.FloorTypes.Count > 0)
+                    {
+                        floorTypeCount = floorTypeImporter.Import(model.ModelLayout.FloorTypes);
+                    }
+                    else
+                    {
+                        // Create at least one default floor type if none exist
+                        IFloorTypes ramFloorTypes = modelManager.Model.GetFloorTypes();
+                        ramFloorTypes.Add("Default");
+                        floorTypeCount = 1;
+                    }
+
+                    // Import stories/levels (before grids since grids will be assigned to floor types)
+                    var storyImporter = new StoryImport(modelManager.Model, lengthUnit);
+                    int storyCount = 0;
+                    if (model.ModelLayout.Levels != null && model.ModelLayout.Levels.Count > 0)
+                    {
+                        // Set up floor type mapping first
+                        if (model.ModelLayout.FloorTypes != null)
+                        {
+                            storyImporter.SetFloorTypeMapping(model.ModelLayout.FloorTypes);
+                        }
+
+                        storyCount = storyImporter.Import(model.ModelLayout.Levels);
+                    }
+
+                    // Import grid lines
+                    string gridSystemName = "StandardGrids";
+                    if (model.Metadata != null && model.Metadata.ProjectInfo != null &&
+                        !string.IsNullOrEmpty(model.Metadata.ProjectInfo.ProjectName))
+                    {
+                        gridSystemName = $"{model.Metadata.ProjectInfo.ProjectName}Grids";
+                    }
+
+                    var gridImporter = new GridImport(modelManager.Model, lengthUnit, gridSystemName);
+                    int gridCount = 0;
+                    if (model.ModelLayout.Grids != null && model.ModelLayout.Grids.Count > 0)
+                    {
+                        gridCount = gridImporter.Import(model.ModelLayout.Grids);
+                    }
+
+                    // Import structural elements
+                    int beamCount = 0;
+                    int columnCount = 0;
+                    int wallCount = 0;
+
+                    if (model.Elements != null)
+                    {
+                        // Import beams
+                        if (model.Elements.Beams != null && model.Elements.Beams.Count > 0)
+                        {
+                            var beamImporter = new BeamImport(modelManager.Model, lengthUnit);
+                            beamCount = beamImporter.Import(
+                                model.Elements.Beams,
+                                model.ModelLayout.Levels,
+                                model.Properties.FrameProperties);
+                        }
+
+                        // Import columns
+                        if (model.Elements.Columns != null && model.Elements.Columns.Count > 0)
+                        {
+                            var columnImporter = new ColumnImport(modelManager.Model, lengthUnit);
+                            columnCount = columnImporter.Import(
+                                model.Elements.Columns,
+                                model.ModelLayout.Levels,
+                                model.Properties.FrameProperties);
+                        }
+
+                        // Import walls
+                        if (model.Elements.Walls != null && model.Elements.Walls.Count > 0)
+                        {
+                            var wallImporter = new WallImport(modelManager.Model, lengthUnit);
+                            wallCount = wallImporter.Import(
+                                model.Elements.Walls,
+                                model.ModelLayout.Levels,
+                                model.Properties.WallProperties);
+                        }
+                    }
 
                     // Save model
                     modelManager.SaveModel();
 
-                    return (true, $"Successfully created RAM model with {floorTypeCount} floor types.");
+                    return (true, $"Successfully created RAM model with {floorTypeCount} floor types, {gridCount} grids, {storyCount} stories, {beamCount} beams, {columnCount} columns, and {wallCount} walls.");
                 }
             }
             catch (Exception ex)

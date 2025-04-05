@@ -1,4 +1,5 @@
-﻿using Core.Utilities;
+﻿using Core.Models.Geometry;
+using Core.Utilities;
 
 namespace Core.Models.Elements
 {

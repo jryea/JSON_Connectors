@@ -6,6 +6,7 @@ using Core.Models.Properties;
 using Core.Models.Metadata;
 using Core.Models.Loads;
 using Core.Models;
+using Core.Models.Geometry;
 
 namespace Grasshopper.Utilities
 {

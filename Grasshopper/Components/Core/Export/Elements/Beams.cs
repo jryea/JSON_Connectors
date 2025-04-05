@@ -1,9 +1,10 @@
 ﻿using Grasshopper.Kernel;
-using Rhino.Geometry;
+using RG = Rhino.Geometry;
 using System;
 using System.Collections.Generic;
 using Core.Models.Elements;
 using Core.Models.Properties;
+using Core.Models.Geometry; 
 using Core.Models.ModelLayout;
 using Grasshopper.Utilities;
 
@@ -34,7 +35,7 @@ namespace Grasshopper.Components.Core.Export.Elements
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            List<Line> lines = new List<Line>();
+            List<RG.Line> lines = new List<RG.Line>();
             List<object> levelObjs = new List<object>();
             List<object> propObjs = new List<object>();
             bool isLateral = false;
@@ -56,7 +57,7 @@ namespace Grasshopper.Components.Core.Export.Elements
             List<GH_Beam> beams = new List<GH_Beam>();
             for (int i = 0; i < lines.Count; i++)
             {
-                Line line = lines[i];
+                RG.Line line = lines[i];
                 Level level = ExtractObject<Level>(levelObjs[i], "Level");
                 FrameProperties frameProps = ExtractObject<FrameProperties>(propObjs[i], "FrameProperties");
 

@@ -3,6 +3,7 @@ using Rhino.Geometry;
 using System;
 using System.Collections.Generic;
 using Core.Models.Elements;
+using Core.Models.Geometry;
 using Grasshopper.Utilities;
 
 namespace Grasshopper.Components.Core.Export.Elements

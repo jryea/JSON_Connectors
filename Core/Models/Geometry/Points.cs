@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace Core.Models.Elements
+namespace Core.Models.Geometry
 {
     public class Point2D
     {

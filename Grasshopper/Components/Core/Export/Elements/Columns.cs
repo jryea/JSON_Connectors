@@ -1,10 +1,11 @@
 ﻿using Grasshopper.Kernel;
-using Rhino.Geometry;
+using RG = Rhino.Geometry;
 using System;
 using System.Collections.Generic;
 using Core.Models.Elements;
 using Core.Models.ModelLayout;
 using Core.Models.Properties;
+using Core.Models.Geometry; 
 using Grasshopper.Utilities;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
@@ -39,7 +40,7 @@ namespace Grasshopper.Components.Core.Export.Elements
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            List<Line> lines = new List<Line>();
+            List<RG.Line> lines = new List<RG.Line>();
             List<object> baseLevelObjs = new List<object>();
             List<object> topLevelObjs = new List<object>();
             List<object> framePropObjs = new List<object>();
@@ -80,7 +81,7 @@ namespace Grasshopper.Components.Core.Export.Elements
                 FrameProperties frameProps = ExtractObject<FrameProperties>(framePropObjs[i], "FrameProperties");
                 Level baseLevel = ExtractObject<Level>(baseLevelObjs[i], "BaseLevel");
                 Level topLevel = ExtractObject<Level>(topLevelObjs[i], "TopLevel");
-                Line line = lines[i];
+                RG.Line line = lines[i];
 
                 if (baseLevel == null || topLevel == null || frameProps == null || line == null)
                 {

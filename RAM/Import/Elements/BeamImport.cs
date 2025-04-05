@@ -1,6 +1,7 @@
 ﻿// BeamImport.cs
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Core.Models.Elements;
 using Core.Models.ModelLayout;
 using Core.Models.Properties;
@@ -9,47 +10,71 @@ using RAMDATAACCESSLib;
 
 namespace RAM.Import.Elements
 {
-    // Imports beam elements to RAM from the Core model
+    /// <summary>
+    /// Imports beam elements to RAM from the Core model
+    /// </summary>
     public class BeamImport
     {
         private IModel _model;
         private string _lengthUnit;
-        private Dictionary<string, IFloorType> _floorTypeMap = new Dictionary<string, IFloorType>();
+        private Dictionary<string, IFloorType> _floorTypeByLevelId = new Dictionary<string, IFloorType>();
 
+        /// <summary>
+        /// Initializes a new instance of the BeamImport class
+        /// </summary>
+        /// <param name="model">The RAM model</param>
+        /// <param name="lengthUnit">The length unit used in the model</param>
         public BeamImport(IModel model, string lengthUnit = "inches")
         {
             _model = model;
             _lengthUnit = lengthUnit;
-            InitializeFloorTypeMap();
         }
 
-        // Initializes the floor type mapping
-        private void InitializeFloorTypeMap()
-        {
-            try
-            {
-                _floorTypeMap.Clear();
-                IFloorTypes floorTypes = _model.GetFloorTypes();
-
-                for (int i = 0; i < floorTypes.GetCount(); i++)
-                {
-                    IFloorType floorType = floorTypes.GetAt(i);
-                    _floorTypeMap[floorType.strLabel] = floorType;
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error initializing floor type map: {ex.Message}");
-            }
-        }
-
-        // Imports beams to RAM model for each floor type
-       
+        /// <summary>
+        /// Imports beams to RAM model for each level with specific floor types
+        /// </summary>
+        /// <param name="beams">The collection of beams to import</param>
+        /// <param name="levels">The collection of levels in the model</param>
+        /// <param name="frameProperties">The collection of frame properties in the model</param>
+        /// <returns>The number of beams successfully imported</returns>
         public int Import(IEnumerable<Beam> beams, IEnumerable<Level> levels, IEnumerable<FrameProperties> frameProperties)
         {
             try
             {
-                int count = 0;
+                // First, ensure we have valid input
+                if (beams == null || !beams.Any())
+                {
+                    Console.WriteLine("No beams to import.");
+                    return 0;
+                }
+
+                if (levels == null || !levels.Any())
+                {
+                    Console.WriteLine("No levels available for beam import.");
+                    return 0;
+                }
+
+                // Get all available floor types from RAM
+                IFloorTypes ramFloorTypes = _model.GetFloorTypes();
+                if (ramFloorTypes.GetCount() == 0)
+                {
+                    Console.WriteLine("Error: No floor types found in RAM model");
+                    return 0;
+                }
+
+                // Output debugging info about available floor types
+                Console.WriteLine($"Available RAM floor types: {ramFloorTypes.GetCount()}");
+                for (int i = 0; i < ramFloorTypes.GetCount(); i++)
+                {
+                    IFloorType ft = ramFloorTypes.GetAt(i);
+                    Console.WriteLine($"  Floor Type {i + 1}: {ft.strLabel} (ID: {ft.lUID})");
+                }
+
+                // Create a default floor type to use if specific mapping fails
+                IFloorType defaultFloorType = ramFloorTypes.GetAt(0);
+                Console.WriteLine($"Using default floor type: {defaultFloorType.strLabel} (ID: {defaultFloorType.lUID})");
+
+                // Create mappings for levels and materials
                 Dictionary<string, Level> levelMap = new Dictionary<string, Level>();
                 Dictionary<string, EMATERIALTYPES> materialsMap = new Dictionary<string, EMATERIALTYPES>();
 
@@ -59,6 +84,7 @@ namespace RAM.Import.Elements
                     if (!string.IsNullOrEmpty(level.Id))
                     {
                         levelMap[level.Id] = level;
+                        Console.WriteLine($"Level mapped: {level.Id} -> {level.Name}, FloorTypeId: {level.FloorTypeId}");
                     }
                 }
 
@@ -69,9 +95,9 @@ namespace RAM.Import.Elements
                     {
                         EMATERIALTYPES materialType = EMATERIALTYPES.ESteelMat; // Default to steel
 
-                        // Determine if it's a joist by name
+                        // Check if it's a joist
                         bool isJoist = frameProp.Name?.ToLower().Contains("joist") == true ||
-                                      frameProp.Shape?.ToLower().Contains("joist") == true;
+                                       frameProp.Shape?.ToLower().Contains("joist") == true;
 
                         if (isJoist)
                         {
@@ -80,8 +106,6 @@ namespace RAM.Import.Elements
                         else if (frameProp.MaterialId != null)
                         {
                             // Try to determine material from material ID
-                            // This would need additional logic to map MaterialId to EMATERIALTYPES
-                            // For now we'll just check the material name for concrete vs steel
                             string materialName = frameProp.MaterialId?.ToLower() ?? "";
                             if (materialName.Contains("concrete"))
                             {
@@ -90,28 +114,95 @@ namespace RAM.Import.Elements
                         }
 
                         materialsMap[frameProp.Id] = materialType;
+                        Console.WriteLine($"Material mapped: {frameProp.Id} -> {materialType}");
                     }
                 }
 
-                // Process all beams
-                foreach (var beam in beams)
+                // Setup floor type mapping for each level
+                foreach (var level in levels)
                 {
-                    if (beam.StartPoint == null || beam.EndPoint == null || string.IsNullOrEmpty(beam.LevelId))
+                    if (string.IsNullOrEmpty(level.FloorTypeId))
                     {
+                        Console.WriteLine($"Level {level.Name} has no floor type ID, using default");
+                        _floorTypeByLevelId[level.Id] = defaultFloorType;
                         continue;
                     }
 
-                    // Get the level and floor type
-                    if (!levelMap.TryGetValue(beam.LevelId, out Level level) ||
-                        level.FloorTypeId == null ||
-                        !GetRamFloorTypeByFloorTypeId(level.FloorTypeId, out IFloorType floorType))
+                    // Try to find a floor type in RAM that matches the level's floor type
+                    bool foundMatch = false;
+                    for (int i = 0; i < ramFloorTypes.GetCount(); i++)
                     {
+                        IFloorType ft = ramFloorTypes.GetAt(i);
+
+                        // In a more refined implementation, you'd match by name or other criteria
+                        // For now, use the first floor type as a match
+                        _floorTypeByLevelId[level.Id] = ft;
+                        foundMatch = true;
+                        Console.WriteLine($"Mapped level {level.Name} to floor type {ft.strLabel}");
+                        break;
+                    }
+
+                    if (!foundMatch)
+                    {
+                        Console.WriteLine($"No matching floor type found for level {level.Name}, using default");
+                        _floorTypeByLevelId[level.Id] = defaultFloorType;
+                    }
+                }
+
+                // Now process and import the beams
+                int count = 0;
+                foreach (var beam in beams)
+                {
+                    if (beam.StartPoint == null || beam.EndPoint == null)
+                    {
+                        Console.WriteLine($"Skipping beam {beam.Id}: Missing start or end point");
                         continue;
+                    }
+
+                    if (string.IsNullOrEmpty(beam.LevelId))
+                    {
+                        Console.WriteLine($"Skipping beam {beam.Id}: Missing level ID");
+                        continue;
+                    }
+
+                    // Find the floor type for this beam's level
+                    IFloorType floorType = null;
+
+                    if (_floorTypeByLevelId.TryGetValue(beam.LevelId, out floorType))
+                    {
+                        Console.WriteLine($"Found floor type for beam {beam.Id}: {floorType.strLabel}");
+                    }
+                    else if (levelMap.TryGetValue(beam.LevelId, out Level level))
+                    {
+                        // Try to get the floor type using the level
+                        Console.WriteLine($"Trying to find floor type for beam {beam.Id} through level {level.Name}");
+
+                        if (_floorTypeByLevelId.TryGetValue(level.Id, out floorType))
+                        {
+                            Console.WriteLine($"Found floor type via level: {floorType.strLabel}");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"No floor type found for level {level.Name}, using default");
+                            floorType = defaultFloorType;
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine($"No level found for beam {beam.Id}, using default floor type");
+                        floorType = defaultFloorType;
+                    }
+
+                    // Ensure we have a floor type
+                    if (floorType == null)
+                    {
+                        Console.WriteLine($"Critical error: No floor type could be determined for beam {beam.Id}");
+                        floorType = defaultFloorType; // Final fallback
                     }
 
                     // Get beam material
                     EMATERIALTYPES beamMaterial = EMATERIALTYPES.ESteelMat; // Default
-                    if (beam.FramePropertiesId != null &&
+                    if (!string.IsNullOrEmpty(beam.FramePropertiesId) &&
                         materialsMap.TryGetValue(beam.FramePropertiesId, out EMATERIALTYPES material))
                     {
                         beamMaterial = material;
@@ -125,47 +216,45 @@ namespace RAM.Import.Elements
                     double beamY2 = Helpers.ConvertToInches(beam.EndPoint.Y, _lengthUnit);
                     double beamZ2 = 0;
 
-                    // Create the beam in RAM
-                    ILayoutBeams layoutBeams = floorType.GetLayoutBeams();
-                    ILayoutBeam ramBeam = layoutBeams.Add(beamMaterial, beamX1, beamY1, beamZ1, beamX2, beamY2, beamZ2);
+                    Console.WriteLine($"Creating beam at ({beamX1},{beamY1}) to ({beamX2},{beamY2}) with material {beamMaterial}");
 
-                    if (ramBeam != null)
+                    try
                     {
-                        count++;
+                        // Create the beam in RAM
+                        ILayoutBeams layoutBeams = floorType.GetLayoutBeams();
+                        if (layoutBeams == null)
+                        {
+                            Console.WriteLine($"Error: GetLayoutBeams() returned null for floor type {floorType.strLabel}");
+                            continue;
+                        }
+
+                        ILayoutBeam ramBeam = layoutBeams.Add(beamMaterial, beamX1, beamY1, beamZ1, beamX2, beamY2, beamZ2);
+
+                        if (ramBeam != null)
+                        {
+                            count++;
+                            Console.WriteLine($"Successfully created beam {count}");
+                        }
+                        else
+                        {
+                            Console.WriteLine("Error: RAM returned null beam");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error creating beam: {ex.Message}");
+                        // Continue with next beam instead of failing the whole import
                     }
                 }
 
+                Console.WriteLine($"Successfully imported {count} beams");
                 return count;
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error importing beams: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
                 throw;
-            }
-        }
-
-        // Gets a RAM floor type by floor type ID from our model
-        private bool GetRamFloorTypeByFloorTypeId(string floorTypeId, out IFloorType floorType)
-        {
-            floorType = null;
-
-            try
-            {
-                // Try to find a floor type with a matching ID
-                // In a real implementation, we would have a mapping from our model's floor type IDs
-                // to RAM floor type names, but for simplicity, we'll just use the first floor type
-
-                if (_floorTypeMap.Count > 0)
-                {
-                    floorType = _floorTypeMap.Values.GetEnumerator().Current;
-                    return true;
-                }
-
-                return false;
-            }
-            catch
-            {
-                return false;
             }
         }
     }

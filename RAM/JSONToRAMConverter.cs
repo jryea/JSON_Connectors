@@ -1,10 +1,12 @@
 ﻿using System;
 using System.IO;
 using System.Text;
+using System.Collections.Generic;
 using Core.Models;
 using Core.Converters;
 using RAM.Import.ModelLayout;
 using RAM.Import.Elements;
+using RAM.Import.Properties;
 using RAM.Utilities;
 using RAMDATAACCESSLib;
 
@@ -107,6 +109,27 @@ namespace RAM
                         floorTypeCount = 1;
                     }
 
+                    // Import floor properties with the new importers
+                    Dictionary<string, int> slabPropIds = new Dictionary<string, int>();
+                    Dictionary<string, int> compDeckPropIds = new Dictionary<string, int>();
+                    Dictionary<string, int> nonCompDeckPropIds = new Dictionary<string, int>();
+
+                    if (model.Properties != null && model.Properties.FloorProperties != null &&
+                        model.Properties.FloorProperties.Count > 0)
+                    {
+                        // Import slab properties
+                        var slabPropsImporter = new SlabPropertiesImport(modelManager.Model, lengthUnit);
+                        slabPropIds = slabPropsImporter.Import(model.Properties.FloorProperties);
+
+                        // Import composite deck properties
+                        var compDeckPropsImporter = new CompositeDeckPropertiesImport(modelManager.Model, lengthUnit);
+                        compDeckPropIds = compDeckPropsImporter.Import(model.Properties.FloorProperties);
+
+                        // Import non-composite deck properties
+                        var nonCompDeckPropsImporter = new NonCompositeDeckPropertiesImport(modelManager.Model, lengthUnit);
+                        nonCompDeckPropIds = nonCompDeckPropsImporter.Import(model.Properties.FloorProperties);
+                    }
+
                     // Import stories/levels (before grids since grids will be assigned to floor types)
                     var storyImporter = new StoryImport(modelManager.Model, lengthUnit);
                     int storyCount = 0;
@@ -140,6 +163,7 @@ namespace RAM
                     int beamCount = 0;
                     int columnCount = 0;
                     int wallCount = 0;
+                    int floorCount = 0;
 
                     if (model.Elements != null)
                     {
@@ -153,31 +177,38 @@ namespace RAM
                                 model.Properties.FrameProperties);
                         }
 
-                        //// Import columns
-                        //if (model.Elements.Columns != null && model.Elements.Columns.Count > 0)
-                        //{
-                        //    var columnImporter = new ColumnImport(modelManager.Model, lengthUnit);
-                        //    columnCount = columnImporter.Import(
-                        //        model.Elements.Columns,
-                        //        model.ModelLayout.Levels,
-                        //        model.Properties.FrameProperties);
-                        //}
-
-                        //// Import walls
-                        //if (model.Elements.Walls != null && model.Elements.Walls.Count > 0)
-                        //{
-                        //    var wallImporter = new WallImport(modelManager.Model, lengthUnit);
-                        //    wallCount = wallImporter.Import(
-                        //        model.Elements.Walls,
-                        //        model.ModelLayout.Levels,
-                        //        model.Properties.WallProperties);
-                        //}
+                        if (model.Elements.Columns != null && model.Elements.Columns.Count > 0)
+                        {
+                            var columnImporter = new ColumnImport(modelManager.Model, lengthUnit);
+                            columnCount = columnImporter.Import(
+                                model.Elements.Columns,
+                                model.ModelLayout.Levels,
+                                model.Properties.FrameProperties);
+                        }
+                       
+                        if (model.Elements.Walls != null && model.Elements.Walls.Count > 0)
+                        {
+                            var wallImporter = new WallImport(modelManager.Model, lengthUnit);
+                            wallCount = wallImporter.Import(
+                                model.Elements.Walls,
+                                model.ModelLayout.Levels,
+                                model.Properties.WallProperties);
+                        }
                     }
 
                     // Save model
                     modelManager.SaveModel();
 
-                    return (true, $"Successfully created RAM model with {floorTypeCount} floor types, {gridCount} grids, {storyCount} stories, {beamCount} beams, {columnCount} columns, and {wallCount} walls.");
+                    // Calculate property counts
+                    int slabPropCount = slabPropIds.Count;
+                    int compDeckPropCount = compDeckPropIds.Count;
+                    int nonCompDeckPropCount = nonCompDeckPropIds.Count;
+                    int totalPropCount = slabPropCount + compDeckPropCount + nonCompDeckPropCount;
+
+                    return (true, $"Successfully created RAM model with {floorTypeCount} floor types, " +
+                        $"{gridCount} grids, {storyCount} stories, {totalPropCount} floor properties " +
+                        $"({slabPropCount} slabs, {compDeckPropCount} composite decks, {nonCompDeckPropCount} non-composite decks), " +
+                        $"{beamCount} beams, {columnCount} columns, {wallCount} walls, and {floorCount} floors.");
                 }
             }
             catch (Exception ex)

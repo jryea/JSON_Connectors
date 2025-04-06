@@ -130,16 +130,16 @@ namespace RAM.Import.Elements
 
                     // Try to find a floor type in RAM that matches the level's floor type
                     bool foundMatch = false;
-                    for (int i = 0; i < ramFloorTypes.GetCount(); i++)
-                    {
-                        IFloorType ft = ramFloorTypes.GetAt(i);
 
-                        // In a more refined implementation, you'd match by name or other criteria
-                        // For now, use the first floor type as a match
+                    // For now, simply use the first floor type
+                    // In a more refined implementation, you would loop through all floor types
+                    // and match by name or other criteria
+                    if (ramFloorTypes.GetCount() > 0)
+                    {
+                        IFloorType ft = ramFloorTypes.GetAt(0);
                         _floorTypeByLevelId[level.Id] = ft;
                         foundMatch = true;
                         Console.WriteLine($"Mapped level {level.Name} to floor type {ft.strLabel}");
-                        break;
                     }
 
                     if (!foundMatch)

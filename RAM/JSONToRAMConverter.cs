@@ -153,25 +153,25 @@ namespace RAM
                                 model.Properties.FrameProperties);
                         }
 
-                        // Import columns
-                        if (model.Elements.Columns != null && model.Elements.Columns.Count > 0)
-                        {
-                            var columnImporter = new ColumnImport(modelManager.Model, lengthUnit);
-                            columnCount = columnImporter.Import(
-                                model.Elements.Columns,
-                                model.ModelLayout.Levels,
-                                model.Properties.FrameProperties);
-                        }
+                        //// Import columns
+                        //if (model.Elements.Columns != null && model.Elements.Columns.Count > 0)
+                        //{
+                        //    var columnImporter = new ColumnImport(modelManager.Model, lengthUnit);
+                        //    columnCount = columnImporter.Import(
+                        //        model.Elements.Columns,
+                        //        model.ModelLayout.Levels,
+                        //        model.Properties.FrameProperties);
+                        //}
 
-                        // Import walls
-                        if (model.Elements.Walls != null && model.Elements.Walls.Count > 0)
-                        {
-                            var wallImporter = new WallImport(modelManager.Model, lengthUnit);
-                            wallCount = wallImporter.Import(
-                                model.Elements.Walls,
-                                model.ModelLayout.Levels,
-                                model.Properties.WallProperties);
-                        }
+                        //// Import walls
+                        //if (model.Elements.Walls != null && model.Elements.Walls.Count > 0)
+                        //{
+                        //    var wallImporter = new WallImport(modelManager.Model, lengthUnit);
+                        //    wallCount = wallImporter.Import(
+                        //        model.Elements.Walls,
+                        //        model.ModelLayout.Levels,
+                        //        model.Properties.WallProperties);
+                        //}
                     }
 
                     // Save model

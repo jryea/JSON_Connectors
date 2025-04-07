@@ -13,6 +13,7 @@ using Core.Converters;
 using Core.Utilities;
 using RAM.Utilities;
 using RAM.Export.ModelLayout;
+using RAM.Export.Elements;
 using RAMDATAACCESSLib;
 
 namespace RAM
@@ -95,14 +96,14 @@ namespace RAM
                         //model.Properties.FloorProperties = floorPropertiesExporter.Export();
 
                         // Extract frame properties
-                        //model.Properties.FrameProperties = ExtractFrameProperties(model.Properties.Materials);
+                        model.Properties.FrameProperties = ExtractFrameProperties(model.Properties.Materials);
 
-                        // Create frame property mappings
-                        //Dictionary<string, string> framePropertyMapping = new Dictionary<string, string>();
-                        //foreach (var frameProp in model.Properties.FrameProperties)
-                        //{
-                        //    framePropertyMapping[frameProp.Name] = frameProp.Id;
-                        //}
+                        //Create frame property mappings
+                        Dictionary<string, string> framePropertyMapping = new Dictionary<string, string>();
+                        foreach (var frameProp in model.Properties.FrameProperties)
+                        {
+                            framePropertyMapping[frameProp.Name] = frameProp.Id;
+                        }
 
                         // Extract wall properties
                         //model.Properties.WallProperties = ExtractWallProperties(model.Properties.Materials);
@@ -115,10 +116,10 @@ namespace RAM
                         //}
 
                         // Extract beams
-                        //BeamExport beamExporter = new BeamExport(modelManager.Model, lengthUnit);
-                        //beamExporter.SetLevelMappings(CreateLevelIdMapping(model.ModelLayout.Levels));
-                        //beamExporter.SetFramePropertyMappings(framePropertyMapping);
-                        //model.Elements.Beams = beamExporter.Export();
+                        BeamExport beamExporter = new BeamExport(modelManager.Model, lengthUnit);
+                        beamExporter.SetLevelMappings(CreateLevelIdMapping(model.ModelLayout.Levels));
+                        beamExporter.SetFramePropertyMappings(framePropertyMapping);
+                        model.Elements.Beams = beamExporter.Export();
 
                         // Extract columns
                         //ColumnExport columnExporter = new ColumnExport(modelManager.Model, lengthUnit);

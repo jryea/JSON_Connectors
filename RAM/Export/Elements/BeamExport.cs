@@ -39,51 +39,56 @@ namespace RAM.Export.Elements
 
             try
             {
-                // Get all floor types from RAM
-                IFloorTypes ramFloorTypes = _model.GetFloorTypes();
-                if (ramFloorTypes == null || ramFloorTypes.GetCount() == 0)
+                // Get all stories from RAM
+                IStories ramStories = _model.GetStories();
+                if (ramStories == null || ramStories.GetCount() == 0)
                     return beams;
 
-                // Process each floor type
-                for (int i = 0; i < ramFloorTypes.GetCount(); i++)
+                // Process each story
+                for (int i = 0; i < ramStories.GetCount(); i++)
                 {
-                    IFloorType floorType = ramFloorTypes.GetAt(i);
-                    if (floorType == null)
+                    IStory ramStory = ramStories.GetAt(i);
+                    if (ramStory == null)
                         continue;
 
-                    // Find the corresponding level ID for this floor type
-                    string levelId = FindLevelIdForFloorType(floorType);
+                    // Find the corresponding level ID for this story
+                    string levelId = FindLevelIdForStory(ramStory);
                     if (string.IsNullOrEmpty(levelId))
                         continue;
 
-                    // Get layout beams for this floor type
-                    ILayoutBeams layoutBeams = floorType.GetLayoutBeams();
-                    if (layoutBeams == null)
+                    // Get beams for this story
+                    IBeams storyBeams = ramStory.GetBeams();
+                    if (storyBeams == null || storyBeams.GetCount() == 0)
                         continue;
 
-                    // Process each layout beam
-                    for (int j = 0; j < layoutBeams.GetCount(); j++)
+                    // Process each beam in the story
+                    for (int j = 0; j < storyBeams.GetCount(); j++)
                     {
-                        ILayoutBeam layoutBeam = layoutBeams.GetAt(j);
-                        if (layoutBeam == null)
+                        IBeam ramBeam = storyBeams.GetAt(j);
+                        if (ramBeam == null)
                             continue;
+
+                        // Get beam coordinates
+                        SCoordinate pt1 = new SCoordinate();
+                        SCoordinate pt2 = new SCoordinate();
+                        ramBeam.GetCoordinates(EBeamCoordLoc.eBeamEnds, ref pt1, ref pt2);
 
                         // Create beam from RAM data
                         Beam beam = new Beam
                         {
                             Id = IdGenerator.Generate(IdGenerator.Elements.BEAM),
                             StartPoint = new Point2D(
-                                ConvertFromInches(layoutBeam.dXStart),
-                                ConvertFromInches(layoutBeam.dYStart)
+                                ConvertFromInches(pt1.dXLoc),
+                                ConvertFromInches(pt1.dYLoc)
                             ),
                             EndPoint = new Point2D(
-                                ConvertFromInches(layoutBeam.dXEnd),
-                                ConvertFromInches(layoutBeam.dYEnd)
+                                ConvertFromInches(pt2.dXLoc),
+                                ConvertFromInches(pt2.dYLoc)
                             ),
                             LevelId = levelId,
-                            FramePropertiesId = FindFramePropertiesId(layoutBeam.strSectionLabel),
-                            IsLateral = GetIsLateral(layoutBeam),
-                            IsJoist = IsJoistSection(layoutBeam.eMaterialType)
+                            FramePropertiesId = FindFramePropertiesId(ramBeam.strSectionLabel),
+                            IsLateral = (ramBeam.eFramingType == EFRAMETYPE.MemberIsLateral), // Assuming 1 means lateral
+                            IsJoist = (ramBeam.eMaterial == EMATERIALTYPES.ESteelJoistMat)
                         };
 
                         beams.Add(beam);
@@ -99,20 +104,23 @@ namespace RAM.Export.Elements
             }
         }
 
-        private string FindLevelIdForFloorType(IFloorType floorType)
+        private string FindLevelIdForStory(IStory story)
         {
-            // Try to find direct mapping by floor type UID
-            string key = $"FloorType_{floorType.lUID}";
-            if (_levelMappings.TryGetValue(key, out string levelId))
+            // Try to find direct mapping by story name
+            string storyName = story.strLabel;
+
+            if (_levelMappings.TryGetValue(storyName, out string levelId))
                 return levelId;
 
-            // If not found, try by floor type name
-            if (_levelMappings.TryGetValue(floorType.strLabel, out levelId))
+            // Try with "Story" prefix variations
+            if (_levelMappings.TryGetValue($"Story {storyName}", out levelId) ||
+                _levelMappings.TryGetValue($"Story{storyName}", out levelId))
                 return levelId;
 
             // Return first level ID as fallback
             return _levelMappings.Values.FirstOrDefault();
         }
+
 
         private string FindFramePropertiesId(string sectionName)
         {
@@ -127,10 +135,6 @@ namespace RAM.Export.Elements
             return null;
         }
 
-        private bool IsJoistSection(EMATERIALTYPES materialType)
-        {
-            return materialType == EMATERIALTYPES.ESteelJoistMat;
-        }
 
         private double ConvertFromInches(double inches)
         {

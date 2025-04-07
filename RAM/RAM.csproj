@@ -42,6 +42,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Export\ModelLayout\FloorTypeExport.cs" />
+    <Compile Include="Export\ModelLayout\GridExport.cs" />
     <Compile Include="Export\ModelLayout\LevelExport.cs" />
     <Compile Include="Import\Elements\BeamImport.cs" />
     <Compile Include="Import\Elements\ColumnImport.cs" />

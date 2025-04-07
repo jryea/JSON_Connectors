@@ -69,6 +69,8 @@ namespace RAM.Export.ModelLayout
                         Elevation = ConvertFromInches(elevation)
                     };
 
+                    levels.Add(level);  
+
                 }
                     return levels;
             }

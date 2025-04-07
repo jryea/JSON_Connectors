@@ -49,7 +49,7 @@ namespace RAM.Export.ModelLayout
                         continue;
 
                     // Determine start and end points based on grid direction
-                    double coordinate = ConvertFromInches(modelGrid.dCoord);
+                    double coordinate = ConvertFromInches(modelGrid.dCoordinate_Angle);
                     GridPoint startPoint, endPoint;
 
                     if (modelGrid.eAxis == EGridAxis.eGridXorRadialAxis)

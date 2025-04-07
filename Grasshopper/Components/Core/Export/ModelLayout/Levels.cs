@@ -37,10 +37,26 @@ namespace Grasshopper.Components.Core.Export.ModelLayout
             if (!DA.GetDataList(1, elevations)) return;
             if (!DA.GetDataList(2, floorTypeObjects)) return;
 
-            if (names.Count != elevations.Count || names.Count != floorTypeObjects.Count)
+            if (names.Count != elevations.Count)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
-                    "Number of names, elevations, and floor types must match");
+                    "Number of names and elevations must match");
+                return;
+            }
+
+            // Extend floorTypeObjects list with the last value until it matches the length of names and elevations
+            if (floorTypeObjects.Count > 0)
+            {
+                object lastFloorType = floorTypeObjects[floorTypeObjects.Count - 1];
+                while (floorTypeObjects.Count < names.Count)
+                {
+                    floorTypeObjects.Add(lastFloorType);
+                }
+            }
+            else
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
+                    "FloorTypes list cannot be empty");
                 return;
             }
 
@@ -75,6 +91,7 @@ namespace Grasshopper.Components.Core.Export.ModelLayout
 
             DA.SetDataList(0, levels);
         }
+
 
         public override Guid ComponentGuid => new Guid("f9a0b1c2-d3e4-5f6a-7b8c-9d0e1f2a3b4c");
     }

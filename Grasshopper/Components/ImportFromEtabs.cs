@@ -57,6 +57,7 @@ namespace Grasshopper.Components
                 DA.SetData(0, jsonContent);
                 DA.SetData(1, true);
             }
+
             catch (Exception ex)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);

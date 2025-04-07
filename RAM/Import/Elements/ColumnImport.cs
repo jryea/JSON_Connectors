@@ -10,189 +10,186 @@ using RAMDATAACCESSLib;
 
 namespace RAM.Import.Elements
 {
-    /// <summary>
-    /// Imports column elements to RAM from the Core model
-    /// </summary>
     public class ColumnImport
     {
         private IModel _model;
         private string _lengthUnit;
-        private Dictionary<string, IFloorType> _floorTypeByLevelId = new Dictionary<string, IFloorType>();
 
-        /// <summary>
-        /// Initializes a new instance of the ColumnImport class
-        /// </summary>
-        /// <param name="model">The RAM model</param>
-        /// <param name="lengthUnit">The length unit used in the model</param>
         public ColumnImport(IModel model, string lengthUnit = "inches")
         {
             _model = model;
             _lengthUnit = lengthUnit;
         }
 
-        /// <summary>
-        /// Imports columns to RAM model
-        /// </summary>
-        /// <param name="columns">The collection of columns to import</param>
-        /// <param name="levels">The collection of levels in the model</param>
-        /// <param name="frameProperties">The collection of frame properties in the model</param>
-        /// <returns>The number of columns successfully imported</returns>
         public int Import(IEnumerable<Column> columns, IEnumerable<Level> levels, IEnumerable<FrameProperties> frameProperties)
         {
             try
             {
-                // First, ensure we have valid input
-                if (columns == null || !columns.Any())
-                {
-                    Console.WriteLine("No columns to import.");
+                if (columns == null || !columns.Any() || levels == null || !levels.Any())
                     return 0;
-                }
 
-                if (levels == null || !levels.Any())
-                {
-                    Console.WriteLine("No levels available for column import.");
-                    return 0;
-                }
-
-                // Get all available floor types from RAM
+                // Get RAM floor types
                 IFloorTypes ramFloorTypes = _model.GetFloorTypes();
                 if (ramFloorTypes.GetCount() == 0)
-                {
-                    Console.WriteLine("Error: No floor types found in RAM model");
                     return 0;
-                }
 
-                // Use the first floor type as default
-                IFloorType defaultFloorType = ramFloorTypes.GetAt(0);
-                Console.WriteLine($"Using default floor type: {defaultFloorType.strLabel} (ID: {defaultFloorType.lUID})");
+                // Create a map of level IDs to Level objects
+                Dictionary<string, Level> levelById = levels.ToDictionary(l => l.Id);
 
-                // Create mappings for levels and materials
-                Dictionary<string, Level> levelMap = new Dictionary<string, Level>();
-                Dictionary<string, EMATERIALTYPES> materialsMap = new Dictionary<string, EMATERIALTYPES>();
-                Dictionary<string, Level> levelById = new Dictionary<string, Level>();
+                // Sort levels by elevation
+                var sortedLevels = levels.OrderBy(l => l.Elevation).ToList();
 
-                // Build level mapping
-                foreach (var level in levels)
+                // Map floor types to their "master" level (first level with that floor type)
+                Dictionary<string, Level> masterLevelByFloorTypeId = new Dictionary<string, Level>();
+
+                // Find the first (lowest) level for each floor type - this will be the "master" level
+                foreach (var level in sortedLevels)
                 {
-                    if (!string.IsNullOrEmpty(level.Id))
+                    if (!string.IsNullOrEmpty(level.FloorTypeId) && !masterLevelByFloorTypeId.ContainsKey(level.FloorTypeId))
                     {
-                        levelMap[level.Id] = level;
-                        levelById[level.Id] = level;
-
-                        // Setup floor type mapping for each level
-                        if (string.IsNullOrEmpty(level.FloorTypeId))
-                        {
-                            _floorTypeByLevelId[level.Id] = defaultFloorType;
-                        }
-                        else
-                        {
-                            // In a real implementation, match by level's floor type ID
-                            // For now, just use the first floor type
-                            _floorTypeByLevelId[level.Id] = ramFloorTypes.GetAt(0);
-                        }
+                        masterLevelByFloorTypeId[level.FloorTypeId] = level;
+                        Console.WriteLine($"Floor type {level.FloorTypeId} has master level {level.Name} at elevation {level.Elevation}");
                     }
                 }
 
-                // Build materials mapping
-                foreach (var frameProp in frameProperties)
+                // Map Core floor types to RAM floor types
+                Dictionary<string, IFloorType> ramFloorTypeByFloorTypeId = new Dictionary<string, IFloorType>();
+
+                // Assign RAM floor types to Core floor types
+                for (int i = 0; i < ramFloorTypes.GetCount() && i < masterLevelByFloorTypeId.Count; i++)
                 {
-                    if (!string.IsNullOrEmpty(frameProp.Id))
-                    {
-                        EMATERIALTYPES materialType = EMATERIALTYPES.ESteelMat; // Default to steel
-
-                        if (frameProp.MaterialId != null)
-                        {
-                            // Try to determine material from material ID
-                            string materialName = frameProp.MaterialId?.ToLower() ?? "";
-                            if (materialName.Contains("concrete"))
-                            {
-                                materialType = EMATERIALTYPES.EConcreteMat;
-                            }
-                        }
-
-                        materialsMap[frameProp.Id] = materialType;
-                    }
+                    IFloorType ramFloorType = ramFloorTypes.GetAt(i);
+                    string coreFloorTypeId = masterLevelByFloorTypeId.Keys.ElementAt(i);
+                    ramFloorTypeByFloorTypeId[coreFloorTypeId] = ramFloorType;
+                    Console.WriteLine($"Mapped Core floor type {coreFloorTypeId} to RAM floor type {ramFloorType.strLabel}");
                 }
 
-                // Now process and import the columns
+                // Map materials
+                var materialMap = MapMaterials(frameProperties);
+
+                // Track processed columns to avoid duplicates
+                HashSet<string> processedColumns = new HashSet<string>();
+
+                // Process columns
                 int count = 0;
                 foreach (var column in columns)
                 {
                     if (column.StartPoint == null || column.EndPoint == null)
-                    {
-                        Console.WriteLine($"Skipping column {column.Id}: Missing start or end point");
                         continue;
-                    }
 
-                    // Get the floor type for the top level of the column
-                    IFloorType floorType = null;
-
-                    if (!string.IsNullOrEmpty(column.TopLevelId) && _floorTypeByLevelId.TryGetValue(column.TopLevelId, out floorType))
+                    // Get the TOP level for this column (similar to beam's level)
+                    Level topLevel = null;
+                    if (!string.IsNullOrEmpty(column.TopLevelId) && levelById.TryGetValue(column.TopLevelId, out topLevel))
                     {
-                        // We found the floor type directly
-                    }
-                    else if (levelById.Count > 0)
-                    {
-                        // Use the first available floor type if no specific mapping
-                        floorType = _floorTypeByLevelId.Values.FirstOrDefault() ?? defaultFloorType;
+                        // Great, we have the top level
                     }
                     else
                     {
-                        floorType = defaultFloorType;
+                        // If no top level specified, try the highest level
+                        topLevel = sortedLevels.LastOrDefault();
+                        if (topLevel == null)
+                        {
+                            Console.WriteLine($"Skipping column {column.Id}: No levels found");
+                            continue;
+                        }
                     }
 
-                    // Get column material
-                    EMATERIALTYPES columnMaterial = EMATERIALTYPES.ESteelMat; // Default
-                    if (!string.IsNullOrEmpty(column.FramePropertiesId) &&
-                        materialsMap.TryGetValue(column.FramePropertiesId, out EMATERIALTYPES material))
+                    // Get the floor type ID for the top level
+                    string floorTypeId = topLevel.FloorTypeId;
+                    if (string.IsNullOrEmpty(floorTypeId))
                     {
-                        columnMaterial = material;
+                        Console.WriteLine($"Skipping column {column.Id}: Top level has no floor type");
+                        continue;
                     }
 
-                    // Convert coordinates to inches
-                    double colX = Helpers.ConvertToInches(column.StartPoint.X, _lengthUnit);
-                    double colY = Helpers.ConvertToInches(column.StartPoint.Y, _lengthUnit);
-                    double colTopZ = 0;    // In RAM, the Z coordinate is determined by the level
-                    double colBaseZ = 0;   // We'll use 0 since RAM manages the heights internally
+                    // Check if this is the master level for this floor type
+                    if (!masterLevelByFloorTypeId.TryGetValue(floorTypeId, out Level masterLevel))
+                    {
+                        Console.WriteLine($"Skipping column {column.Id}: No master level found for floor type {floorTypeId}");
+                        continue;
+                    }
+
+                    // Get the RAM floor type
+                    if (!ramFloorTypeByFloorTypeId.TryGetValue(floorTypeId, out IFloorType ramFloorType))
+                    {
+                        Console.WriteLine($"Skipping column {column.Id}: No RAM floor type found for floor type {floorTypeId}");
+                        continue;
+                    }
+
+                    // Get material type
+                    EMATERIALTYPES columnMaterial = EMATERIALTYPES.ESteelMat; // Default to steel
+                    if (!string.IsNullOrEmpty(column.FramePropertiesId))
+                        materialMap.TryGetValue(column.FramePropertiesId, out columnMaterial);
+
+                    // Convert coordinates
+                    double x = Helpers.ConvertToInches(column.StartPoint.X, _lengthUnit);
+                    double y = Helpers.ConvertToInches(column.StartPoint.Y, _lengthUnit);
+
+                    // Create a unique key for this column
+                    string columnKey = $"{x:F2}_{y:F2}_{columnMaterial}_{floorTypeId}";
+
+                    // Skip if we've already processed this column on this floor type
+                    if (processedColumns.Contains(columnKey))
+                    {
+                        Console.WriteLine($"Skipping duplicate column in floor type {ramFloorType.strLabel}");
+                        continue;
+                    }
+
+                    // Add to processed set
+                    processedColumns.Add(columnKey);
 
                     try
                     {
-                        // Create the column in RAM
-                        ILayoutColumns layoutColumns = floorType.GetLayoutColumns();
-                        if (layoutColumns == null)
+                        ILayoutColumns layoutColumns = ramFloorType.GetLayoutColumns();
+                        if (layoutColumns != null)
                         {
-                            Console.WriteLine($"Error: GetLayoutColumns() returned null for floor type {floorType.strLabel}");
-                            continue;
-                        }
-
-                        ILayoutColumn ramColumn = layoutColumns.Add(columnMaterial, colX, colY, colTopZ, colBaseZ);
-
-                        if (ramColumn != null)
-                        {
-                            count++;
-                            Console.WriteLine($"Successfully created column {count}");
-                        }
-                        else
-                        {
-                            Console.WriteLine("Error: RAM returned null column");
+                            ILayoutColumn ramColumn = layoutColumns.Add(columnMaterial, x, y, 0, 0);
+                            if (ramColumn != null)
+                            {
+                                count++;
+                                Console.WriteLine($"Added column to floor type {ramFloorType.strLabel} (master level: {masterLevel.Name})");
+                            }
                         }
                     }
                     catch (Exception ex)
                     {
                         Console.WriteLine($"Error creating column: {ex.Message}");
-                        // Continue with next column instead of failing the whole import
                     }
                 }
 
-                Console.WriteLine($"Successfully imported {count} columns");
                 return count;
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error importing columns: {ex.Message}");
-                Console.WriteLine($"Stack trace: {ex.StackTrace}");
                 throw;
             }
+        }
+
+        private Dictionary<string, EMATERIALTYPES> MapMaterials(IEnumerable<FrameProperties> frameProperties)
+        {
+            var map = new Dictionary<string, EMATERIALTYPES>();
+
+            foreach (var prop in frameProperties ?? Enumerable.Empty<FrameProperties>())
+            {
+                if (string.IsNullOrEmpty(prop.Id))
+                    continue;
+
+                EMATERIALTYPES type = EMATERIALTYPES.ESteelMat;
+
+                if (prop.MaterialId != null)
+                {
+                    // Try to determine material type from material ID or properties
+                    if (prop.MaterialId.ToLower().Contains("concrete"))
+                    {
+                        type = EMATERIALTYPES.EConcreteMat;
+                    }
+                }
+
+                map[prop.Id] = type;
+            }
+
+            return map;
         }
     }
 }

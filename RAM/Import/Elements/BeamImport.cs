@@ -20,6 +20,7 @@ namespace RAM.Import.Elements
             _model = model;
             _lengthUnit = lengthUnit;
         }
+
         public int Import(IEnumerable<Beam> beams, IEnumerable<Level> levels, IEnumerable<FrameProperties> frameProperties)
         {
             try
@@ -32,39 +33,32 @@ namespace RAM.Import.Elements
                 if (ramFloorTypes.GetCount() == 0)
                     return 0;
 
-                // Map Core floor types to RAM floor types
-                Dictionary<string, IFloorType> ramFloorTypeByFloorTypeId = new Dictionary<string, IFloorType>();
-                Dictionary<string, string> levelToFloorTypeId = new Dictionary<string, string>();
+                // Sort levels by elevation
+                var sortedLevels = levels.OrderBy(l => l.Elevation).ToList();
 
-                // Map levels to floor types
-                foreach (var level in levels)
+                // Map floor types to their "master" level (first level with that floor type)
+                Dictionary<string, Level> masterLevelByFloorTypeId = new Dictionary<string, Level>();
+
+                // Find the first (lowest) level for each floor type - this will be the "master" level
+                foreach (var level in sortedLevels)
                 {
-                    if (!string.IsNullOrEmpty(level.Id) && !string.IsNullOrEmpty(level.FloorTypeId))
+                    if (!string.IsNullOrEmpty(level.FloorTypeId) && !masterLevelByFloorTypeId.ContainsKey(level.FloorTypeId))
                     {
-                        levelToFloorTypeId[level.Id] = level.FloorTypeId;
+                        masterLevelByFloorTypeId[level.FloorTypeId] = level;
+                        Console.WriteLine($"Floor type {level.FloorTypeId} has master level {level.Name} at elevation {level.Elevation}");
                     }
                 }
 
-                // Map floor types to RAM floor types
-                for (int i = 0; i < ramFloorTypes.GetCount(); i++)
+                // Map Core floor types to RAM floor types
+                Dictionary<string, IFloorType> ramFloorTypeByFloorTypeId = new Dictionary<string, IFloorType>();
+
+                // Assign RAM floor types to Core floor types
+                for (int i = 0; i < ramFloorTypes.GetCount() && i < masterLevelByFloorTypeId.Count; i++)
                 {
                     IFloorType ramFloorType = ramFloorTypes.GetAt(i);
-                    string ramFloorTypeName = ramFloorType.strLabel;
-
-                    // Find all Core floor types in the model
-                    var coreFloorTypes = levels
-                        .Select(l => l.FloorTypeId)
-                        .Where(id => !string.IsNullOrEmpty(id))
-                        .Distinct()
-                        .ToList();
-
-                    // Map Core floor types to RAM floor types
-                    for (int j = 0; j < coreFloorTypes.Count && j < ramFloorTypes.GetCount(); j++)
-                    {
-                        string coreFloorTypeId = coreFloorTypes[j];
-                        ramFloorTypeByFloorTypeId[coreFloorTypeId] = ramFloorTypes.GetAt(j);
-                        Console.WriteLine($"Mapped Core floor type {coreFloorTypeId} to RAM floor type {ramFloorTypes.GetAt(j).strLabel}");
-                    }
+                    string coreFloorTypeId = masterLevelByFloorTypeId.Keys.ElementAt(i);
+                    ramFloorTypeByFloorTypeId[coreFloorTypeId] = ramFloorType;
+                    Console.WriteLine($"Mapped Core floor type {coreFloorTypeId} to RAM floor type {ramFloorType.strLabel}");
                 }
 
                 // Map materials
@@ -78,14 +72,31 @@ namespace RAM.Import.Elements
                         string.IsNullOrEmpty(beam.LevelId))
                         continue;
 
-                    // Get floor type ID for this beam's level
-                    if (!levelToFloorTypeId.TryGetValue(beam.LevelId, out string floorTypeId) ||
-                        string.IsNullOrEmpty(floorTypeId))
+                    // Get the level this beam belongs to
+                    Level beamLevel = levels.FirstOrDefault(l => l.Id == beam.LevelId);
+                    if (beamLevel == null)
                         continue;
+
+                    string floorTypeId = beamLevel.FloorTypeId;
+                    if (string.IsNullOrEmpty(floorTypeId))
+                        continue;
+
+                    // Check if this is the master level for this floor type
+                    if (masterLevelByFloorTypeId.TryGetValue(floorTypeId, out Level masterLevel) &&
+                        masterLevel.Id != beamLevel.Id)
+                    {
+                        // Skip this beam as it's not on the master level for its floor type
+                        Console.WriteLine($"Skipping beam on level {beamLevel.Name} - not the master level for floor type {floorTypeId}");
+                        continue;
+                    }
 
                     // Get RAM floor type for this floor type
                     if (!ramFloorTypeByFloorTypeId.TryGetValue(floorTypeId, out IFloorType ramFloorType))
+                    {
+                        // No matching RAM floor type
+                        Console.WriteLine($"No RAM floor type found for floor type {floorTypeId}");
                         continue;
+                    }
 
                     // Get material type
                     EMATERIALTYPES beamMaterial = EMATERIALTYPES.ESteelMat;
@@ -107,7 +118,7 @@ namespace RAM.Import.Elements
                             if (ramBeam != null)
                             {
                                 count++;
-                                Console.WriteLine($"Added beam to floor type {ramFloorType.strLabel}");
+                                Console.WriteLine($"Added beam from master level {masterLevel.Name} to floor type {ramFloorType.strLabel}");
                             }
                         }
                     }
@@ -125,8 +136,6 @@ namespace RAM.Import.Elements
                 throw;
             }
         }
-
-
 
         private Dictionary<string, EMATERIALTYPES> MapMaterials(IEnumerable<FrameProperties> frameProperties)
         {

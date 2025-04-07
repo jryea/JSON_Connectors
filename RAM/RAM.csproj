@@ -44,6 +44,7 @@
     <Compile Include="Import\Elements\BeamImport.cs" />
     <Compile Include="Import\Elements\ColumnImport.cs" />
     <Compile Include="Import\Elements\WallImport.cs" />
+    <Compile Include="Import\Loads\SurfaceLoads.cs" />
     <Compile Include="Import\ModelLayout\FloorTypeImport.cs" />
     <Compile Include="Import\ModelLayout\GridImport.cs" />
     <Compile Include="Import\ModelLayout\StoryImport.cs" />

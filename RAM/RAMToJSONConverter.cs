@@ -68,8 +68,8 @@ namespace RAM
                         //Dictionary<string, int> levelMapping = levelExporter.CreateLevelMapping(model.ModelLayout.Levels);
 
                         // Extract grids
-                        //GridExport gridExporter = new GridExport(modelManager.Model, lengthUnit);
-                        //model.ModelLayout.Grids = gridExporter.Export();
+                        GridExport gridExporter = new GridExport(modelManager.Model, lengthUnit);
+                        model.ModelLayout.Grids = gridExporter.Export();
 
                         // Extract materials
                         //model.Properties.Materials = ExtractMaterials();

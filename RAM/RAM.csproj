@@ -41,6 +41,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Export\Elements\BeamExport.cs" />
     <Compile Include="Export\ModelLayout\FloorTypeExport.cs" />
     <Compile Include="Export\ModelLayout\GridExport.cs" />
     <Compile Include="Export\ModelLayout\LevelExport.cs" />
@@ -62,7 +63,6 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Diagnostics\" />
-    <Folder Include="Export\Elements\" />
     <Folder Include="Export\Loads\" />
     <Folder Include="Export\Properties\" />
   </ItemGroup>

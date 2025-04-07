@@ -18,6 +18,7 @@ namespace RAM.Import.Elements
         private IModel _model;
         private string _lengthUnit;
         private Dictionary<string, IFloorType> _floorTypeByLevelId = new Dictionary<string, IFloorType>();
+        private Dictionary<string, bool> _isFirstStoryForFloorType = new Dictionary<string, bool>();
 
         /// <summary>
         /// Initializes a new instance of the BeamImport class
@@ -77,6 +78,7 @@ namespace RAM.Import.Elements
                 // Create mappings for levels and materials
                 Dictionary<string, Level> levelMap = new Dictionary<string, Level>();
                 Dictionary<string, EMATERIALTYPES> materialsMap = new Dictionary<string, EMATERIALTYPES>();
+                Dictionary<string, List<Level>> floorTypeToLevels = new Dictionary<string, List<Level>>();
 
                 // Build level mapping
                 foreach (var level in levels)
@@ -85,6 +87,34 @@ namespace RAM.Import.Elements
                     {
                         levelMap[level.Id] = level;
                         Console.WriteLine($"Level mapped: {level.Id} -> {level.Name}, FloorTypeId: {level.FloorTypeId}");
+
+                        // Group levels by floor type ID
+                        if (!string.IsNullOrEmpty(level.FloorTypeId))
+                        {
+                            if (!floorTypeToLevels.ContainsKey(level.FloorTypeId))
+                            {
+                                floorTypeToLevels[level.FloorTypeId] = new List<Level>();
+                            }
+                            floorTypeToLevels[level.FloorTypeId].Add(level);
+                        }
+                    }
+                }
+
+                // For each floor type, determine the first story level
+                foreach (var floorTypeEntry in floorTypeToLevels)
+                {
+                    string floorTypeId = floorTypeEntry.Key;
+                    var levelsForFloorType = floorTypeEntry.Value;
+
+                    // Sort levels by elevation in ascending order
+                    levelsForFloorType.Sort((a, b) => a.Elevation.CompareTo(b.Elevation));
+
+                    // Mark the lowest level as the first story for this floor type
+                    if (levelsForFloorType.Count > 0)
+                    {
+                        Level firstStoryLevel = levelsForFloorType[0];
+                        _isFirstStoryForFloorType[firstStoryLevel.Id] = true;
+                        Console.WriteLine($"Level {firstStoryLevel.Name} is the first story for floor type {floorTypeId}");
                     }
                 }
 
@@ -162,6 +192,18 @@ namespace RAM.Import.Elements
                     if (string.IsNullOrEmpty(beam.LevelId))
                     {
                         Console.WriteLine($"Skipping beam {beam.Id}: Missing level ID");
+                        continue;
+                    }
+
+                    // Check if this beam is on the first story for its floor type
+                    bool isFirstStory = false;
+                    if (_isFirstStoryForFloorType.TryGetValue(beam.LevelId, out isFirstStory) && isFirstStory)
+                    {
+                        Console.WriteLine($"Beam {beam.Id} is on the first story for its floor type");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Skipping beam {beam.Id}: Not on the first story for its floor type");
                         continue;
                     }
 

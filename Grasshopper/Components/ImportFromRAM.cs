@@ -1,16 +1,9 @@
 ﻿using System;
 using System.IO;
 using System.Text;
-using System.Collections.Generic;
 using Grasshopper.Kernel;
 using RAM;
-using RAM.Utilities;
 using Core.Models;
-using Core.Models.ModelLayout;
-using Core.Models.Elements;
-using Core.Models.Properties;
-using Core.Models.Geometry;
-using Core.Models.Metadata;
 using Core.Converters;
 
 namespace Grasshopper.Components
@@ -68,10 +61,17 @@ namespace Grasshopper.Components
                 (string JsonOutput, string Message, bool Success) result = converter.ConvertRAMToJSON(ramFilePath);
 
                 // Save JSON to file if path provided
-                if (Success && !string.IsNullOrWhiteSpace(outputJsonPath))
+                if (result.Success && !string.IsNullOrWhiteSpace(outputJsonPath))
                 {
                     try
                     {
+                        // Ensure directory exists
+                        string directory = Path.GetDirectoryName(outputJsonPath);
+                        if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+                        {
+                            Directory.CreateDirectory(directory);
+                        }
+
                         File.WriteAllText(outputJsonPath, result.JsonOutput, Encoding.UTF8);
                         result.Message += $" JSON file saved to: {outputJsonPath}";
                     }

@@ -1,9 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using DB = Autodesk.Revit.DB;
-using Core.Models.Elements;
-using Core.Models.Geometry;
-using Autodesk.Revit.DB;
+using CE = Core.Models.Elements;
+using CG = Core.Models.Geometry;
 
 namespace Revit.Utilities
 {
@@ -11,7 +10,7 @@ namespace Revit.Utilities
     internal static class Helpers
     {
         // Converts a JSON 3D point to Revit XYZ
-        public static DB.XYZ ConvertToRevitCoordinates(Point3D point)
+        public static DB.XYZ ConvertToRevitCoordinates(CG.Point3D point)
         {
             // Convert from the JSON units (inches) to Revit's internal units (feet)
             double x = point.X / 12.0;
@@ -22,7 +21,7 @@ namespace Revit.Utilities
         }
 
         // Converts a JSON 2D point to Revit XYZ
-        public static DB.XYZ ConvertToRevitCoordinates(Point2D point, double z = 0)
+        public static DB.XYZ ConvertToRevitCoordinates(CG.Point2D point, double z = 0)
         {
             // Convert from the JSON units (inches) to Revit's internal units (feet)
             double x = point.X / 12.0;
@@ -32,7 +31,7 @@ namespace Revit.Utilities
         }
 
         // Creates a Revit curve from a list of JSON points
-        public static DB.Curve CreateRevitCurve(Point3D startPt, Point3D endPt, double z = 0)
+        public static DB.Curve CreateRevitCurve(CG.Point2D startPt, CG.Point2D endPt, double z = 0)
         {
             if (startPt == null || endPt == null)
                 throw new ArgumentNullException("Start and end points cannot be null"); 
@@ -43,7 +42,7 @@ namespace Revit.Utilities
             return DB.Line.CreateBound(start, end);
         }
 
-        internal static ElementId GetElementId(Dictionary<string, ElementId> levelIdMap, string levelId)
+        internal static DB.ElementId GetElementId(Dictionary<string, DB.ElementId> levelIdMap, string levelId)
         {
             throw new NotImplementedException();
         }

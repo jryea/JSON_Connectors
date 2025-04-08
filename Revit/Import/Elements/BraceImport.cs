@@ -2,15 +2,13 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using Autodesk.Revit.DB;
-using Autodesk.Revit.DB.Structure;
+using DB = Autodesk.Revit.DB.Structure;
 using C = Core.Models.Elements;
-using Revit.Utils;
+using Revit.Utilities;
 
 namespace Revit.Import.Elements
 {
-    /// <summary>
-    /// Imports brace elements from JSON into Revit
-    /// </summary>
+    // Imports brace elements from JSON into Revit
     public class BraceImport
     {
         private readonly Document _doc;
@@ -20,13 +18,7 @@ namespace Revit.Import.Elements
             _doc = doc;
         }
 
-        /// <summary>
-        /// Imports braces from the JSON model into Revit
-        /// </summary>
-        /// <param name="braces">List of braces to import</param>
-        /// <param name="levelIdMap">Dictionary of level ID mappings</param>
-        /// <param name="framePropertyIdMap">Dictionary of frame property ID mappings</param>
-        /// <returns>Number of braces imported</returns>
+        // Imports braces from the JSON model into Revit
         public int Import(List<C.Brace> braces, Dictionary<string, ElementId> levelIdMap, Dictionary<string, ElementId> framePropertyIdMap)
         {
             int count = 0;
@@ -36,7 +28,7 @@ namespace Revit.Import.Elements
                 try
                 {
                     // Get base level ID
-                    ElementId baseLevelId = RevitTypeHelper.GetElementId(levelIdMap, jsonBrace.BaseLevelId, "Base Level");
+                    ElementId baseLevelId = Helpers.GetElementId(levelIdMap, jsonBrace.BaseLevelId);
 
                     // Get family type for this brace (from frame properties)
                     ElementId familyTypeId = ElementId.InvalidElementId;
@@ -46,8 +38,8 @@ namespace Revit.Import.Elements
                     }
 
                     // Create curve for brace
-                    XYZ startPoint = RevitTypeHelper.ConvertToRevitCoordinates(jsonBrace.StartPoint);
-                    XYZ endPoint = RevitTypeHelper.ConvertToRevitCoordinates(jsonBrace.EndPoint);
+                    XYZ startPoint = Helpers.ConvertToRevitCoordinates(jsonBrace.StartPoint);
+                    XYZ endPoint = Helpers.ConvertToRevitCoordinates(jsonBrace.EndPoint);
                     Line braceLine = Line.CreateBound(startPoint, endPoint);
 
                     // Create the structural brace
@@ -55,7 +47,7 @@ namespace Revit.Import.Elements
                         braceLine,
                         familyTypeId,
                         baseLevelId,
-                        StructuralType.Brace);
+                        DB.StructuralType.Brace);
 
                     count++;
                 }

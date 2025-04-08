@@ -34,7 +34,8 @@ namespace Revit.Import.ModelLayout
                     DB.Level revitLevel = DB.Level.Create(_doc, elevation);
 
                     // Set level name
-                    revitLevel.Name = jsonLevel.Name;
+                    string revitLevelName = $"Level {jsonLevel.Name}";
+                    revitLevel.Name = revitLevelName;
 
                     count++;
                 }

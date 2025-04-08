@@ -161,6 +161,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="App.cs" />
+    <Compile Include="Import\Elements\BeamImport.cs" />
     <Compile Include="Import\ImportManager.cs" />
     <Compile Include="Import\ModelLayout\GridImport.cs" />
     <Compile Include="Import\ModelImportCommand.cs" />
@@ -201,9 +202,7 @@
       <Name>Core</Name>
     </ProjectReference>
   </ItemGroup>
-  <ItemGroup>
-    <Folder Include="Import\Elements\" />
-  </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <PostBuildEvent>echo *** Configuration: $(Configuration)

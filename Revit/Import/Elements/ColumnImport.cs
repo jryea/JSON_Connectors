@@ -1,33 +1,25 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using Autodesk.Revit.DB;
-using Autodesk.Revit.DB.Structure;
-using C = Core.Models.Elements;
-using Revit.Utils;
+using DB = Autodesk.Revit.DB;
+using CE = Core.Models.Elements;
+using Revit.Utilities;
 
 namespace Revit.Import.Elements
 {
-    /// <summary>
     /// Imports column elements from JSON into Revit
-    /// </summary>
     public class ColumnImport
     {
-        private readonly Document _doc;
+        private readonly DB.Document _doc;
 
-        public ColumnImport(Document doc)
+        public ColumnImport(DB.Document doc)
         {
             _doc = doc;
         }
 
-        /// <summary>
-        /// Imports columns from the JSON model into Revit
-        /// </summary>
-        /// <param name="columns">List of columns to import</param>
-        /// <param name="levelIdMap">Dictionary of level ID mappings</param>
-        /// <param name="framePropertyIdMap">Dictionary of frame property ID mappings</param>
-        /// <returns>Number of columns imported</returns>
-        public int Import(List<C.Column> columns, Dictionary<string, ElementId> levelIdMap, Dictionary<string, ElementId> framePropertyIdMap)
+        // Imports columns from the JSON model into Revit
+       
+        public int Import(List<CE.Column> columns, Dictionary<string, DB.ElementId> levelIdMap, Dictionary<string, DB.ElementId> framePropertyIdMap)
         {
             int count = 0;
 
@@ -36,41 +28,31 @@ namespace Revit.Import.Elements
                 try
                 {
                     // Get base and top level IDs
-                    ElementId baseLevelId = RevitTypeHelper.GetElementId(levelIdMap, jsonColumn.BaseLevelId, "Base Level");
-                    ElementId topLevelId = RevitTypeHelper.GetElementId(levelIdMap, jsonColumn.TopLevelId, "Top Level");
+                    DB.ElementId baseLevelId = Helpers.GetElementId(levelIdMap, jsonColumn.BaseLevelId);
+                    DB.ElementId topLevelId = Helpers.GetElementId(levelIdMap, jsonColumn.TopLevelId);
 
                     // Get family type for this column (from frame properties)
-                    ElementId familyTypeId = ElementId.InvalidElementId;
+                    DB.ElementId familyTypeId = DB.ElementId.InvalidElementId;
                     if (!string.IsNullOrEmpty(jsonColumn.FramePropertiesId) && framePropertyIdMap.ContainsKey(jsonColumn.FramePropertiesId))
                     {
                         familyTypeId = framePropertyIdMap[jsonColumn.FramePropertiesId];
                     }
 
                     // Get column insertion point
-                    XYZ columnPoint = RevitTypeHelper.ConvertToRevitCoordinates(jsonColumn.StartPoint);
+                    DB.XYZ columnPoint = Helpers.ConvertToRevitCoordinates(jsonColumn.StartPoint);
 
                     // Create the structural column
-                    FamilyInstance column = _doc.Create.NewFamilyInstance(
+                    DB.FamilyInstance column = _doc.Create.NewFamilyInstance(
                         columnPoint,
                         familyTypeId,
                         baseLevelId,
-                        StructuralType.Column);
+                        DB.Structure.StructuralType.Column);
 
                     // Set top level
-                    Parameter topLevelParam = column.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_PARAM);
+                    DB.Parameter topLevelParam = column.get_Parameter(DB.BuiltInParameter.FAMILY_TOP_LEVEL_PARAM);
                     if (topLevelParam != null)
                     {
                         topLevelParam.Set(topLevelId);
-                    }
-
-                    // Set lateral flag if applicable
-                    if (jsonColumn.IsLateral)
-                    {
-                        Parameter lateralParam = column.LookupParameter("IsLateral");
-                        if (lateralParam != null && lateralParam.StorageType == StorageType.Integer)
-                        {
-                            lateralParam.Set(1);
-                        }
                     }
 
                     count++;

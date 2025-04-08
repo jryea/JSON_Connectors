@@ -3,13 +3,11 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using Autodesk.Revit.DB;
 using C = Core.Models.Elements;
-using Revit.Utils;
+using Revit.Utilities;
 
 namespace Revit.Import.Elements
 {
-    /// <summary>
-    /// Imports floor elements from JSON into Revit
-    /// </summary>
+    // Imports floor elements from JSON into Revit
     public class FloorImport
     {
         private readonly Document _doc;
@@ -19,13 +17,8 @@ namespace Revit.Import.Elements
             _doc = doc;
         }
 
-        /// <summary>
-        /// Imports floors from the JSON model into Revit
-        /// </summary>
-        /// <param name="floors">List of floors to import</param>
-        /// <param name="levelIdMap">Dictionary of level ID mappings</param>
-        /// <param name="floorPropertyIdMap">Dictionary of floor property ID mappings</param>
-        /// <returns>Number of floors imported</returns>
+        // Imports floors from the JSON model into Revit
+     
         public int Import(List<C.Floor> floors, Dictionary<string, ElementId> levelIdMap, Dictionary<string, ElementId> floorPropertyIdMap)
         {
             int count = 0;
@@ -42,7 +35,7 @@ namespace Revit.Import.Elements
                     }
 
                     // Get level for this floor
-                    ElementId levelId = RevitTypeHelper.GetElementId(levelIdMap, jsonFloor.LevelId, "Level");
+                    ElementId levelId = Helpers.GetElementId(levelIdMap, jsonFloor.LevelId);
 
                     // Get floor type
                     ElementId floorTypeId = ElementId.InvalidElementId;
@@ -64,17 +57,17 @@ namespace Revit.Import.Elements
                     // Convert each point and add to curve loop
                     for (int i = 0; i < jsonFloor.Points.Count; i++)
                     {
-                        XYZ startPoint = RevitTypeHelper.ConvertToRevitCoordinates(jsonFloor.Points[i]);
+                        XYZ startPoint = Helpers.ConvertToRevitCoordinates(jsonFloor.Points[i]);
                         XYZ endPoint;
 
                         // If it's the last point, connect back to the first point
                         if (i == jsonFloor.Points.Count - 1)
                         {
-                            endPoint = RevitTypeHelper.ConvertToRevitCoordinates(jsonFloor.Points[0]);
+                            endPoint = Helpers.ConvertToRevitCoordinates(jsonFloor.Points[0]);
                         }
                         else
                         {
-                            endPoint = RevitTypeHelper.ConvertToRevitCoordinates(jsonFloor.Points[i + 1]);
+                            endPoint = Helpers.ConvertToRevitCoordinates(jsonFloor.Points[i + 1]);
                         }
 
                         Line line = Line.CreateBound(startPoint, endPoint);

@@ -1,31 +1,25 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using Autodesk.Revit.DB;
+using DB = Autodesk.Revit.DB;
 using C = Core.Models.Elements;
-using Revit.Utils;
+using Revit.Utilities;
 
 namespace Revit.Import.Elements
 {
-    /// <summary>
-    /// Imports wall elements from JSON into Revit
-    /// </summary>
+    // Imports wall elements from JSON into Revit
     public class WallImport
     {
-        private readonly Document _doc;
+        private readonly DB.Document _doc;
 
-        public WallImport(Document doc)
+        public WallImport(DB.Document doc)
         {
             _doc = doc;
         }
 
-        /// <summary>
-        /// Imports walls from the JSON model into Revit
-        /// </summary>
-        /// <param name="walls">List of walls to import</param>
-        /// <param name="wallPropertyIdMap">Dictionary of wall property ID mappings</param>
-        /// <returns>Number of walls imported</returns>
-        public int Import(List<C.Wall> walls, Dictionary<string, ElementId> wallPropertyIdMap)
+        // Imports walls from the JSON model into Revit
+       
+        public int Import(List<C.Wall> walls, Dictionary<string, DB.ElementId> wallPropertyIdMap)
         {
             int count = 0;
 
@@ -41,7 +35,7 @@ namespace Revit.Import.Elements
                     }
 
                     // Get wall type
-                    ElementId wallTypeId = ElementId.InvalidElementId;
+                    DB.ElementId wallTypeId = DB.ElementId.InvalidElementId;
                     if (!string.IsNullOrEmpty(jsonWall.PropertiesId) && wallPropertyIdMap.ContainsKey(jsonWall.PropertiesId))
                     {
                         wallTypeId = wallPropertyIdMap[jsonWall.PropertiesId];
@@ -49,37 +43,27 @@ namespace Revit.Import.Elements
                     else
                     {
                         // Use default wall type if none specified
-                        FilteredElementCollector collector = new FilteredElementCollector(_doc);
-                        collector.OfClass(typeof(WallType));
+                        DB.FilteredElementCollector collector = new DB.FilteredElementCollector(_doc);
+                        collector.OfClass(typeof(DB.WallType));
                         wallTypeId = collector.FirstElementId();
                     }
 
                     // Create the wall curve
-                    Curve wallCurve = RevitTypeHelper.CreateRevitCurve(jsonWall.Points);
+                    DB.Curve wallCurve = Helpers.CreateRevitCurve(jsonWall.Points[0], jsonWall.Points[1]);
 
                     // Get wall height (use default if not specified)
                     double wallHeight = 10.0; // Default height in feet
 
                     // Create the wall
-                    Wall wall = Wall.Create(
+                    DB.Wall wall = DB.Wall.Create(
                         _doc,
                         wallCurve,
                         wallTypeId,
-                        ElementId.InvalidElementId, // Level ID (use Active View's level if not specified)
+                        DB.ElementId.InvalidElementId, // Level ID (use Active View's level if not specified)
                         wallHeight,
                         0.0, // Offset
                         false, // Flip
                         true); // Structural
-
-                    // Set pier/spandrel configuration if specified
-                    if (!string.IsNullOrEmpty(jsonWall.PierSpandrelId))
-                    {
-                        Parameter pierSpandrelParam = wall.LookupParameter("PierSpandrel");
-                        if (pierSpandrelParam != null && pierSpandrelParam.StorageType == StorageType.String)
-                        {
-                            pierSpandrelParam.Set(jsonWall.PierSpandrelId);
-                        }
-                    }
 
                     count++;
                 }

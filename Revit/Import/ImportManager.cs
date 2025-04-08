@@ -60,8 +60,10 @@ namespace Revit.Import
                     totalImported += gridsImported;
 
                     LevelImport levelImport = new LevelImport(_doc);
-                    int levelsImported = levelImport.Import(model.ModelLayout.Levels);
+                    int levelsImported = levelImport.Import(model.ModelLayout.Levels, _levelIdMap);
                     totalImported += levelsImported;
+
+                    _doc.Regenerate();
 
                     // 3. Import structural elements
                     if (model.Elements.Beams != null && model.Elements.Beams.Count > 0)
@@ -104,38 +106,16 @@ namespace Revit.Import
             collector.OfClass(typeof(DB.Level));
             List<DB.Level> revitLevels = collector.Cast<DB.Level>().ToList();
 
-            // Create a dictionary of levels by elevation for fast lookup
-            Dictionary<double, DB.Level> revitLevelsByElevation = new Dictionary<double, DB.Level>();
-            foreach (DB.Level level in revitLevels)
-            {
-                double elevation = Math.Round(level.Elevation, 4);
-                if (!revitLevelsByElevation.ContainsKey(elevation))
-                {
-                    revitLevelsByElevation[elevation] = level;
-                }
-            }
-
-            // Create levels if they don't exist, and map them
+            // Map JSON level IDs to Revit level ElementIds
             foreach (Level jsonLevel in levels)
             {
-                // Convert elevation from inches to feet for Revit
-                double elevation = Math.Round(jsonLevel.Elevation / 12.0, 4);
+                string levelName = $"Level {jsonLevel.Name}";
 
-                // Try to find existing level by elevation
-                if (revitLevelsByElevation.ContainsKey(elevation))
+                // Try to find existing level by name
+                DB.Level revitLevel = revitLevels.FirstOrDefault(l => l.Name == levelName);
+                if (revitLevel != null)
                 {
-                    // Found level with matching elevation
-                    _levelIdMap[jsonLevel.Id] = revitLevelsByElevation[elevation].Id;
-                }
-                else
-                {
-                    // No matching level, create a new one
-                    DB.Level newLevel = DB.Level.Create(_doc, elevation);
-                    newLevel.Name = $"Level {jsonLevel.Name}";
-                    _levelIdMap[jsonLevel.Id] = newLevel.Id;
-
-                    // Add to our lookup dictionary
-                    revitLevelsByElevation[elevation] = newLevel;
+                    _levelIdMap[jsonLevel.Id] = revitLevel.Id;
                 }
             }
         }

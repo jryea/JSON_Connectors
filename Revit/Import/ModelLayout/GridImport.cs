@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using DB = Autodesk.Revit.DB;
 using Core.Models.ModelLayout;
 using Revit.Utilities;
@@ -58,10 +57,9 @@ namespace Revit.Import.ModelLayout
                     }
                     count++;
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                    // Log the exception for this grid but continue with the next one
-                    Debug.WriteLine($"Error creating grid {jsonGrid.Name}: {ex.Message}");
+                    // Skip this grid and continue with the next one
                 }
             }
 

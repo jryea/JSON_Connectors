@@ -52,7 +52,7 @@ namespace RAM.Export.Elements
                         continue;
 
                     // Find the corresponding level ID for this story
-                    string levelId = FindLevelIdForStory(ramStory);
+                    string levelId = Helpers.FindLevelIdForStory(ramStory, _levelMappings);
                     if (string.IsNullOrEmpty(levelId))
                         continue;
 
@@ -86,7 +86,7 @@ namespace RAM.Export.Elements
                                 ConvertFromInches(pt2.dYLoc)
                             ),
                             LevelId = levelId,
-                            FramePropertiesId = FindFramePropertiesId(ramBeam.strSectionLabel),
+                            FramePropertiesId = Helpers.FindFramePropertiesId(ramBeam.strSectionLabel, _framePropMappings),
                             IsLateral = (ramBeam.eFramingType == EFRAMETYPE.MemberIsLateral), // Assuming 1 means lateral
                             IsJoist = (ramBeam.eMaterial == EMATERIALTYPES.ESteelJoistMat)
                         };
@@ -103,38 +103,6 @@ namespace RAM.Export.Elements
                 return beams;
             }
         }
-
-        private string FindLevelIdForStory(IStory story)
-        {
-            // Try to find direct mapping by story name
-            string storyName = story.strLabel;
-
-            if (_levelMappings.TryGetValue(storyName, out string levelId))
-                return levelId;
-
-            // Try with "Story" prefix variations
-            if (_levelMappings.TryGetValue($"Story {storyName}", out levelId) ||
-                _levelMappings.TryGetValue($"Story{storyName}", out levelId))
-                return levelId;
-
-            // Return first level ID as fallback
-            return _levelMappings.Values.FirstOrDefault();
-        }
-
-
-        private string FindFramePropertiesId(string sectionName)
-        {
-            if (string.IsNullOrEmpty(sectionName))
-                return null;
-
-            // Try to find direct mapping by section name
-            if (_framePropMappings.TryGetValue(sectionName, out string framePropsId))
-                return framePropsId;
-
-            // Return null if not found
-            return null;
-        }
-
 
         private double ConvertFromInches(double inches)
         {

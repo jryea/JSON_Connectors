@@ -1,31 +1,25 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using Autodesk.Revit.DB;
-using C = Core.Models.ModelLayout;
-using Revit.Utils;
+using DB = Autodesk.Revit.DB;
+using Core.Models.ModelLayout;
+using Revit.Utilities;
 
 namespace Revit.Import.ModelLayout
 {
-    /// <summary>
-    /// Imports level elements from JSON into Revit
-    /// </summary>
+    // Imports level elements from JSON into Revit
     public class LevelImport
     {
-        private readonly Document _doc;
+        private readonly DB.Document _doc;
 
-        public LevelImport(Document doc)
+        public LevelImport(DB.Document doc)
         {
             _doc = doc;
         }
 
-        /// <summary>
-        /// Imports levels from the JSON model into Revit
-        /// </summary>
-        /// <param name="levels">List of levels to import</param>
-        /// <param name="levelIdMap">Dictionary to store mappings of JSON IDs to Revit ElementIds</param>
-        /// <returns>Number of levels imported</returns>
-        public int Import(List<C.Level> levels, Dictionary<string, ElementId> levelIdMap)
+        // Imports levels from the JSON model into Revit
+      
+        public int Import(List<Level> levels)
         {
             int count = 0;
 
@@ -37,16 +31,14 @@ namespace Revit.Import.ModelLayout
                     double elevation = jsonLevel.Elevation / 12.0;
 
                     // Create level in Revit
-                    Autodesk.Revit.DB.Level revitLevel = Level.Create(_doc, elevation);
+                    DB.Level revitLevel = DB.Level.Create(_doc, elevation);
 
                     // Set level name
                     revitLevel.Name = jsonLevel.Name;
 
-                    // Store the mapping from JSON ID to Revit ElementId
-                    levelIdMap[jsonLevel.Id] = revitLevel.Id;
-
                     count++;
                 }
+
                 catch (Exception ex)
                 {
                     // Log the exception for this level but continue with the next one

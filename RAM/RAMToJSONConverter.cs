@@ -109,11 +109,11 @@ namespace RAM
                         //model.Properties.WallProperties = ExtractWallProperties(model.Properties.Materials);
 
                         // Create wall property mappings
-                        //Dictionary<string, string> wallPropertyMapping = new Dictionary<string, string>();
-                        //foreach (var wallProp in model.Properties.WallProperties)
-                        //{
-                        //    wallPropertyMapping[wallProp.Name] = wallProp.Id;
-                        //}
+                        Dictionary<string, string> wallPropertyMapping = new Dictionary<string, string>();
+                        foreach (var wallProp in model.Properties.WallProperties)
+                        {
+                            wallPropertyMapping[wallProp.Name] = wallProp.Id;
+                        }
 
                         // Extract beams
                         BeamExport beamExporter = new BeamExport(modelManager.Model, lengthUnit);
@@ -122,16 +122,16 @@ namespace RAM
                         model.Elements.Beams = beamExporter.Export();
 
                         // Extract columns
-                        //ColumnExport columnExporter = new ColumnExport(modelManager.Model, lengthUnit);
-                        //columnExporter.SetLevelMappings(CreateLevelIdMapping(model.ModelLayout.Levels));
-                        //columnExporter.SetFramePropertyMappings(framePropertyMapping);
-                        //model.Elements.Columns = columnExporter.Export();
+                        ColumnExport columnExporter = new ColumnExport(modelManager.Model, lengthUnit);
+                        columnExporter.SetLevelMappings(CreateLevelIdMapping(model.ModelLayout.Levels));
+                        columnExporter.SetFramePropertyMappings(framePropertyMapping);
+                        model.Elements.Columns = columnExporter.Export();
 
                         // Extract walls
-                        //WallExport wallExporter = new WallExport(modelManager.Model, lengthUnit);
-                        //wallExporter.SetLevelMappings(CreateLevelIdMapping(model.ModelLayout.Levels));
-                        //wallExporter.SetWallPropertyMappings(wallPropertyMapping);
-                        //model.Elements.Walls = wallExporter.Export();
+                        WallExport wallExporter = new WallExport(modelManager.Model, lengthUnit);
+                        wallExporter.SetLevelMappings(CreateLevelIdMapping(model.ModelLayout.Levels));
+                        wallExporter.SetWallPropertyMappings(wallPropertyMapping);
+                        model.Elements.Walls = wallExporter.Export();
 
                         // Extract loads
                         //ExtractLoads(modelManager.Model, model);

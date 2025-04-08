@@ -6,13 +6,12 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Core.Converters;
 using Core.Models;
-using Revit.Utils;
+using Revit.Utilities;
 
 namespace Revit.Import
 {
-    /// <summary>
-    /// External command for importing a complete structural model from JSON
-    /// </summary>
+    // External command for importing a complete structural model from JSON
+
     [Transaction(TransactionMode.Manual)]
     public class ModelImportCommand : IExternalCommand
     {

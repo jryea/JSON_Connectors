@@ -67,6 +67,25 @@ namespace RAM.Utilities
             }
         }
 
+        // Convert from inches to specified unit
+        public static double ConvertFromInches(double inches, string unitType)
+        {
+            switch (unitType?.ToLower() ?? "inches")
+            {
+                case "feet":
+                    return inches / 12.0;
+                case "millimeters":
+                    return inches * 25.4;
+                case "centimeters":
+                    return inches * 2.54;
+                case "meters":
+                    return inches * 0.0254;
+                case "inches":
+                default:
+                    return inches;
+            }
+        }
+
         // Get deck properties based on deck type and gage
         public static void GetDeckProperties(string deckType, int deckGage, out double selfWeight)
         {
@@ -163,114 +182,187 @@ namespace RAM.Utilities
             return floorTypes;
         }
 
-        // Convert lines to a nested list structure for processing by floor type
-        public static List<List<Line>> ConvertLinesToNestedList(dynamic lineStructure)
+        // Find level ID for story
+        public static string FindLevelIdForStory(IStory story, Dictionary<string, string> levelMappings)
         {
-            List<List<Line>> nestedList = new List<List<Line>>();
+            if (story == null || levelMappings == null || levelMappings.Count == 0)
+                return null;
+
+            // Try to find direct mapping by story name
+            string storyName = story.strLabel;
+
+            if (levelMappings.TryGetValue(storyName, out string levelId))
+                return levelId;
+
+            // Try with "Story" prefix variations
+            if (levelMappings.TryGetValue($"Story {storyName}", out levelId) ||
+                levelMappings.TryGetValue($"Story{storyName}", out levelId))
+                return levelId;
+
+            // Return first level ID as fallback
+            return levelMappings.Values.FirstOrDefault();
+        }
+
+        // Find level ID for floor type
+        public static string FindLevelIdForFloorType(IFloorType floorType, Dictionary<string, string> levelMappings)
+        {
+            if (floorType == null || levelMappings == null || levelMappings.Count == 0)
+                return null;
+
+            // Try to find direct mapping by floor type UID
+            string key = $"FloorType_{floorType.lUID}";
+            if (levelMappings.TryGetValue(key, out string levelId))
+                return levelId;
+
+            // If not found, try by floor type name
+            if (levelMappings.TryGetValue(floorType.strLabel, out levelId))
+                return levelId;
+
+            // Return first level ID as fallback
+            return levelMappings.Values.FirstOrDefault();
+        }
+
+        // Find level IDs for all stories associated with a floor type
+        public static void FindLevelIdsForFloorTypes(IFloorType floorType, IModel model, Dictionary<string, string> levelMappings)
+        {
+            if (floorType == null || model == null || levelMappings == null)
+                return;
 
             try
             {
-                // Handle different input types that might be passed
-                if (lineStructure is IEnumerable<Line> linesList)
-                {
-                    // If we just have a single flat list, create a single inner list
-                    nestedList.Add(linesList.ToList());
-                }
-                else
-                {
-                    // Try to get the number of paths in the structure
-                    int pathCount = GetPathCount(lineStructure);
+                // Get all stories from the floor type
+                IStories ramStories = floorType.GetStories();
 
-                    for (int i = 0; i < pathCount; i++)
+                if (ramStories == null || ramStories.GetCount() == 0)
+                    return;
+
+                // Iterate through all stories to find those associated with the given floor type
+                for (int i = 0; i < ramStories.GetCount(); i++)
+                {
+                    IStory story = ramStories.GetAt(i);
+                    if (story != null && story.GetFloorType()?.lUID == floorType.lUID)
                     {
-                        var path = GetPath(lineStructure, i);
-                        var branch = GetBranch(lineStructure, path);
-
-                        var lineList = new List<Line>();
-                        foreach (var lineItem in branch)
+                        // Add the story's level ID to the levelMappings dictionary
+                        string storyName = story.strLabel;
+                        if (!string.IsNullOrEmpty(storyName) && !levelMappings.ContainsKey(storyName))
                         {
-                            if (TryGetLine(lineItem, out Line line))
-                            {
-                                lineList.Add(line);
-                            }
+                            levelMappings[storyName] = $"FloorType_{floorType.lUID}";
                         }
-
-                        nestedList.Add(lineList);
                     }
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error converting lines to nested list: {ex.Message}");
-                // Return at least one empty list to allow processing to continue
-                if (nestedList.Count == 0)
-                {
-                    nestedList.Add(new List<Line>());
-                }
-            }
-
-            return nestedList;
-        }
-
-        // Helper methods for dynamic structure handling (simulating the Grasshopper tree structure)
-        private static int GetPathCount(dynamic structure)
-        {
-            try
-            {
-                return (int)structure.PathCount;
-            }
-            catch
-            {
-                return 1; // Default to 1 if can't determine
+                Console.WriteLine($"Error finding level IDs for floor types: {ex.Message}");
             }
         }
 
-        private static dynamic GetPath(dynamic structure, int index)
+        // Find base level ID for story
+        public static string FindBaseLevelIdForStory(IStory story, IModel model, Dictionary<string, string> levelMappings)
         {
-            try
-            {
-                return structure.get_Path(index);
-            }
-            catch
-            {
+            if (story == null || model == null || levelMappings == null || levelMappings.Count == 0)
                 return null;
-            }
-        }
 
-        private static dynamic GetBranch(dynamic structure, dynamic path)
-        {
-            try
+            // Try to find the level below this story
+            IStories ramStories = model.GetStories();
+            for (int i = 0; i < ramStories.GetCount(); i++)
             {
-                return structure.get_Branch(path);
-            }
-            catch
-            {
-                return new List<object>();
-            }
-        }
-
-        private static bool TryGetLine(dynamic item, out Line line)
-        {
-            line = null;
-            try
-            {
-                if (item != null)
+                IStory belowStory = ramStories.GetAt(i);
+                if (belowStory != null && belowStory.dElevation < story.dElevation)
                 {
-                    line = item as Line;
-                    if (line == null && item.Value is Line valueLine)
-                    {
-                        line = valueLine;
-                    }
-
-                    return line != null;
+                    return FindLevelIdForStory(belowStory, levelMappings);
                 }
             }
-            catch
+
+            // If no level below found, use the same level ID as top level
+            return FindLevelIdForStory(story, levelMappings);
+        }
+
+        // Find top level ID for wall
+        public static string FindTopLevelIdForWall(IWall wall, IStory currentStory, Dictionary<string, string> levelMappings)
+        {
+            if (wall == null || currentStory == null || levelMappings == null || levelMappings.Count == 0)
+                return null;
+
+            // Try to determine if wall extends to stories above
+            // In a real implementation, you'd check wall.lStoriesAbove or similar property
+            // For simplicity, we'll just use the current level as top level
+
+            return FindLevelIdForStory(currentStory, levelMappings);
+        }
+
+        // Find frame properties ID by section label
+        public static string FindFramePropertiesId(string sectionName, Dictionary<string, string> framePropMappings)
+        {
+            if (string.IsNullOrEmpty(sectionName) || framePropMappings == null || framePropMappings.Count == 0)
+                return null;
+
+            // Try to find direct mapping by section name
+            if (framePropMappings.TryGetValue(sectionName, out string framePropsId))
+                return framePropsId;
+
+            // Return null if not found
+            return null;
+        }
+
+        // Find wall properties ID by wall
+        public static string FindWallPropertiesId(IWall wall, Dictionary<string, string> wallPropMappings)
+        {
+            if (wall == null || wallPropMappings == null || wallPropMappings.Count == 0)
+                return null;
+
+            // Try to find wall property by thickness
+            double thickness = wall.dThickness;
+
+            // Look for a wall property with matching thickness
+            foreach (var entry in wallPropMappings)
             {
-                // Ignore conversion errors
+                // This is a simplified approach - in a real implementation,
+                // you would need to retrieve the actual wall properties and compare
+                if (entry.Key.Contains(thickness.ToString("0.##")))
+                    return entry.Value;
             }
 
-            return false;
+            // Return first wall property ID as fallback
+            return wallPropMappings.Values.FirstOrDefault();
+        }
+
+        // Removes "Story" prefix if present to normalize names
+        public static string CleanStoryName(string storyName)
+        {
+            if (string.IsNullOrEmpty(storyName))
+                return storyName;
+
+            if (storyName.StartsWith("Story ", StringComparison.OrdinalIgnoreCase))
+            {
+                return storyName.Substring(6).Trim();
+            }
+            else if (storyName.StartsWith("Story", StringComparison.OrdinalIgnoreCase))
+            {
+                return storyName.Substring(5).Trim();
+            }
+            return storyName;
+        }
+
+        // Create a mapping from level IDs to their names
+        public static Dictionary<string, string> CreateLevelIdMapping(List<Level> levels)
+        {
+            var mapping = new Dictionary<string, string>();
+
+            if (levels == null)
+                return mapping;
+
+            foreach (var level in levels)
+            {
+                if (!string.IsNullOrEmpty(level.Id) && !string.IsNullOrEmpty(level.Name))
+                {
+                    mapping[level.Id] = level.Name;
+                    mapping[$"Story{level.Name}"] = level.Id;
+                    mapping[level.Name] = level.Id;
+                }
+            }
+
+            return mapping;
         }
     }
 }

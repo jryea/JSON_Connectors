@@ -8,7 +8,6 @@ using Core.Models.Elements;
 using Core.Models.Properties;   
 using Core.Models.ModelLayout;
 using Revit.Import.ModelLayout;
-using Revit.Import.Elements;
 
 namespace Revit.Import
 {
@@ -38,11 +37,7 @@ namespace Revit.Import
             _wallPropertyIdMap = new Dictionary<string, DB.ElementId>();
         }
 
-        /// <summary>
-        /// Imports the entire model from JSON file
-        /// </summary>
-        /// <param name="filePath">Path to the JSON file</param>
-        /// <returns>Number of total elements imported</returns>
+        // Imports the entire model from JSON file
         public int ImportFromJson(string filePath)
         {
             // Load the model from file
@@ -56,16 +51,19 @@ namespace Revit.Import
                 // Import in the right order to handle dependencies
 
                 // 1. First import grids and levels (layout)
-                totalImported += ImportGrids(model.ModelLayout.Grids);
-                totalImported += ImportLevels(model.ModelLayout.Levels);
+                GridImport gridImport = new GridImport(_doc);
+                totalImported += gridImport.Import(model.ModelLayout.Grids);
+
+                LevelImport levelImport = new LevelImport(_doc);
+                totalImported += levelImport.Import(model.ModelLayout.Levels);
 
                 // 3. Import structural elements
-                totalImported += ImportColumns(model.Elements.Columns);
-                totalImported += ImportBeams(model.Elements.Beams);
-                totalImported += ImportBraces(model.Elements.Braces);
-                totalImported += ImportWalls(model.Elements.Walls);
-                totalImported += ImportFloors(model.Elements.Floors);
-                totalImported += ImportIsolatedFootings(model.Elements.IsolatedFootings);
+                //totalImported += ImportColumns(model.Elements.Columns);s
+                //totalImported += ImportBeams(model.Elements.Beams);
+                //totalImported += ImportBraces(model.Elements.Braces);
+                //totalImported += ImportWalls(model.Elements.Walls);
+                //totalImported += ImportFloors(model.Elements.Floors);
+                //totalImported += ImportIsolatedFootings(model.Elements.IsolatedFootings);
 
                 transaction.Commit();
             }
@@ -73,56 +71,5 @@ namespace Revit.Import
             return totalImported;
         }
 
-        #region Import Methods
-
-        private int ImportGrids(List<Grid> grids)
-        {
-            GridImport importer = new GridImport(_doc);
-            return importer.Import(grids, _gridIdMap);
-        }
-
-        private int ImportLevels(List<Level> levels)
-        {
-            LevelImport importer = new LevelImport(_doc);
-            return importer.Import(levels, _levelIdMap);
-        }
-
-        private int ImportColumns(List<Column> columns)
-        {
-            ColumnImport importer = new ColumnImport(_doc);
-            return importer.Import(columns, _levelIdMap, _framePropertyIdMap);
-        }
-
-        private int ImportBeams(List<Beam> beams)
-        {
-            BeamImport importer = new BeamImport(_doc);
-            return importer.Import(beams, _levelIdMap, _framePropertyIdMap);
-        }
-
-        private int ImportBraces(List<Brace> braces)
-        {
-            BraceImport importer = new BraceImport(_doc);
-            return importer.Import(braces, _levelIdMap, _framePropertyIdMap);
-        }
-
-        private int ImportWalls(List<Wall> walls)
-        {
-            WallImport importer = new WallImport(_doc);
-            return importer.Import(walls, _wallPropertyIdMap);
-        }
-
-        private int ImportFloors(List<Floor> floors)
-        {
-            FloorImport importer = new FloorImport(_doc);
-            return importer.Import(floors, _levelIdMap, _floorPropertyIdMap);
-        }
-
-        private int ImportIsolatedFootings(List<IsolatedFooting> footings)
-        {
-            IsolatedFootingImport importer = new IsolatedFootingImport(_doc);
-            return importer.Import(footings);
-        }
-
-        #endregion
     }
 }

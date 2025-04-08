@@ -8,7 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Media.Imaging;
 
-namespace Revit.Utils
+namespace Revit.Utilities
 {
     internal class ButtonDataClass
     {

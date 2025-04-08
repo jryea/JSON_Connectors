@@ -39,71 +39,59 @@ namespace RAM.Export.Elements
 
             try
             {
-                // Get all floor types from RAM
-                IFloorTypes ramFloorTypes = _model.GetFloorTypes();
-                if (ramFloorTypes == null || ramFloorTypes.GetCount() == 0)
+                // Get all stories from RAM
+                IStories ramStories = _model.GetStories();
+                if (ramStories == null || ramStories.GetCount() == 0)
                     return columns;
 
-                // Find base level and top level
-                string baseLevelId = _levelMappings.Values.FirstOrDefault();
-                string topLevelId = _levelMappings.Values.LastOrDefault();
-
-                // Create level ID list in ascending order for mapping column spans
-                var levelIds = new List<string>();
-                if (_levelMappings.Count > 0)
+                // Process each story
+                for (int i = 0; i < ramStories.GetCount(); i++)
                 {
-                    // For simplicity, we're assuming the values are already added in order
-                    // In a real implementation, you'd need to sort by level elevation
-                    levelIds.AddRange(_levelMappings.Values);
-                }
-
-                // Process each floor type
-                for (int i = 0; i < ramFloorTypes.GetCount(); i++)
-                {
-                    IFloorType floorType = ramFloorTypes.GetAt(i);
-                    if (floorType == null)
+                    IStory ramStory = ramStories.GetAt(i);
+                    if (ramStory == null)
                         continue;
 
-                    // Find the corresponding level ID for this floor type
-                    string currentLevelId = FindLevelIdForFloorType(floorType);
-                    if (string.IsNullOrEmpty(currentLevelId))
+                    // Find the corresponding level ID for this story
+                    string levelId = Helpers.FindLevelIdForStory(ramStory, _levelMappings);
+                    if (string.IsNullOrEmpty(levelId))
                         continue;
 
-                    // Get layout columns for this floor type
-                    ILayoutColumns layoutColumns = floorType.GetLayoutColumns();
-                    if (layoutColumns == null)
+                    // Get columns for this story
+                    IColumns storyColumns = ramStory.GetColumns();
+                    if (storyColumns == null || storyColumns.GetCount() == 0)
                         continue;
 
-                    // Process each layout column
-                    for (int j = 0; j < layoutColumns.GetCount(); j++)
+                    // Process each column in the story
+                    for (int j = 0; j < storyColumns.GetCount(); j++)
                     {
-                        ILayoutColumn layoutColumn = layoutColumns.GetAt(j);
-                        if (layoutColumn == null)
+                        IColumn ramColumn = storyColumns.GetAt(j);
+                        if (ramColumn == null)
                             continue;
 
-                        // Determine column base and top levels
-                        // For simplicity, we'll use current level as top and previous level as base
-                        // In a real implementation, you would need to determine the actual column spans
-                        int levelIndex = levelIds.IndexOf(currentLevelId);
-                        string columnBaseLevelId = levelIndex > 0 ? levelIds[levelIndex - 1] : currentLevelId;
-                        string columnTopLevelId = currentLevelId;
+                        // Get column coordinates
+                        SCoordinate pt1 = new SCoordinate();
+                        SCoordinate pt2 = new SCoordinate();
+                        ramColumn.GetEndCoordinates(ref pt1, ref pt2);
 
-                        // Create points for column (both have same X, Y but different elevations)
-                        Point2D point = new Point2D(
-                            ConvertFromInches(layoutColumn.dXStart),
-                            ConvertFromInches(layoutColumn.dYStart)
-                        );
+                        // Find the level below for the base level ID
+                        string baseLevelId = Helpers.FindBaseLevelIdForStory(ramStory, _model, _levelMappings);
 
                         // Create column from RAM data
                         Column column = new Column
                         {
                             Id = IdGenerator.Generate(IdGenerator.Elements.COLUMN),
-                            StartPoint = point,  // Start point (base)
-                            EndPoint = point,    // End point (top) - same X,Y as start
-                            BaseLevelId = columnBaseLevelId,
-                            TopLevelId = columnTopLevelId,
-                            FramePropertiesId = FindFramePropertiesId(layoutColumn.strSectionLabel),
-                            IsLateral = GetIsLateral(layoutColumn)
+                            StartPoint = new Point2D(
+                                ConvertFromInches(pt1.dXLoc),
+                                ConvertFromInches(pt1.dYLoc)
+                            ),
+                            EndPoint = new Point2D(
+                                ConvertFromInches(pt2.dXLoc),
+                                ConvertFromInches(pt2.dYLoc)
+                            ),
+                            BaseLevelId = baseLevelId,
+                            TopLevelId = levelId,
+                            FramePropertiesId = FindFramePropertiesId(ramColumn.strSectionLabel),
+                            IsLateral = (ramColumn.eFramingType == EFRAMETYPE.MemberIsLateral) // Assuming 1 means lateral
                         };
 
                         columns.Add(column);
@@ -119,20 +107,7 @@ namespace RAM.Export.Elements
             }
         }
 
-        private string FindLevelIdForFloorType(IFloorType floorType)
-        {
-            // Try to find direct mapping by floor type UID
-            string key = $"FloorType_{floorType.lUID}";
-            if (_levelMappings.TryGetValue(key, out string levelId))
-                return levelId;
-
-            // If not found, try by floor type name
-            if (_levelMappings.TryGetValue(floorType.strLabel, out levelId))
-                return levelId;
-
-            // Return first level ID as fallback
-            return _levelMappings.Values.FirstOrDefault();
-        }
+        
 
         private string FindFramePropertiesId(string sectionName)
         {

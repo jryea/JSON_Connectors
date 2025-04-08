@@ -1,33 +1,24 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using Autodesk.Revit.DB;
-using Autodesk.Revit.DB.Structure;
+using DB = Autodesk.Revit.DB;
 using C = Core.Models.Elements;
-using Revit.Utils;
+using Revit.Utilities;
 
 namespace Revit.Import.Elements
 {
-    /// <summary>
-    /// Imports beam elements from JSON into Revit
-    /// </summary>
+    // Imports beam elements from JSON into Revit
     public class BeamImport
     {
-        private readonly Document _doc;
+        private readonly DB.Document _doc;
 
-        public BeamImport(Document doc)
+        public BeamImport(DB.Document doc)
         {
             _doc = doc;
         }
 
-        /// <summary>
-        /// Imports beams from the JSON model into Revit
-        /// </summary>
-        /// <param name="beams">List of beams to import</param>
-        /// <param name="levelIdMap">Dictionary of level ID mappings</param>
-        /// <param name="framePropertyIdMap">Dictionary of frame property ID mappings</param>
-        /// <returns>Number of beams imported</returns>
-        public int Import(List<C.Beam> beams, Dictionary<string, ElementId> levelIdMap, Dictionary<string, ElementId> framePropertyIdMap)
+        // Imports beams from the JSON model into Revit
+        public int Import(List<C.Beam> beams, Dictionary<string, DB.ElementId> levelIdMap, Dictionary<string, DB.ElementId> framePropertyIdMap)
         {
             int count = 0;
 
@@ -36,37 +27,26 @@ namespace Revit.Import.Elements
                 try
                 {
                     // Get the level for this beam
-                    ElementId levelId = RevitTypeHelper.GetElementId(levelIdMap, jsonBeam.LevelId, "Level");
+                    DB.ElementId levelId = Helpers.GetElementId(levelIdMap, jsonBeam.LevelId);
 
                     // Get family type for this beam (from frame properties)
-                    ElementId familyTypeId = ElementId.InvalidElementId;
+                    DB.ElementId familyTypeId = DB.ElementId.InvalidElementId;
                     if (!string.IsNullOrEmpty(jsonBeam.FramePropertiesId) && framePropertyIdMap.ContainsKey(jsonBeam.FramePropertiesId))
                     {
                         familyTypeId = framePropertyIdMap[jsonBeam.FramePropertiesId];
                     }
 
                     // Create curve for beam
-                    XYZ startPoint = RevitTypeHelper.ConvertToRevitCoordinates(jsonBeam.StartPoint);
-                    XYZ endPoint = RevitTypeHelper.ConvertToRevitCoordinates(jsonBeam.EndPoint);
-                    Line beamLine = Line.CreateBound(startPoint, endPoint);
+                    DB.XYZ startPoint = Helpers.ConvertToRevitCoordinates(jsonBeam.StartPoint);
+                    DB.XYZ endPoint = Helpers.ConvertToRevitCoordinates(jsonBeam.EndPoint);
+                    DB.Line beamLine = DB.Line.CreateBound(startPoint, endPoint);
 
                     // Create the structural beam
-                    FamilyInstance beam = _doc.Create.NewFamilyInstance(
+                    DB.FamilyInstance beam = _doc.Create.NewFamilyInstance(
                         beamLine,
                         familySymbol,
                         level,
-                        StructuralType.Beam);
-
-                    // Set beam properties
-                    if (jsonBeam.IsLateral)
-                    {
-                        // Set parameter for lateral system if available
-                        Parameter lateralParam = beam.LookupParameter("IsLateral");
-                        if (lateralParam != null && lateralParam.StorageType == StorageType.Integer)
-                        {
-                            lateralParam.Set(1);
-                        }
-                    }
+                        DB.Structure.StructuralType.Beam);
 
                     count++;
                 }

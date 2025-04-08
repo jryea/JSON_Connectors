@@ -9,7 +9,7 @@ using System.Diagnostics;
 using System.Runtime.Versioning;
 using System.Windows.Markup;
 using Revit.Import;
-using RU = Revit.Utils;  
+using RU = Revit.Utilities;  
 
 #endregion
 
@@ -34,11 +34,9 @@ namespace Revit
             RibbonPanel panel = RU.Utils.CreateRibbonPanel(app, tabName, "Import");
 
             // Create button data instances
-            PushButtonData btnGridImport = GridImportCommand.GetButtonData();
             PushButtonData btnModelImport = ModelImportCommand.GetButtonData();
 
             // Create buttons
-            PushButton buttonGridImport = panel.AddItem(btnGridImport) as PushButton;
             PushButton buttonModelImport = panel.AddItem(btnModelImport) as PushButton;
 
             return Result.Succeeded;

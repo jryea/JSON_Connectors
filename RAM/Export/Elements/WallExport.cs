@@ -39,60 +39,67 @@ namespace RAM.Export.Elements
 
             try
             {
-                // Get all floor types from RAM
-                IFloorTypes ramFloorTypes = _model.GetFloorTypes();
-                if (ramFloorTypes == null || ramFloorTypes.GetCount() == 0)
+                // Get all stories from RAM
+                IStories ramStories = _model.GetStories();
+                if (ramStories == null || ramStories.GetCount() == 0)
                     return walls;
 
-                // Find base level and top level
-                string baseLevelId = _levelMappings.Values.FirstOrDefault();
-                string topLevelId = _levelMappings.Values.LastOrDefault();
-
-                // Process each floor type
-                for (int i = 0; i < ramFloorTypes.GetCount(); i++)
+                // Process each story
+                for (int i = 0; i < ramStories.GetCount(); i++)
                 {
-                    IFloorType floorType = ramFloorTypes.GetAt(i);
-                    if (floorType == null)
+                    IStory ramStory = ramStories.GetAt(i);
+                    if (ramStory == null)
                         continue;
 
-                    // Find the corresponding level ID for this floor type
-                    string currentLevelId = FindLevelIdForFloorType(floorType);
-                    if (string.IsNullOrEmpty(currentLevelId))
+                    // Find the corresponding level ID for this story
+                    string levelId = Helpers.FindLevelIdForStory(ramStory, _levelMappings);
+                    if (string.IsNullOrEmpty(levelId))
                         continue;
 
-                    // Get layout walls for this floor type
-                    ILayoutWalls layoutWalls = floorType.GetLayoutWalls();
-                    if (layoutWalls == null)
+                    // Get walls for this story
+                    IWalls storyWalls = ramStory.GetWalls();
+                    if (storyWalls == null || storyWalls.GetCount() == 0)
                         continue;
 
-                    // Process each layout wall
-                    for (int j = 0; j < layoutWalls.GetCount(); j++)
+                    // Process each wall in the story
+                    for (int j = 0; j < storyWalls.GetCount(); j++)
                     {
-                        ILayoutWall layoutWall = layoutWalls.GetAt(j);
-                        if (layoutWall == null)
+                        IWall ramWall = storyWalls.GetAt(j);
+                        if (ramWall == null)
                             continue;
 
-                        // Create wall points
+                        // Get wall coordinates
+                        SCoordinate baseStartPt = new SCoordinate();
+                        SCoordinate baseEndPt = new SCoordinate();
+                        SCoordinate topStartPt = new SCoordinate();
+                        SCoordinate topEndPt = new SCoordinate();
+                        ramWall.GetEndCoordinates(ref topStartPt, ref topEndPt, ref baseStartPt, ref baseEndPt);
+
+                        // Create points list for the wall
                         List<Point2D> points = new List<Point2D>
-                        {
-                            new Point2D(
-                                ConvertFromInches(layoutWall.dXStart),
-                                ConvertFromInches(layoutWall.dYStart)
-                            ),
-                            new Point2D(
-                                ConvertFromInches(layoutWall.dXEnd),
-                                ConvertFromInches(layoutWall.dYEnd)
-                            )
-                        };
+                {
+                    new Point2D(
+                        ConvertFromInches(topStartPt.dXLoc),
+                        ConvertFromInches(topStartPt.dYLoc)
+                    ),
+                    new Point2D(
+                        ConvertFromInches(topEndPt.dXLoc),
+                        ConvertFromInches(topEndPt.dYLoc)
+                    )
+                };
+
+                        // Find base and top level IDs
+                        string baseLevelId = Helpers.FindBaseLevelIdForStory(ramStory, _model, _levelMappings);
+                        string topLevelId = FindTopLevelIdForWall(ramWall, ramStory);
 
                         // Create wall from RAM data
                         Wall wall = new Wall
                         {
                             Id = IdGenerator.Generate(IdGenerator.Elements.WALL),
                             Points = points,
-                            BaseLevelId = baseLevelId, // Use base level for now
-                            TopLevelId = topLevelId,   // Use top level for now
-                            PropertiesId = FindWallPropertiesId(layoutWall)
+                            BaseLevelId = baseLevelId,
+                            TopLevelId = topLevelId,
+                            PropertiesId = FindWallPropertiesId(ramWall)
                         };
 
                         walls.Add(wall);
@@ -108,62 +115,39 @@ namespace RAM.Export.Elements
             }
         }
 
-        private string FindLevelIdForFloorType(IFloorType floorType)
+        private string FindTopLevelIdForWall(IWall wall, IStory currentStory)
         {
-            // Try to find direct mapping by floor type UID
-            string key = $"FloorType_{floorType.lUID}";
-            if (_levelMappings.TryGetValue(key, out string levelId))
+            string currentStoryName = currentStory.strLabel;
+            if (_levelMappings.TryGetValue(currentStoryName, out string levelId))
                 return levelId;
 
-            // If not found, try by floor type name
-            if (_levelMappings.TryGetValue(floorType.strLabel, out levelId))
+            // Try with "Story" prefix variations
+            if (_levelMappings.TryGetValue($"Story {currentStoryName}", out levelId) ||
+                _levelMappings.TryGetValue($"Story{currentStoryName}", out levelId))
                 return levelId;
 
             // Return first level ID as fallback
             return _levelMappings.Values.FirstOrDefault();
         }
 
-        private string FindWallPropertiesId(ILayoutWall layoutWall)
+        private string FindWallPropertiesId(IWall wall)
         {
-            try
-            {
-                // Try to get wall type UID
-                int wallTypeUID = 0;
-                try
-                {
-                    // This is assuming there's a method to get the wall type UID
-                    // This may not exist in all RAM versions
-                    wallTypeUID = layoutWall.GetWallTypeUID();
-                }
-                catch
-                {
-                    // If not supported, try to find by thickness
-                    double thickness = layoutWall.dThickness;
-                    return FindWallPropertiesByThickness(thickness);
-                }
-
-                // Try to find direct mapping by wall type UID
-                string key = $"WallType_{wallTypeUID}";
-                if (_wallPropMappings.TryGetValue(key, out string wallPropsId))
-                    return wallPropsId;
-
-                // If not found, try to find by thickness
-                return FindWallPropertiesByThickness(layoutWall.dThickness);
-            }
-            catch
-            {
-                // Return first wall property ID as fallback
+            if (wall == null)
                 return _wallPropMappings.Values.FirstOrDefault();
-            }
-        }
 
-        private string FindWallPropertiesByThickness(double thickness)
-        {
+            // Try to find wall property by thickness
+            double thickness = wall.dThickness;
+
             // Look for a wall property with matching thickness
-            // This is a simplified approach - in a real implementation,
-            // you would need to retrieve the actual wall properties and compare
+            foreach (var entry in _wallPropMappings)
+            {
+                // This is a simplified approach - in a real implementation,
+                // you would need to retrieve the actual wall properties and compare
+                if (entry.Key.Contains(thickness.ToString("0.##")))
+                    return entry.Value;
+            }
 
-            // For now, just return the first available wall property
+            // Return first wall property ID as fallback
             return _wallPropMappings.Values.FirstOrDefault();
         }
 

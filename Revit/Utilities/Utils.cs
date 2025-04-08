@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Revit.Utils
+namespace Revit.Utilities
 {
     internal static class Utils
     {

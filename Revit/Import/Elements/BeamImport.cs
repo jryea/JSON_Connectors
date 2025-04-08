@@ -41,6 +41,18 @@ namespace Revit.Import.Elements
                     DB.XYZ endPoint = Helpers.ConvertToRevitCoordinates(jsonBeam.EndPoint);
                     DB.Line beamLine = DB.Line.CreateBound(startPoint, endPoint);
 
+                    // Get the FamilySymbol from the ID
+                    DB.FamilySymbol familySymbol = _doc.GetElement(familyTypeId) as DB.FamilySymbol;
+
+                    // Get the Level from the ID
+                    DB.Level level = _doc.GetElement(levelId) as DB.Level;
+
+                    // Make sure the family symbol is active
+                    if (familySymbol != null && !familySymbol.IsActive)
+                    {
+                        familySymbol.Activate();
+                    }
+
                     // Create the structural beam
                     DB.FamilyInstance beam = _doc.Create.NewFamilyInstance(
                         beamLine,

@@ -1,25 +1,24 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using Autodesk.Revit.DB;
-using C = Core.Models.Elements;
+using DB = Autodesk.Revit.DB;
+using CE = Core.Models.Elements;
 using Revit.Utilities;
+using Autodesk.Revit.DB;
 
 namespace Revit.Import.Elements
 {
     // Imports floor elements from JSON into Revit
     public class FloorImport
     {
-        private readonly Document _doc;
+        private readonly DB.Document _doc;
 
-        public FloorImport(Document doc)
+        public FloorImport(DB.Document doc)
         {
             _doc = doc;
         }
 
         // Imports floors from the JSON model into Revit
-     
-        public int Import(List<C.Floor> floors, Dictionary<string, ElementId> levelIdMap, Dictionary<string, ElementId> floorPropertyIdMap)
+        public int Import(List<CE.Floor> floors, Dictionary<string, DB.ElementId> levelIdMap, Dictionary<string, DB.ElementId> floorPropertyIdMap)
         {
             int count = 0;
 
@@ -30,35 +29,51 @@ namespace Revit.Import.Elements
                     // Skip floors with less than 3 points (minimum for floor profile)
                     if (jsonFloor.Points == null || jsonFloor.Points.Count < 3)
                     {
-                        Debug.WriteLine("Floor has less than 3 points, skipping");
                         continue;
                     }
 
                     // Get level for this floor
-                    ElementId levelId = Helpers.GetElementId(levelIdMap, jsonFloor.LevelId);
+                    if (!levelIdMap.TryGetValue(jsonFloor.LevelId, out DB.ElementId levelId))
+                    {
+                        continue;
+                    }
+
+                    // Get the Level from the ID
+                    DB.Level level = _doc.GetElement(levelId) as DB.Level;
+                    if (level == null)
+                    {
+                        continue;
+                    }
 
                     // Get floor type
-                    ElementId floorTypeId = ElementId.InvalidElementId;
-                    if (!string.IsNullOrEmpty(jsonFloor.FloorPropertiesId) && floorPropertyIdMap.ContainsKey(jsonFloor.FloorPropertiesId))
+                    DB.ElementId floorTypeId = DB.ElementId.InvalidElementId;
+                    if (!string.IsNullOrEmpty(jsonFloor.FloorPropertiesId) &&
+                        floorPropertyIdMap.TryGetValue(jsonFloor.FloorPropertiesId, out floorTypeId))
                     {
-                        floorTypeId = floorPropertyIdMap[jsonFloor.FloorPropertiesId];
+                        // Floor type found in mapping
                     }
                     else
                     {
                         // Use default floor type if none specified
-                        FilteredElementCollector collector = new FilteredElementCollector(_doc);
-                        collector.OfClass(typeof(FloorType));
+                        DB.FilteredElementCollector collector = new DB.FilteredElementCollector(_doc);
+                        collector.OfClass(typeof(DB.FloorType));
                         floorTypeId = collector.FirstElementId();
                     }
 
+                    // Skip if no floor type is available
+                    if (floorTypeId == DB.ElementId.InvalidElementId)
+                    {
+                        continue;
+                    }
+
                     // Create a curve loop for the floor boundary
-                    CurveLoop floorLoop = new CurveLoop();
+                    DB.CurveLoop floorLoop = new DB.CurveLoop();
 
                     // Convert each point and add to curve loop
                     for (int i = 0; i < jsonFloor.Points.Count; i++)
                     {
-                        XYZ startPoint = Helpers.ConvertToRevitCoordinates(jsonFloor.Points[i]);
-                        XYZ endPoint;
+                        DB.XYZ startPoint = Helpers.ConvertToRevitCoordinates(jsonFloor.Points[i]);
+                        DB.XYZ endPoint;
 
                         // If it's the last point, connect back to the first point
                         if (i == jsonFloor.Points.Count - 1)
@@ -70,45 +85,24 @@ namespace Revit.Import.Elements
                             endPoint = Helpers.ConvertToRevitCoordinates(jsonFloor.Points[i + 1]);
                         }
 
-                        Line line = Line.CreateBound(startPoint, endPoint);
+                        DB.Line line = DB.Line.CreateBound(startPoint, endPoint);
                         floorLoop.Append(line);
                     }
 
                     // Create list of curve loops
-                    List<CurveLoop> floorBoundary = new List<CurveLoop>
+                    List<DB.CurveLoop> floorBoundary = new List<DB.CurveLoop>
                     {
                         floorLoop
                     };
 
                     // Create the floor
-                    Floor floor = Floor.Create(_doc, floorBoundary, floorTypeId, levelId);
-
-                    // Set diaphragm if specified
-                    if (!string.IsNullOrEmpty(jsonFloor.DiaphragmId))
-                    {
-                        Parameter diaphragmParam = floor.LookupParameter("Diaphragm");
-                        if (diaphragmParam != null && diaphragmParam.StorageType == StorageType.String)
-                        {
-                            diaphragmParam.Set(jsonFloor.DiaphragmId);
-                        }
-                    }
-
-                    // Set surface load if specified
-                    if (!string.IsNullOrEmpty(jsonFloor.SurfaceLoadId))
-                    {
-                        Parameter surfaceLoadParam = floor.LookupParameter("SurfaceLoad");
-                        if (surfaceLoadParam != null && surfaceLoadParam.StorageType == StorageType.String)
-                        {
-                            surfaceLoadParam.Set(jsonFloor.SurfaceLoadId);
-                        }
-                    }
-
+                    DB.Floor floor = DB.Floor.Create(_doc, floorBoundary, floorTypeId, levelId);
+                    
                     count++;
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                    // Log the exception for this floor but continue with the next one
-                    Debug.WriteLine($"Error creating floor: {ex.Message}");
+                    // Skip this floor and continue with the next one
                 }
             }
 

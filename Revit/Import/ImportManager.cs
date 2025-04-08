@@ -50,36 +50,20 @@ namespace Revit.Import
 
                 try
                 {
-                    // 1. Create mappings first - this must happen before element creation
-                    CreateLevelMappings(model.ModelLayout.Levels);
-                    CreateFramePropertyMappings(model.Properties.FrameProperties);
+                    // 1. Create mappings first
+                    CreateMappings(model);
 
                     // 2. Import layout elements
-                    GridImport gridImport = new GridImport(_doc);
-                    int gridsImported = gridImport.Import(model.ModelLayout.Grids);
-                    totalImported += gridsImported;
+                    ImportLayoutElements(model, ref totalImported);
 
-                    LevelImport levelImport = new LevelImport(_doc);
-                    int levelsImported = levelImport.Import(model.ModelLayout.Levels, _levelIdMap);
-                    totalImported += levelsImported;
-
+                    // 3. Force regeneration
                     _doc.Regenerate();
 
-                    // 3. Import structural elements
-                    if (model.Elements.Beams != null && model.Elements.Beams.Count > 0)
-                    {
-                        BeamImport beamImport = new BeamImport(_doc);
-                        int beamsImported = beamImport.Import(model.Elements.Beams, _levelIdMap, _framePropertyIdMap);
-                        totalImported += beamsImported;
-                    }
+                    // 4. Refresh mappings
+                    CreateMappings(model);
 
-                    // Add other element imports as needed
-                    // if (model.Elements.Columns != null && model.Elements.Columns.Count > 0)
-                    // {
-                    //     ColumnImport columnImport = new ColumnImport(_doc);
-                    //     int columnsImported = columnImport.Import(model.Elements.Columns, _levelIdMap, _framePropertyIdMap);
-                    //     totalImported += columnsImported;
-                    // }
+                    // 5. Import structural elements
+                    ImportStructuralElements(model, ref totalImported);
 
                     transaction.Commit();
                 }
@@ -91,6 +75,70 @@ namespace Revit.Import
             }
 
             return totalImported;
+        }
+
+        private void CreateMappings(BaseModel model)
+        {
+            CreateLevelMappings(model.ModelLayout.Levels);
+            CreateFramePropertyMappings(model.Properties.FrameProperties);
+            CreateFloorPropertyMappings(model.Properties.FloorProperties);
+            CreateWallPropertyMappings(model.Properties.WallProperties);
+        }
+
+        private void ImportLayoutElements(BaseModel model, ref int totalImported)
+        {
+            // Import grids
+            GridImport gridImport = new GridImport(_doc);
+            int gridsImported = gridImport.Import(model.ModelLayout.Grids);
+            totalImported += gridsImported;
+
+            // Import levels
+            LevelImport levelImport = new LevelImport(_doc);
+            int levelsImported = levelImport.Import(model.ModelLayout.Levels, _levelIdMap);
+            totalImported += levelsImported;
+        }
+
+        private void ImportStructuralElements(BaseModel model, ref int totalImported)
+        {
+            // Import beams
+            //if (model.Elements.Beams != null && model.Elements.Beams.Count > 0)
+            //{
+            //    BeamImport beamImport = new BeamImport(_doc);
+            //    int beamsImported = beamImport.Import(model.Elements.Beams, _levelIdMap, _framePropertyIdMap);
+            //    totalImported += beamsImported;
+            //}
+
+            // Import columns
+            if (model.Elements.Columns != null && model.Elements.Columns.Count > 0)
+            {
+                ColumnImport columnImport = new ColumnImport(_doc);
+                int columnsImported = columnImport.Import(model.Elements.Columns, _levelIdMap, _framePropertyIdMap);
+                totalImported += columnsImported;
+            }
+
+            // Import braces
+            //if (model.Elements.Braces != null && model.Elements.Braces.Count > 0)
+            //{
+            //    BraceImport braceImport = new BraceImport(_doc);
+            //    int bracesImported = braceImport.Import(model.Elements.Braces, _levelIdMap, _framePropertyIdMap);
+            //    totalImported += bracesImported;
+            //}
+
+            // Import floors
+            //if (model.Elements.Floors != null && model.Elements.Floors.Count > 0)
+            //{
+            //    FloorImport floorImport = new FloorImport(_doc);
+            //    int floorsImported = floorImport.Import(model.Elements.Floors, _levelIdMap, _floorPropertyIdMap);
+            //    totalImported += floorsImported;
+            //}
+
+            // Import walls
+            //if (model.Elements.Walls != null && model.Elements.Walls.Count > 0)
+            //{
+            //    WallImport wallImport = new WallImport(_doc);
+            //    int wallsImported = wallImport.Import(model.Elements.Walls, _levelIdMap, _wallPropertyIdMap);
+            //    totalImported += wallsImported;
+            //}
         }
 
         // Creates mappings between JSON level IDs and Revit level elements
@@ -180,6 +228,28 @@ namespace Revit.Import
                 }
             }
 
+            // Also look for column family symbols
+            DB.FilteredElementCollector columnCollector = new DB.FilteredElementCollector(_doc);
+            columnCollector.OfClass(typeof(DB.FamilySymbol));
+            columnCollector.OfCategory(DB.BuiltInCategory.OST_StructuralColumns);
+
+            foreach (DB.FamilySymbol symbol in columnCollector)
+            {
+                if (!symbol.IsActive) symbol.Activate();
+
+                string familyName = symbol.Family.Name.ToUpper();
+                string symbolName = symbol.Name.ToUpper();
+
+                if (familyName.Contains("W") || symbolName.Contains("W"))
+                {
+                    wShapes[symbolName] = symbol;
+                }
+                else if (familyName.Contains("HSS") || symbolName.Contains("HSS"))
+                {
+                    hss[symbolName] = symbol;
+                }
+            }
+
             // Map JSON frame properties to Revit family symbols
             foreach (FrameProperties prop in frameProperties)
             {
@@ -215,6 +285,80 @@ namespace Revit.Import
                 if (matchedSymbol != null)
                 {
                     _framePropertyIdMap[prop.Id] = matchedSymbol.Id;
+                }
+            }
+        }
+
+        // Creates mappings between JSON floor properties and Revit floor types
+        private void CreateFloorPropertyMappings(List<FloorProperties> floorProperties)
+        {
+            _floorPropertyIdMap.Clear();
+
+            if (floorProperties == null || floorProperties.Count == 0)
+                return;
+
+            // Collect all floor types
+            DB.FilteredElementCollector collector = new DB.FilteredElementCollector(_doc);
+            collector.OfClass(typeof(DB.FloorType));
+            List<DB.FloorType> floorTypes = collector.Cast<DB.FloorType>().ToList();
+
+            // Default floor type
+            DB.FloorType defaultFloorType = floorTypes.FirstOrDefault();
+
+            // Map each floor property to a floor type
+            foreach (FloorProperties prop in floorProperties)
+            {
+                // Find a matching floor type by name (if possible)
+                DB.FloorType matchedType = floorTypes.FirstOrDefault(ft =>
+                    ft.Name.Equals(prop.Name, StringComparison.OrdinalIgnoreCase));
+
+                // If no match, use default
+                if (matchedType == null)
+                {
+                    matchedType = defaultFloorType;
+                }
+
+                // Add to mapping
+                if (matchedType != null)
+                {
+                    _floorPropertyIdMap[prop.Id] = matchedType.Id;
+                }
+            }
+        }
+
+        // Creates mappings between JSON wall properties and Revit wall types
+        private void CreateWallPropertyMappings(List<WallProperties> wallProperties)
+        {
+            _wallPropertyIdMap.Clear();
+
+            if (wallProperties == null || wallProperties.Count == 0)
+                return;
+
+            // Collect all wall types
+            DB.FilteredElementCollector collector = new DB.FilteredElementCollector(_doc);
+            collector.OfClass(typeof(DB.WallType));
+            List<DB.WallType> wallTypes = collector.Cast<DB.WallType>().ToList();
+
+            // Default wall type
+            DB.WallType defaultWallType = wallTypes.FirstOrDefault();
+
+            // Map each wall property to a wall type
+            foreach (WallProperties prop in wallProperties)
+            {
+                // Find a matching wall type by name (if possible)
+                DB.WallType matchedType = wallTypes.FirstOrDefault(wt =>
+                    wt.Name.Equals(prop.Name, StringComparison.OrdinalIgnoreCase));
+
+                // If no match, use default
+                if (matchedType == null)
+                {
+                    matchedType = defaultWallType;
+                }
+
+                // Add to mapping
+                if (matchedType != null)
+                {
+                    _wallPropertyIdMap[prop.Id] = matchedType.Id;
                 }
             }
         }

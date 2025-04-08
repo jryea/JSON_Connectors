@@ -17,6 +17,7 @@ namespace Revit.Import.Elements
             _doc = doc;
         }
 
+
         // Imports beams from the JSON model into Revit
         public int Import(List<CE.Beam> beams, Dictionary<string, DB.ElementId> levelIdMap, Dictionary<string, DB.ElementId> framePropertyIdMap)
         {
@@ -73,10 +74,10 @@ namespace Revit.Import.Elements
                     // Set beam reference level
                     beam.get_Parameter(DB.BuiltInParameter.INSTANCE_REFERENCE_LEVEL_PARAM).Set(levelId);
                     // Set start level offset (in feet)
-                    double startOffset = 0; // Example: 2 feet
+                    double startOffset = 0; 
                     beam.get_Parameter(BuiltInParameter.STRUCTURAL_BEAM_END0_ELEVATION).Set(startOffset);
                     // Set end level offset (in feet)
-                    double endOffset = 0; // Example: 3 feet
+                    double endOffset = 0; 
                     beam.get_Parameter(BuiltInParameter.STRUCTURAL_BEAM_END1_ELEVATION).Set(endOffset);
 
                     count++;

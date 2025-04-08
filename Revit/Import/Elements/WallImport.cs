@@ -1,8 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using DB = Autodesk.Revit.DB;
-using C = Core.Models.Elements;
+using CE = Core.Models.Elements;
 using Revit.Utilities;
 
 namespace Revit.Import.Elements
@@ -18,8 +17,7 @@ namespace Revit.Import.Elements
         }
 
         // Imports walls from the JSON model into Revit
-       
-        public int Import(List<C.Wall> walls, Dictionary<string, DB.ElementId> wallPropertyIdMap)
+        public int Import(List<CE.Wall> walls, Dictionary<string, DB.ElementId> levelIdMap, Dictionary<string, DB.ElementId> wallPropertyIdMap)
         {
             int count = 0;
 
@@ -30,15 +28,30 @@ namespace Revit.Import.Elements
                     // Skip walls with less than 2 points
                     if (jsonWall.Points == null || jsonWall.Points.Count < 2)
                     {
-                        Debug.WriteLine("Wall has less than 2 points, skipping");
+                        continue;
+                    }
+
+                    // Get base and top levels
+                    if (!levelIdMap.TryGetValue(jsonWall.BaseLevelId, out DB.ElementId baseLevelId) ||
+                        !levelIdMap.TryGetValue(jsonWall.TopLevelId, out DB.ElementId topLevelId))
+                    {
+                        continue;
+                    }
+
+                    // Get the Levels from the IDs
+                    DB.Level baseLevel = _doc.GetElement(baseLevelId) as DB.Level;
+                    DB.Level topLevel = _doc.GetElement(topLevelId) as DB.Level;
+                    if (baseLevel == null || topLevel == null)
+                    {
                         continue;
                     }
 
                     // Get wall type
                     DB.ElementId wallTypeId = DB.ElementId.InvalidElementId;
-                    if (!string.IsNullOrEmpty(jsonWall.PropertiesId) && wallPropertyIdMap.ContainsKey(jsonWall.PropertiesId))
+                    if (!string.IsNullOrEmpty(jsonWall.PropertiesId) &&
+                        wallPropertyIdMap.TryGetValue(jsonWall.PropertiesId, out wallTypeId))
                     {
-                        wallTypeId = wallPropertyIdMap[jsonWall.PropertiesId];
+                        // Wall type found in mapping
                     }
                     else
                     {
@@ -48,29 +61,49 @@ namespace Revit.Import.Elements
                         wallTypeId = collector.FirstElementId();
                     }
 
+                    // Skip if no wall type is available
+                    if (wallTypeId == DB.ElementId.InvalidElementId)
+                    {
+                        continue;
+                    }
+
                     // Create the wall curve
                     DB.Curve wallCurve = Helpers.CreateRevitCurve(jsonWall.Points[0], jsonWall.Points[1]);
 
-                    // Get wall height (use default if not specified)
-                    double wallHeight = 10.0; // Default height in feet
+                    // Calculate wall height as difference between base and top levels
+                    double baseElevation = baseLevel.Elevation;
+                    double topElevation = topLevel.Elevation;
+                    double wallHeight = topElevation - baseElevation;
 
                     // Create the wall
                     DB.Wall wall = DB.Wall.Create(
                         _doc,
                         wallCurve,
                         wallTypeId,
-                        DB.ElementId.InvalidElementId, // Level ID (use Active View's level if not specified)
+                        baseLevelId,
                         wallHeight,
                         0.0, // Offset
                         false, // Flip
                         true); // Structural
 
+                    // Set top level constraint
+                    wall.get_Parameter(DB.BuiltInParameter.WALL_HEIGHT_TYPE).Set(topLevelId);
+
+                    // Set pier/spandrel if specified
+                    if (!string.IsNullOrEmpty(jsonWall.PierSpandrelId))
+                    {
+                        DB.Parameter pierSpandrelParam = wall.LookupParameter("PierSpandrel");
+                        if (pierSpandrelParam != null && pierSpandrelParam.StorageType == DB.StorageType.String)
+                        {
+                            pierSpandrelParam.Set(jsonWall.PierSpandrelId);
+                        }
+                    }
+
                     count++;
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                    // Log the exception for this wall but continue with the next one
-                    Debug.WriteLine($"Error creating wall: {ex.Message}");
+                    // Skip this wall and continue with the next one
                 }
             }
 

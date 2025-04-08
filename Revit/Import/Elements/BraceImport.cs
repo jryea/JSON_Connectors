@@ -1,25 +1,24 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using Autodesk.Revit.DB;
-using DB = Autodesk.Revit.DB.Structure;
-using C = Core.Models.Elements;
+using DB = Autodesk.Revit.DB;
+using CE = Core.Models.Elements;
 using Revit.Utilities;
+using Autodesk.Revit.DB;
 
 namespace Revit.Import.Elements
 {
     // Imports brace elements from JSON into Revit
     public class BraceImport
     {
-        private readonly Document _doc;
+        private readonly DB.Document _doc;
 
-        public BraceImport(Document doc)
+        public BraceImport(DB.Document doc)
         {
             _doc = doc;
         }
 
         // Imports braces from the JSON model into Revit
-        public int Import(List<C.Brace> braces, Dictionary<string, ElementId> levelIdMap, Dictionary<string, ElementId> framePropertyIdMap)
+        public int Import(List<CE.Brace> braces, Dictionary<string, DB.ElementId> levelIdMap, Dictionary<string, DB.ElementId> framePropertyIdMap)
         {
             int count = 0;
 
@@ -27,34 +26,65 @@ namespace Revit.Import.Elements
             {
                 try
                 {
-                    // Get base level ID
-                    ElementId baseLevelId = Helpers.GetElementId(levelIdMap, jsonBrace.BaseLevelId);
+                    // Get the base level ElementId
+                    if (!levelIdMap.TryGetValue(jsonBrace.BaseLevelId, out DB.ElementId baseLevelId))
+                    {
+                        continue;
+                    }
+
+                    // Get base level
+                    DB.Level baseLevel = _doc.GetElement(baseLevelId) as DB.Level;
+                    if (baseLevel == null)
+                    {
+                        continue;
+                    }
 
                     // Get family type for this brace (from frame properties)
-                    ElementId familyTypeId = ElementId.InvalidElementId;
-                    if (!string.IsNullOrEmpty(jsonBrace.FramePropertiesId) && framePropertyIdMap.ContainsKey(jsonBrace.FramePropertiesId))
+                    if (!framePropertyIdMap.TryGetValue(jsonBrace.FramePropertiesId, out DB.ElementId familyTypeId))
                     {
-                        familyTypeId = framePropertyIdMap[jsonBrace.FramePropertiesId];
+                        continue;
+                    }
+
+                    // Get the FamilySymbol from the ID
+                    DB.FamilySymbol familySymbol = _doc.GetElement(familyTypeId) as DB.FamilySymbol;
+                    if (familySymbol == null)
+                    {
+                        continue;
+                    }
+
+                    // Make sure the family symbol is active
+                    if (!familySymbol.IsActive)
+                    {
+                        familySymbol.Activate();
                     }
 
                     // Create curve for brace
-                    XYZ startPoint = Helpers.ConvertToRevitCoordinates(jsonBrace.StartPoint);
-                    XYZ endPoint = Helpers.ConvertToRevitCoordinates(jsonBrace.EndPoint);
-                    Line braceLine = Line.CreateBound(startPoint, endPoint);
+                    DB.XYZ startPoint = Helpers.ConvertToRevitCoordinates(jsonBrace.StartPoint);
+                    DB.XYZ endPoint = Helpers.ConvertToRevitCoordinates(jsonBrace.EndPoint);
+                    DB.Line braceLine = DB.Line.CreateBound(startPoint, endPoint);
 
                     // Create the structural brace
-                    FamilyInstance brace = _doc.Create.NewFamilyInstance(
+                    DB.FamilyInstance brace = _doc.Create.NewFamilyInstance(
                         braceLine,
-                        familyTypeId,
-                        baseLevelId,
-                        DB.StructuralType.Brace);
+                        familySymbol,
+                        baseLevel,
+                        DB.Structure.StructuralType.Brace);
+
+                    // Set top level if available
+                    if (levelIdMap.TryGetValue(jsonBrace.TopLevelId, out DB.ElementId topLevelId))
+                    {
+                        DB.Parameter topLevelParam = brace.get_Parameter(DB.BuiltInParameter.FAMILY_TOP_LEVEL_PARAM);
+                        if (topLevelParam != null)
+                        {
+                            topLevelParam.Set(topLevelId);
+                        }
+                    }
 
                     count++;
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                    // Log the exception for this brace but continue with the next one
-                    Debug.WriteLine($"Error creating brace: {ex.Message}");
+                    // Skip this brace and continue with the next one
                 }
             }
 

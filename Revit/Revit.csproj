@@ -161,7 +161,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="App.cs" />
-    <Compile Include="Import\Elements\BeamImport.cs" />
+    <Compile Include="Import\Elements\ColumnImport.cs" />
     <Compile Include="Import\ImportManager.cs" />
     <Compile Include="Import\ModelLayout\GridImport.cs" />
     <Compile Include="Import\ModelImportCommand.cs" />

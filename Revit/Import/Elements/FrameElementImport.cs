@@ -126,27 +126,30 @@ namespace Revit.Import.Elements
                 }
             }
 
-            // If dimensions are specified, try to find closest match
-            if (frameProps.Dimensions != null && frameProps.Dimensions.Count > 0)
-            {
-                // This would require parsing the type names to extract dimensions
-                // For simplicity, we'll skip this for now
-            }
-
             return defaultType;
         }
 
-        // Get frame properties for an element
+        // Get frame properties for an element - MODIFIED
         private Core.Models.Properties.FrameProperties GetFrameProperties(
             string framePropertiesId, BaseModel model)
         {
-            if (string.IsNullOrEmpty(framePropertiesId) || model?.Properties?.FrameProperties == null)
+            // If no framePropertiesId specified, use the first available frame property
+            if (string.IsNullOrEmpty(framePropertiesId) || model?.Properties?.FrameProperties == null ||
+                !model.Properties.FrameProperties.Any())
             {
-                return null;
+                return model?.Properties?.FrameProperties?.FirstOrDefault();
             }
 
-            return model.Properties.FrameProperties.FirstOrDefault(fp =>
+            var result = model.Properties.FrameProperties.FirstOrDefault(fp =>
                 fp.Id == framePropertiesId);
+
+            // If specific property not found, return first available
+            if (result == null)
+            {
+                return model.Properties.FrameProperties.FirstOrDefault();
+            }
+
+            return result;
         }
 
         // Imports beams from the JSON model into Revit
@@ -160,7 +163,6 @@ namespace Revit.Import.Elements
                 {
                     // Skip if required data is missing
                     if (string.IsNullOrEmpty(jsonBeam.LevelId) ||
-                        string.IsNullOrEmpty(jsonBeam.FramePropertiesId) ||
                         jsonBeam.StartPoint == null ||
                         jsonBeam.EndPoint == null)
                     {
@@ -183,7 +185,7 @@ namespace Revit.Import.Elements
                         continue;
                     }
 
-                    // Get frame properties and find appropriate beam type
+                    // Get frame properties and find appropriate beam type - MODIFIED
                     var frameProps = GetFrameProperties(jsonBeam.FramePropertiesId, model);
                     DB.FamilySymbol familySymbol = FindFrameElementType(frameProps, false);
 
@@ -265,7 +267,6 @@ namespace Revit.Import.Elements
                 {
                     // Skip if required data is missing
                     if (string.IsNullOrEmpty(jsonBrace.BaseLevelId) ||
-                        string.IsNullOrEmpty(jsonBrace.FramePropertiesId) ||
                         jsonBrace.StartPoint == null ||
                         jsonBrace.EndPoint == null)
                     {
@@ -288,7 +289,7 @@ namespace Revit.Import.Elements
                         continue;
                     }
 
-                    // Get frame properties and find appropriate brace type
+                    // Get frame properties and find appropriate brace type - MODIFIED
                     var frameProps = GetFrameProperties(jsonBrace.FramePropertiesId, model);
                     DB.FamilySymbol familySymbol = FindFrameElementType(frameProps, true);
 

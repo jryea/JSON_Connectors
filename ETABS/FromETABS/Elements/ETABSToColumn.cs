@@ -84,6 +84,7 @@ namespace ETABS.Import.Elements
         /// Imports columns from E2K data to model
         /// </summary>
         /// <returns>Collection of imported column elements</returns>
+        // Modified Import method for ColumnImport class
         public List<Column> Import()
         {
             var columns = new List<Column>();
@@ -102,14 +103,30 @@ namespace ETABS.Import.Elements
                 if (startPoint == null || endPoint == null)
                     continue;
 
-                // Get level and section from assignments
-                string framePropId = null;
-                bool isLateral = false;
-                string storyName = null;
+                // Find all assignments for this column ID
+                var storyAssignments = _assignmentParser.LineAssignments
+                    .Where(a => a.Key == columnId)
+                    .Select(a => a.Value)
+                    .ToList();
 
-                if (_assignmentParser.LineAssignments.TryGetValue(columnId, out var assignment))
+                // If no assignments found, create a single column with minimal data
+                if (storyAssignments.Count == 0)
                 {
-                    storyName = assignment.Story;
+                    var column = new Column
+                    {
+                        Id = IdGenerator.Generate(IdGenerator.Elements.COLUMN),
+                        StartPoint = startPoint,
+                        EndPoint = endPoint
+                    };
+                    columns.Add(column);
+                    continue;
+                }
+
+                // Create a column for each story assignment
+                foreach (var assignment in storyAssignments)
+                {
+                    string framePropId = null;
+                    string storyName = assignment.Story;
 
                     // Look up frame properties ID from section name
                     if (_framePropsByName.TryGetValue(assignment.Section, out var propId))
@@ -117,43 +134,43 @@ namespace ETABS.Import.Elements
                         framePropId = propId;
                     }
 
-                    isLateral = assignment.IsLateral;
-                }
-
-                // Determine base and top levels
-                string baseLevelId = null;
-                string topLevelId = null;
-
-                // For columns, ETABS typically assigns them to the top story they belong to
-                if (storyName != null && _levelsByName.TryGetValue(storyName, out var topLevel))
-                {
-                    topLevelId = topLevel.Id;
-
-                    // Find the level below the assigned level
-                    int topLevelIndex = _sortedLevels.IndexOf(topLevel);
-                    if (topLevelIndex > 0)
+                    // Find current level from story name
+                    Level currentLevel = null;
+                    if (_levelsByName.TryGetValue(storyName, out var level))
                     {
-                        baseLevelId = _sortedLevels[topLevelIndex - 1].Id;
+                        currentLevel = level;
                     }
                     else
                     {
-                        baseLevelId = topLevel.Id; // If it's the lowest level, use the same level as base
+                        continue; // Skip if level not found
                     }
+
+                    // Find the level below (for base level)
+                    Level baseLevel = null;
+                    int currentIndex = _sortedLevels.IndexOf(currentLevel);
+                    if (currentIndex > 0)
+                    {
+                        baseLevel = _sortedLevels[currentIndex - 1];
+                    }
+                    else
+                    {
+                        baseLevel = currentLevel; // Use same level if it's the lowest
+                    }
+
+                    // Create column object for this story
+                    var column = new Column
+                    {
+                        Id = IdGenerator.Generate(IdGenerator.Elements.COLUMN),
+                        StartPoint = startPoint,
+                        EndPoint = endPoint,
+                        BaseLevelId = baseLevel?.Id,
+                        TopLevelId = currentLevel?.Id,
+                        FramePropertiesId = framePropId,
+                        IsLateral = assignment.IsLateral
+                    };
+
+                    columns.Add(column);
                 }
-
-                // Create column object
-                var column = new Column
-                {
-                    Id = IdGenerator.Generate(IdGenerator.Elements.COLUMN),
-                    StartPoint = startPoint,
-                    EndPoint = endPoint,
-                    BaseLevelId = baseLevelId,
-                    TopLevelId = topLevelId,
-                    FramePropertiesId = framePropId,
-                    IsLateral = isLateral
-                };
-
-                columns.Add(column);
             }
 
             return columns;

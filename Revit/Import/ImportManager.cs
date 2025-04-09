@@ -10,6 +10,7 @@ using Core.Models.ModelLayout;
 using Revit.Import.ModelLayout;
 using Revit.Import.Elements;
 using System.Linq;
+using System.Diagnostics;
 
 namespace Revit.Import
 {
@@ -54,12 +55,6 @@ namespace Revit.Import
 
                     // 2. Import layout elements
                     ImportLayoutElements(_currentModel, ref totalImported);
-
-                    // 3. Force regeneration
-                    _doc.Regenerate();
-
-                    // 4. Refresh mappings
-                    CreateMappings(_currentModel);
 
                     // 5. Import structural elements
                     ImportStructuralElements(_currentModel, ref totalImported);
@@ -151,18 +146,36 @@ namespace Revit.Import
             // Get all existing Revit levels
             DB.FilteredElementCollector collector = new DB.FilteredElementCollector(_doc);
             collector.OfClass(typeof(DB.Level));
-            List<DB.Level> revitLevels = collector.Cast<DB.Level>().ToList();
+            List<DB.Level> existingRevitLevels = collector.Cast<DB.Level>().ToList();
 
-            // Map JSON level IDs to Revit level ElementIds
+            // Create a hash set of existing level names for quick lookup
+            HashSet<string> existingLevelNames = new HashSet<string>(existingRevitLevels.Select(l => l.Name), StringComparer.OrdinalIgnoreCase);
+
             foreach (Level jsonLevel in levels)
             {
                 string levelName = $"Level {jsonLevel.Name}";
 
-                // Try to find existing level by name
-                DB.Level revitLevel = revitLevels.FirstOrDefault(l => l.Name == levelName);
-                if (revitLevel != null)
+                // Ensure the level name is unique
+                while (existingLevelNames.Contains(levelName))
                 {
-                    _levelIdMap[jsonLevel.Id] = revitLevel.Id;
+                    levelName += " new";
+                }
+
+                try
+                {
+                    // Create a new level in Revit
+                    double elevation = jsonLevel.Elevation / 12.0; // Convert elevation from inches to feet
+                    DB.Level newLevel = DB.Level.Create(_doc, elevation);
+                    newLevel.Name = levelName;
+
+                    // Add the new level to the mapping
+                    _levelIdMap[jsonLevel.Id] = newLevel.Id;
+                    existingLevelNames.Add(levelName); // Add the new name to the set
+                    Debug.WriteLine($"Created new level '{levelName}' with elevation {elevation}");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Failed to create level '{levelName}': {ex.Message}");
                 }
             }
         }

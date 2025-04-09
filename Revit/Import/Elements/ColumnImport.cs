@@ -132,7 +132,6 @@ namespace Revit.Import.Elements
                     // Skip if any required data is missing
                     if (string.IsNullOrEmpty(jsonColumn.BaseLevelId) ||
                         string.IsNullOrEmpty(jsonColumn.TopLevelId) ||
-                        string.IsNullOrEmpty(jsonColumn.FramePropertiesId) ||
                         jsonColumn.StartPoint == null)
                     {
                         Debug.WriteLine($"Skipping column {jsonColumn.Id} due to missing data.");

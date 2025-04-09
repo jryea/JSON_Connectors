@@ -77,18 +77,30 @@ namespace ETABS.Import.Elements
                 if (startPoint == null || endPoint == null)
                     continue;
 
-                // Get level and section from assignments
-                string levelId = null;
-                string framePropId = null;
-                bool isLateral = false;
+                // Find all assignments for this beam ID
+                var storyAssignments = _assignmentParser.LineAssignments
+                    .Where(a => a.Key == beamId)
+                    .Select(a => a.Value)
+                    .ToList();
 
-                if (_assignmentParser.LineAssignments.TryGetValue(beamId, out var assignment))
+                // If no assignments found, create a single beam with minimal data
+                if (storyAssignments.Count == 0)
                 {
-                    // Look up level ID from story name
-                    if (_levelsByName.TryGetValue(assignment.Story, out var level))
+                    var beam = new Beam
                     {
-                        levelId = level.Id;
-                    }
+                        Id = IdGenerator.Generate(IdGenerator.Elements.BEAM),
+                        StartPoint = startPoint,
+                        EndPoint = endPoint
+                    };
+                    beams.Add(beam);
+                    continue;
+                }
+
+                // Create a beam for each story assignment
+                foreach (var assignment in storyAssignments)
+                {
+                    string framePropId = null;
+                    string storyName = assignment.Story;
 
                     // Look up frame properties ID from section name
                     if (_framePropsByName.TryGetValue(assignment.Section, out var propId))
@@ -96,24 +108,58 @@ namespace ETABS.Import.Elements
                         framePropId = propId;
                     }
 
-                    isLateral = assignment.IsLateral;
+                    // Find level from story name
+                    Level level = null;
+                    if (_levelsByName.TryGetValue(storyName, out var foundLevel))
+                    {
+                        level = foundLevel;
+                    }
+                    else
+                    {
+                        continue; // Skip if level not found
+                    }
+
+                    // Create beam object for this story
+                    var beam = new Beam
+                    {
+                        Id = IdGenerator.Generate(IdGenerator.Elements.BEAM),
+                        StartPoint = startPoint,
+                        EndPoint = endPoint,
+                        LevelId = level?.Id,
+                        FramePropertiesId = framePropId,
+                        IsLateral = assignment.IsLateral
+                    };
+
+                    // If beam is a joist (can be determined from release conditions or section type)
+                    beam.IsJoist = DetermineIfJoist(assignment);
+
+                    beams.Add(beam);
                 }
-
-                // Create beam object
-                var beam = new Beam
-                {
-                    Id = IdGenerator.Generate(IdGenerator.Elements.BEAM),
-                    StartPoint = startPoint,
-                    EndPoint = endPoint,
-                    LevelId = levelId,
-                    FramePropertiesId = framePropId,
-                    IsLateral = isLateral
-                };
-
-                beams.Add(beam);
             }
 
             return beams;
+        }
+
+        // Helper method to determine if a beam is a joist based on assignment properties
+        private bool DetermineIfJoist(LineAssignmentParser.LineAssignment assignment)
+        {
+            // Check for release conditions typical of joists (pinned ends)
+            if (!string.IsNullOrEmpty(assignment.ReleaseCondition) &&
+                (assignment.ReleaseCondition.Contains("M2I M2J M3I M3J") ||
+                 assignment.ReleaseCondition.Contains("PINNED")))
+            {
+                return true;
+            }
+
+            // Or check section name for keywords indicating a joist
+            if (!string.IsNullOrEmpty(assignment.Section) &&
+                (assignment.Section.ToLower().Contains("joist") ||
+                 assignment.Section.ToLower().Contains("comp")))
+            {
+                return true;
+            }
+
+            return false;
         }
     }
 }

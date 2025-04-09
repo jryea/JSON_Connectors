@@ -67,10 +67,7 @@ namespace ETABS.Import.Elements
             }
         }
 
-        /// <summary>
-        /// Sets up frame properties mapping by name
-        /// </summary>
-        /// <param name="frameProperties">Collection of frame properties in the model</param>
+        // Sets up frame properties mapping by name
         public void SetFrameProperties(IEnumerable<FrameProperties> frameProperties)
         {
             _framePropsByName.Clear();
@@ -80,20 +77,26 @@ namespace ETABS.Import.Elements
             }
         }
 
-        /// <summary>
-        /// Imports columns from E2K data to model
-        /// </summary>
-        /// <returns>Collection of imported column elements</returns>
-        // Modified Import method for ColumnImport class
+        // Imports columns from E2K data to model
+     
         public List<Column> Import()
         {
             var columns = new List<Column>();
 
-            // Process each column in the connectivity parser
-            foreach (var columnEntry in _connectivityParser.Columns)
+            // Get all line assignments for columns
+            var columnAssignments = _assignmentParser.LineAssignments
+                .Where(kvp => _connectivityParser.Columns.ContainsKey(kvp.Key))
+                .ToList();
+
+            // Process each column assignment directly instead of by connectivity
+            foreach (var assignmentEntry in columnAssignments)
             {
-                string columnId = columnEntry.Key;
-                var connectivity = columnEntry.Value;
+                string columnId = assignmentEntry.Key;
+                var assignment = assignmentEntry.Value;
+
+                // Only process if we can find the connectivity
+                if (!_connectivityParser.Columns.TryGetValue(columnId, out var connectivity))
+                    continue;
 
                 // Get points from collector
                 Point2D startPoint = _pointsCollector.GetPoint2D(connectivity.Point1Id);
@@ -103,74 +106,48 @@ namespace ETABS.Import.Elements
                 if (startPoint == null || endPoint == null)
                     continue;
 
-                // Find all assignments for this column ID
-                var storyAssignments = _assignmentParser.LineAssignments
-                    .Where(a => a.Key == columnId)
-                    .Select(a => a.Value)
-                    .ToList();
-
-                // If no assignments found, create a single column with minimal data
-                if (storyAssignments.Count == 0)
+                // Get properties from assignment
+                string framePropId = null;
+                if (_framePropsByName.TryGetValue(assignment.Section, out var propId))
                 {
-                    var column = new Column
-                    {
-                        Id = IdGenerator.Generate(IdGenerator.Elements.COLUMN),
-                        StartPoint = startPoint,
-                        EndPoint = endPoint
-                    };
-                    columns.Add(column);
-                    continue;
+                    framePropId = propId;
                 }
 
-                // Create a column for each story assignment
-                foreach (var assignment in storyAssignments)
+                // Find current level from story name
+                Level currentLevel = null;
+                if (_levelsByName.TryGetValue(assignment.Story, out var level))
                 {
-                    string framePropId = null;
-                    string storyName = assignment.Story;
-
-                    // Look up frame properties ID from section name
-                    if (_framePropsByName.TryGetValue(assignment.Section, out var propId))
-                    {
-                        framePropId = propId;
-                    }
-
-                    // Find current level from story name
-                    Level currentLevel = null;
-                    if (_levelsByName.TryGetValue(storyName, out var level))
-                    {
-                        currentLevel = level;
-                    }
-                    else
-                    {
-                        continue; // Skip if level not found
-                    }
-
-                    // Find the level below (for base level)
-                    Level baseLevel = null;
-                    int currentIndex = _sortedLevels.IndexOf(currentLevel);
-                    if (currentIndex > 0)
-                    {
-                        baseLevel = _sortedLevels[currentIndex - 1];
-                    }
-                    else
-                    {
-                        baseLevel = currentLevel; // Use same level if it's the lowest
-                    }
-
-                    // Create column object for this story
-                    var column = new Column
-                    {
-                        Id = IdGenerator.Generate(IdGenerator.Elements.COLUMN),
-                        StartPoint = startPoint,
-                        EndPoint = endPoint,
-                        BaseLevelId = baseLevel?.Id,
-                        TopLevelId = currentLevel?.Id,
-                        FramePropertiesId = framePropId,
-                        IsLateral = assignment.IsLateral
-                    };
-
-                    columns.Add(column);
+                    currentLevel = level;
                 }
+                else
+                {
+                    continue; // Skip if level not found
+                }
+
+                // Find the level below (for base level)
+                Level baseLevel = null;
+                int currentIndex = _sortedLevels.IndexOf(currentLevel);
+                if (currentIndex > 0)
+                {
+                    baseLevel = _sortedLevels[currentIndex - 1];
+                }
+                else
+                {
+                    baseLevel = currentLevel; // Use same level if it's the lowest
+                }
+
+                // Create column object for this specific assignment
+                var column = new Column
+                {
+                    Id = IdGenerator.Generate(IdGenerator.Elements.COLUMN),
+                    StartPoint = startPoint,
+                    EndPoint = endPoint,
+                    BaseLevelId = baseLevel?.Id,
+                    TopLevelId = currentLevel?.Id,
+                    FramePropertiesId = framePropId
+                };
+
+                columns.Add(column);
             }
 
             return columns;

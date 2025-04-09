@@ -9,9 +9,9 @@ namespace ETABS.Import.Elements
     // Coordinates the import of all structural elements from E2K files
     public class ETABSToElements
     {
-        private readonly ETABSToBeam _etabsToBeam;
+        //private readonly ETABSToBeam _etabsToBeam;
         private readonly ETABSToColumn _etabsToColumn;
-        private readonly ETABSToBrace _etabsToBrace;
+        //private readonly ETABSToBrace _etabsToBrace;
         private readonly ETABSToFloor _etabsToFloor;
         private readonly ETABSToWall _etabsToWall;
 
@@ -30,9 +30,9 @@ namespace ETABS.Import.Elements
             _areaParser = new AreaParser();
 
             // Initialize element importers
-            _etabsToBeam = new ETABSToBeam(_pointsCollector, _lineConnectivityParser, _lineAssignmentParser);
+            //_etabsToBeam = new ETABSToBeam(_pointsCollector, _lineConnectivityParser, _lineAssignmentParser);
             _etabsToColumn = new ETABSToColumn(_pointsCollector, _lineConnectivityParser, _lineAssignmentParser);
-            _etabsToBrace = new ETABSToBrace(_pointsCollector, _lineConnectivityParser, _lineAssignmentParser);
+            //_etabsToBrace = new ETABSToBrace(_pointsCollector, _lineConnectivityParser, _lineAssignmentParser);
             _etabsToFloor = new ETABSToFloor(_pointsCollector, _areaParser);
             _etabsToWall = new ETABSToWall(_pointsCollector, _areaParser);
         }
@@ -82,16 +82,16 @@ namespace ETABS.Import.Elements
             IEnumerable<Diaphragm> diaphragms)
         {
             // Set levels in all importers
-            _etabsToBeam.SetLevels(levels);
+            //_etabsToBeam.SetLevels(levels);
             _etabsToColumn.SetLevels(levels);
-            _etabsToBrace.SetLevels(levels);
+            //_etabsToBrace.SetLevels(levels);
             _etabsToFloor.SetLevels(levels);
             _etabsToWall.SetLevels(levels);
 
             // Set frame properties in relevant importers
-            _etabsToBeam.SetFrameProperties(frameProperties);
+            //_etabsToBeam.SetFrameProperties(frameProperties);
             _etabsToColumn.SetFrameProperties(frameProperties);
-            _etabsToBrace.SetFrameProperties(frameProperties);
+            //_etabsToBrace.SetFrameProperties(frameProperties);
 
             // Set floor properties
             _etabsToFloor.SetFloorProperties(floorProperties);
@@ -113,13 +113,13 @@ namespace ETABS.Import.Elements
             var container = new ElementContainer();
 
             // Import beams
-            container.Beams = _etabsToBeam.Import();
+            //container.Beams = _etabsToBeam.Import();
 
             // Import columns
             container.Columns = _etabsToColumn.Import();
 
             // Import braces
-            container.Braces = _etabsToBrace.Import();
+            //container.Braces = _etabsToBrace.Import();
 
             // Import floors
             container.Floors = _etabsToFloor.Import();

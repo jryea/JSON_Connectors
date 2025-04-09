@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Core.Models.Elements;
 using Core.Models.Geometry;
@@ -76,69 +77,116 @@ namespace ETABS.Import.Elements
         {
             var braces = new List<Brace>();
 
-            // Process each brace in the connectivity parser
-            foreach (var braceEntry in _connectivityParser.Braces)
+            // Create a file logger
+            string logPath = Path.Combine(Path.GetTempPath(), "ETABSToBraceImport.log");
+            using (StreamWriter logWriter = new StreamWriter(logPath, true))
             {
-                string braceId = braceEntry.Key;
-                var connectivity = braceEntry.Value;
+                logWriter.WriteLine($"-------- ETABSToBrace.Import: Started at {DateTime.Now} --------");
 
-                // Get points from collector
-                Point2D startPoint = _pointsCollector.GetPoint2D(connectivity.Point1Id);
-                Point2D endPoint = _pointsCollector.GetPoint2D(connectivity.Point2Id);
-
-                // Skip if points not found
-                if (startPoint == null || endPoint == null)
-                    continue;
-
-                // Get frame properties and story from assignments
-                string framePropId = null;
-                string storyName = null;
-
-                if (_assignmentParser.LineAssignments.TryGetValue(braceId, out var assignment))
+                try
                 {
-                    storyName = assignment.Story;
+                    // Get ALL line assignments from the assignment parser
+                    var allLineAssignments = _assignmentParser.LineAssignments;
+                    logWriter.WriteLine($"Total line assignments found: {allLineAssignments.Count}");
 
-                    // Look up frame properties ID from section name
-                    if (_framePropsByName.TryGetValue(assignment.Section, out var propId))
+                    // Get all brace IDs from connectivity parser
+                    var braceIds = _connectivityParser.Braces.Keys.ToList();
+
+                    // Process each brace ID
+                    foreach (var braceId in braceIds)
                     {
-                        framePropId = propId;
+                        logWriter.WriteLine($"Processing brace ID: {braceId}");
+
+                        // Get the connectivity for this brace
+                        var connectivity = _connectivityParser.Braces[braceId];
+
+                        // Get points from collector
+                        Point2D startPoint = _pointsCollector.GetPoint2D(connectivity.Point1Id);
+                        Point2D endPoint = _pointsCollector.GetPoint2D(connectivity.Point2Id);
+
+                        if (startPoint == null || endPoint == null)
+                        {
+                            logWriter.WriteLine($"Cannot find points for brace {braceId}");
+                            continue;
+                        }
+
+                        // Get all assignments for this brace
+                        if (!allLineAssignments.TryGetValue(braceId, out var braceAssignments))
+                        {
+                            logWriter.WriteLine($"No assignments found for brace {braceId}");
+                            continue;
+                        }
+
+                        logWriter.WriteLine($"Found {braceAssignments.Count} assignments for brace {braceId}");
+
+                        // Process each assignment for this brace
+                        foreach (var assignment in braceAssignments)
+                        {
+                            logWriter.WriteLine($"Processing assignment for brace {braceId}, Story: {assignment.Story}");
+
+                            // Get the story level for this assignment
+                            if (!_levelsByName.TryGetValue(assignment.Story, out var currentLevel))
+                            {
+                                logWriter.WriteLine($"Cannot find level for story {assignment.Story}");
+                                continue;
+                            }
+
+                            logWriter.WriteLine($"Found level: {currentLevel.Name}, Elevation: {currentLevel.Elevation}");
+
+                            // Find the level below this one for the base level
+                            Level baseLevel = null;
+                            int currentIndex = _sortedLevels.IndexOf(currentLevel);
+                            if (currentIndex > 0)
+                            {
+                                baseLevel = _sortedLevels[currentIndex - 1];
+                                logWriter.WriteLine($"Found base level: {baseLevel.Name}, Elevation: {baseLevel.Elevation}");
+                            }
+                            else
+                            {
+                                baseLevel = currentLevel; // Use same level if it's the lowest
+                                logWriter.WriteLine($"Using current level as base level (lowest level)");
+                            }
+
+                            // Get frame properties if available
+                            string framePropId = null;
+                            if (!string.IsNullOrEmpty(assignment.Section) &&
+                                _framePropsByName.TryGetValue(assignment.Section, out var propId))
+                            {
+                                framePropId = propId;
+                                logWriter.WriteLine($"Found frame property ID: {framePropId} for section: {assignment.Section}");
+                            }
+                            else
+                            {
+                                logWriter.WriteLine($"Could not find frame property for section: {assignment.Section}");
+                            }
+
+                            // Create brace object for this assignment
+                            var brace = new Brace
+                            {
+                                Id = IdGenerator.Generate(IdGenerator.Elements.BRACE),
+                                StartPoint = startPoint,
+                                EndPoint = endPoint,
+                                BaseLevelId = baseLevel?.Id,
+                                TopLevelId = currentLevel?.Id,
+                                FramePropertiesId = framePropId
+                            };
+
+                            // Add to the list
+                            braces.Add(brace);
+                            logWriter.WriteLine($"Added brace: {brace.Id}, BaseLevelId: {brace.BaseLevelId}, TopLevelId: {brace.TopLevelId}");
+                        }
                     }
+
+                    logWriter.WriteLine($"Total braces created: {braces.Count}");
+                }
+                catch (Exception ex)
+                {
+                    logWriter.WriteLine($"Exception occurred: {ex.Message}");
+                    logWriter.WriteLine($"Stack trace: {ex.StackTrace}");
                 }
 
-                // Determine base and top levels
-                string baseLevelId = null;
-                string topLevelId = null;
-
-                // For braces, ETABS typically assigns them to each story they span
-                if (storyName != null && _levelsByName.TryGetValue(storyName, out var level))
-                {
-                    // For simplicity, we'll use the assigned level as the top level
-                    topLevelId = level.Id;
-
-                    // Find the level below the assigned level
-                    int levelIndex = _sortedLevels.IndexOf(level);
-                    if (levelIndex > 0)
-                    {
-                        baseLevelId = _sortedLevels[levelIndex - 1].Id;
-                    }
-                    else
-                    {
-                        baseLevelId = level.Id; // If it's the lowest level, use the same level as base
-                    }
-                }
-
-                // Create brace object
-                var brace = new Brace
-                {
-                    Id = IdGenerator.Generate(IdGenerator.Elements.BRACE),
-                    StartPoint = startPoint,
-                    EndPoint = endPoint,
-                    BaseLevelId = baseLevelId,
-                    TopLevelId = topLevelId,
-                    FramePropertiesId = framePropId
-                };
-
-                braces.Add(brace);
+                logWriter.WriteLine($"-------- ETABSToBrace.Import: Completed at {DateTime.Now} --------");
+                logWriter.Flush();
             }
 
             return braces;

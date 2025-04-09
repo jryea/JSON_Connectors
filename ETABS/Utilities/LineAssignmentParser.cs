@@ -1,14 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Text.RegularExpressions;
+using System.Linq;
 
 namespace ETABS.Import.Utilities
 {
-    // Utility class to parse line assignments from E2K files
     public class LineAssignmentParser
     {
-        // Dictionary to store the line assignments by line ID
-        public Dictionary<string, LineAssignment> LineAssignments { get; private set; } = new Dictionary<string, LineAssignment>();
+        // Change the storage model to allow multiple assignments per line ID
+        public Dictionary<string, List<LineAssignment>> LineAssignments { get; private set; } = new Dictionary<string, List<LineAssignment>>();
 
         // Line assignment information
         public class LineAssignment
@@ -26,6 +25,8 @@ namespace ETABS.Import.Utilities
             if (string.IsNullOrWhiteSpace(lineAssignsSection))
                 return;
 
+            LineAssignments.Clear();
+
             // Regular expression to match line assignment lines
             // Format: LINEASSIGN "B1" "Story1" SECTION "W10X12" MAXSTASPC 24 AUTOMESH "YES" MESHATINTERSECTIONS "YES"
             var basicPattern = new Regex(@"^\s*LINEASSIGN\s+""([^""]+)""\s+""([^""]+)""\s+SECTION\s+""([^""]+)""",
@@ -34,7 +35,7 @@ namespace ETABS.Import.Utilities
             // Additional pattern for releases
             var releasePattern = new Regex(@"RELEASE\s+""([^""]+)""", RegexOptions.Singleline);
 
-            // Pattern for lateral flag (ETABS-specific attribute, not directly in E2K but checking for it)
+            // Pattern for lateral flag
             var lateralPattern = new Regex(@"ISLATERAL\s+""([^""]+)""", RegexOptions.Singleline);
 
             var matches = basicPattern.Matches(lineAssignsSection);
@@ -75,30 +76,39 @@ namespace ETABS.Import.Utilities
                         IsLateral = isLateral
                     };
 
-                    // Add to dictionary (overwrite if already exists)
-                    LineAssignments[lineId] = assignment;
+                    // Add to dictionary, creating list if needed
+                    if (!LineAssignments.ContainsKey(lineId))
+                    {
+                        LineAssignments[lineId] = new List<LineAssignment>();
+                    }
+
+                    LineAssignments[lineId].Add(assignment);
                 }
             }
         }
 
-        // Gets the section name for a specific line ID
-        public string GetSectionName(string lineId)
+        // Gets the section name for a specific line ID and story
+        public string GetSectionName(string lineId, string story)
         {
-            if (LineAssignments.TryGetValue(lineId, out LineAssignment assignment))
+            if (LineAssignments.TryGetValue(lineId, out var assignments))
             {
-                return assignment.Section;
+                var assignment = assignments.FirstOrDefault(a => a.Story == story);
+                if (assignment != null)
+                {
+                    return assignment.Section;
+                }
             }
             return null;
         }
 
-        // Gets the story name for a specific line ID
-        public string GetStoryName(string lineId)
+        // Gets all assignments for a specific line ID
+        public List<LineAssignment> GetAssignments(string lineId)
         {
-            if (LineAssignments.TryGetValue(lineId, out LineAssignment assignment))
+            if (LineAssignments.TryGetValue(lineId, out var assignments))
             {
-                return assignment.Story;
+                return assignments;
             }
-            return null;
+            return new List<LineAssignment>();
         }
     }
 }

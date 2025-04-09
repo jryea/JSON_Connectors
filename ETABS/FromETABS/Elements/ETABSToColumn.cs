@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using Core.Models.Elements;
 using Core.Models.Geometry;
@@ -10,9 +12,7 @@ using ETABS.Import.Utilities;
 
 namespace ETABS.Import.Elements
 {
-    /// <summary>
-    /// Imports column elements from ETABS E2K file
-    /// </summary>
+    // Imports column elements from ETABS E2K file
     public class ETABSToColumn
     {
         private readonly PointsCollector _pointsCollector;
@@ -22,12 +22,7 @@ namespace ETABS.Import.Elements
         private readonly Dictionary<string, string> _framePropsByName = new Dictionary<string, string>();
         private List<Level> _sortedLevels = new List<Level>();
 
-        /// <summary>
-        /// Initializes a new instance of ColumnImport
-        /// </summary>
-        /// <param name="pointsCollector">Points collector for coordinate data</param>
-        /// <param name="connectivityParser">Line connectivity parser</param>
-        /// <param name="assignmentParser">Line assignment parser</param>
+        // Initializes a new instance of ColumnImport
         public ETABSToColumn(
             PointsCollector pointsCollector,
             LineConnectivityParser connectivityParser,
@@ -38,10 +33,7 @@ namespace ETABS.Import.Elements
             _assignmentParser = assignmentParser;
         }
 
-        /// <summary>
-        /// Sets up level mapping by name
-        /// </summary>
-        /// <param name="levels">Collection of levels in the model</param>
+        // Sets up level mapping by name
         public void SetLevels(IEnumerable<Level> levels)
         {
             _levelsByName.Clear();
@@ -78,76 +70,121 @@ namespace ETABS.Import.Elements
         }
 
         // Imports columns from E2K data to model
-     
+
         public List<Column> Import()
         {
             var columns = new List<Column>();
 
-            // Get all line assignments for columns
-            var columnAssignments = _assignmentParser.LineAssignments
-                .Where(kvp => _connectivityParser.Columns.ContainsKey(kvp.Key))
-                .ToList();
-
-            // Process each column assignment directly instead of by connectivity
-            foreach (var assignmentEntry in columnAssignments)
+            // Create a file logger
+            string logPath = Path.Combine(Path.GetTempPath(), "ETABSToColumnImport.log");
+            using (StreamWriter logWriter = new StreamWriter(logPath, true))
             {
-                string columnId = assignmentEntry.Key;
-                var assignment = assignmentEntry.Value;
+                logWriter.WriteLine($"-------- ETABSToColumn.Import: Started at {DateTime.Now} --------");
 
-                // Only process if we can find the connectivity
-                if (!_connectivityParser.Columns.TryGetValue(columnId, out var connectivity))
-                    continue;
-
-                // Get points from collector
-                Point2D startPoint = _pointsCollector.GetPoint2D(connectivity.Point1Id);
-                Point2D endPoint = _pointsCollector.GetPoint2D(connectivity.Point2Id);
-
-                // Skip if points not found
-                if (startPoint == null || endPoint == null)
-                    continue;
-
-                // Get properties from assignment
-                string framePropId = null;
-                if (_framePropsByName.TryGetValue(assignment.Section, out var propId))
+                try
                 {
-                    framePropId = propId;
+                    // Get ALL line assignments from the assignment parser
+                    var allLineAssignments = _assignmentParser.LineAssignments;
+                    logWriter.WriteLine($"Total line assignments found: {allLineAssignments.Count}");
+
+                    // Get all column IDs from connectivity parser
+                    var columnIds = _connectivityParser.Columns.Keys.ToList();
+
+                    // Process each column ID
+                    foreach (var columnId in columnIds)
+                    {
+                        logWriter.WriteLine($"Processing column ID: {columnId}");
+
+                        // Get the connectivity for this column
+                        var connectivity = _connectivityParser.Columns[columnId];
+
+                        // Get points from collector
+                        Point2D startPoint = _pointsCollector.GetPoint2D(connectivity.Point1Id);
+                        Point2D endPoint = _pointsCollector.GetPoint2D(connectivity.Point2Id);
+
+                        if (startPoint == null || endPoint == null)
+                        {
+                            logWriter.WriteLine($"Cannot find points for column {columnId}");
+                            continue;
+                        }
+
+                        // Get all assignments for this column
+                        if (!allLineAssignments.TryGetValue(columnId, out var columnAssignments))
+                        {
+                            logWriter.WriteLine($"No assignments found for column {columnId}");
+                            continue;
+                        }
+
+                        logWriter.WriteLine($"Found {columnAssignments.Count} assignments for column {columnId}");
+
+                        // Process each assignment for this column
+                        foreach (var assignment in columnAssignments)
+                        {
+                            logWriter.WriteLine($"Processing assignment for column {columnId}, Story: {assignment.Story}");
+
+                            // Get the story level for this assignment
+                            if (!_levelsByName.TryGetValue(assignment.Story, out var currentLevel))
+                            {
+                                logWriter.WriteLine($"Cannot find level for story {assignment.Story}");
+                                continue;
+                            }
+
+                            logWriter.WriteLine($"Found level: {currentLevel.Name}, Elevation: {currentLevel.Elevation}");
+
+                            // Find base level (the level below this one)
+                            Level baseLevel = null;
+                            int currentIndex = _sortedLevels.IndexOf(currentLevel);
+                            if (currentIndex > 0)
+                            {
+                                baseLevel = _sortedLevels[currentIndex - 1];
+                                logWriter.WriteLine($"Found base level: {baseLevel.Name}, Elevation: {baseLevel.Elevation}");
+                            }
+                            else
+                            {
+                                baseLevel = currentLevel; // Use same level if it's the lowest
+                                logWriter.WriteLine($"Using current level as base level (lowest level)");
+                            }
+
+                            // Get frame properties if available
+                            string framePropId = null;
+                            if (!string.IsNullOrEmpty(assignment.Section) &&
+                                _framePropsByName.TryGetValue(assignment.Section, out var propId))
+                            {
+                                framePropId = propId;
+                                logWriter.WriteLine($"Found frame property ID: {framePropId} for section: {assignment.Section}");
+                            }
+                            else
+                            {
+                                logWriter.WriteLine($"Could not find frame property for section: {assignment.Section}");
+                            }
+
+                            // Create column object for this assignment
+                            var column = new Column
+                            {
+                                Id = IdGenerator.Generate(IdGenerator.Elements.COLUMN),
+                                StartPoint = startPoint,
+                                EndPoint = endPoint,
+                                BaseLevelId = baseLevel?.Id,
+                                TopLevelId = currentLevel?.Id,
+                                FramePropertiesId = framePropId
+                            };
+
+                            // Add to the list
+                            columns.Add(column);
+                            logWriter.WriteLine($"Added column: {column.Id}, BaseLevelId: {column.BaseLevelId}, TopLevelId: {column.TopLevelId}");
+                        }
+                    }
+
+                    logWriter.WriteLine($"Total columns created: {columns.Count}");
+                }
+                catch (Exception ex)
+                {
+                    logWriter.WriteLine($"Exception occurred: {ex.Message}");
+                    logWriter.WriteLine($"Stack trace: {ex.StackTrace}");
                 }
 
-                // Find current level from story name
-                Level currentLevel = null;
-                if (_levelsByName.TryGetValue(assignment.Story, out var level))
-                {
-                    currentLevel = level;
-                }
-                else
-                {
-                    continue; // Skip if level not found
-                }
-
-                // Find the level below (for base level)
-                Level baseLevel = null;
-                int currentIndex = _sortedLevels.IndexOf(currentLevel);
-                if (currentIndex > 0)
-                {
-                    baseLevel = _sortedLevels[currentIndex - 1];
-                }
-                else
-                {
-                    baseLevel = currentLevel; // Use same level if it's the lowest
-                }
-
-                // Create column object for this specific assignment
-                var column = new Column
-                {
-                    Id = IdGenerator.Generate(IdGenerator.Elements.COLUMN),
-                    StartPoint = startPoint,
-                    EndPoint = endPoint,
-                    BaseLevelId = baseLevel?.Id,
-                    TopLevelId = currentLevel?.Id,
-                    FramePropertiesId = framePropId
-                };
-
-                columns.Add(column);
+                logWriter.WriteLine($"-------- ETABSToColumn.Import: Completed at {DateTime.Now} --------");
+                logWriter.Flush();
             }
 
             return columns;

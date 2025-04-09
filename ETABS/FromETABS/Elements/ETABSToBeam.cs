@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Core.Models.Elements;
 using Core.Models.Geometry;
@@ -63,78 +64,103 @@ namespace ETABS.Import.Elements
         {
             var beams = new List<Beam>();
 
-            // Process each beam in the connectivity parser
-            foreach (var beamEntry in _connectivityParser.Beams)
+            // Create a file logger
+            string logPath = Path.Combine(Path.GetTempPath(), "ETABSToBeamImport.log");
+            using (StreamWriter logWriter = new StreamWriter(logPath, true))
             {
-                string beamId = beamEntry.Key;
-                var connectivity = beamEntry.Value;
+                logWriter.WriteLine($"-------- ETABSToBeam.Import: Started at {DateTime.Now} --------");
 
-                // Get points from collector
-                Point2D startPoint = _pointsCollector.GetPoint2D(connectivity.Point1Id);
-                Point2D endPoint = _pointsCollector.GetPoint2D(connectivity.Point2Id);
-
-                // Skip if points not found
-                if (startPoint == null || endPoint == null)
-                    continue;
-
-                // Find all assignments for this beam ID
-                var storyAssignments = _assignmentParser.LineAssignments
-                    .Where(a => a.Key == beamId)
-                    .Select(a => a.Value)
-                    .ToList();
-
-                // If no assignments found, create a single beam with minimal data
-                if (storyAssignments.Count == 0)
+                try
                 {
-                    var beam = new Beam
+                    // Get ALL line assignments from the assignment parser
+                    var allLineAssignments = _assignmentParser.LineAssignments;
+                    logWriter.WriteLine($"Total line assignments found: {allLineAssignments.Count}");
+
+                    // Get all beam IDs from connectivity parser
+                    var beamIds = _connectivityParser.Beams.Keys.ToList();
+
+                    // Process each beam ID
+                    foreach (var beamId in beamIds)
                     {
-                        Id = IdGenerator.Generate(IdGenerator.Elements.BEAM),
-                        StartPoint = startPoint,
-                        EndPoint = endPoint
-                    };
-                    beams.Add(beam);
-                    continue;
+                        logWriter.WriteLine($"Processing beam ID: {beamId}");
+
+                        // Get the connectivity for this beam
+                        var connectivity = _connectivityParser.Beams[beamId];
+
+                        // Get points from collector
+                        Point2D startPoint = _pointsCollector.GetPoint2D(connectivity.Point1Id);
+                        Point2D endPoint = _pointsCollector.GetPoint2D(connectivity.Point2Id);
+
+                        if (startPoint == null || endPoint == null)
+                        {
+                            logWriter.WriteLine($"Cannot find points for beam {beamId}");
+                            continue;
+                        }
+
+                        // Get all assignments for this beam
+                        if (!allLineAssignments.TryGetValue(beamId, out var beamAssignments))
+                        {
+                            logWriter.WriteLine($"No assignments found for beam {beamId}");
+                            continue;
+                        }
+
+                        logWriter.WriteLine($"Found {beamAssignments.Count} assignments for beam {beamId}");
+
+                        // Process each assignment for this beam
+                        foreach (var assignment in beamAssignments)
+                        {
+                            logWriter.WriteLine($"Processing assignment for beam {beamId}, Story: {assignment.Story}");
+
+                            // Get the story level for this assignment
+                            if (!_levelsByName.TryGetValue(assignment.Story, out var level))
+                            {
+                                logWriter.WriteLine($"Cannot find level for story {assignment.Story}");
+                                continue;
+                            }
+
+                            logWriter.WriteLine($"Found level: {level.Name}, Elevation: {level.Elevation}");
+
+                            // Get frame properties if available
+                            string framePropId = null;
+                            if (!string.IsNullOrEmpty(assignment.Section) &&
+                                _framePropsByName.TryGetValue(assignment.Section, out var propId))
+                            {
+                                framePropId = propId;
+                                logWriter.WriteLine($"Found frame property ID: {framePropId} for section: {assignment.Section}");
+                            }
+                            else
+                            {
+                                logWriter.WriteLine($"Could not find frame property for section: {assignment.Section}");
+                            }
+
+                            // Create beam object for this assignment
+                            var beam = new Beam
+                            {
+                                Id = IdGenerator.Generate(IdGenerator.Elements.BEAM),
+                                StartPoint = startPoint,
+                                EndPoint = endPoint,
+                                LevelId = level?.Id,
+                                FramePropertiesId = framePropId,
+                                IsLateral = assignment.IsLateral,
+                                IsJoist = DetermineIfJoist(assignment)
+                            };
+
+                            // Add to the list
+                            beams.Add(beam);
+                            logWriter.WriteLine($"Added beam: {beam.Id}, LevelId: {beam.LevelId}, IsJoist: {beam.IsJoist}");
+                        }
+                    }
+
+                    logWriter.WriteLine($"Total beams created: {beams.Count}");
+                }
+                catch (Exception ex)
+                {
+                    logWriter.WriteLine($"Exception occurred: {ex.Message}");
+                    logWriter.WriteLine($"Stack trace: {ex.StackTrace}");
                 }
 
-                // Create a beam for each story assignment
-                foreach (var assignment in storyAssignments)
-                {
-                    string framePropId = null;
-                    string storyName = assignment.Story;
-
-                    // Look up frame properties ID from section name
-                    if (_framePropsByName.TryGetValue(assignment.Section, out var propId))
-                    {
-                        framePropId = propId;
-                    }
-
-                    // Find level from story name
-                    Level level = null;
-                    if (_levelsByName.TryGetValue(storyName, out var foundLevel))
-                    {
-                        level = foundLevel;
-                    }
-                    else
-                    {
-                        continue; // Skip if level not found
-                    }
-
-                    // Create beam object for this story
-                    var beam = new Beam
-                    {
-                        Id = IdGenerator.Generate(IdGenerator.Elements.BEAM),
-                        StartPoint = startPoint,
-                        EndPoint = endPoint,
-                        LevelId = level?.Id,
-                        FramePropertiesId = framePropId,
-                        IsLateral = assignment.IsLateral
-                    };
-
-                    // If beam is a joist (can be determined from release conditions or section type)
-                    beam.IsJoist = DetermineIfJoist(assignment);
-
-                    beams.Add(beam);
-                }
+                logWriter.WriteLine($"-------- ETABSToBeam.Import: Completed at {DateTime.Now} --------");
+                logWriter.Flush();
             }
 
             return beams;

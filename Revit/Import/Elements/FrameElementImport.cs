@@ -25,6 +25,7 @@ namespace Revit.Import.Elements
         // Initialize dictionaries of available beam and brace family types
         private void InitializeFrameElementTypes()
         {
+            // Original initialization code - no changes
             _beamTypes = new Dictionary<string, DB.FamilySymbol>();
             _braceTypes = new Dictionary<string, DB.FamilySymbol>();
 
@@ -88,7 +89,7 @@ namespace Revit.Import.Elements
             }
         }
 
-        // Find appropriate frame element type based on frame properties
+        // Find appropriate frame element type based on frame properties - no changes
         private DB.FamilySymbol FindFrameElementType(
             Core.Models.Properties.FrameProperties frameProps,
             bool isBrace)
@@ -129,30 +130,53 @@ namespace Revit.Import.Elements
             return defaultType;
         }
 
-        // Get frame properties for an element - MODIFIED
+        // Get frame properties for an element - no changes
         private Core.Models.Properties.FrameProperties GetFrameProperties(
             string framePropertiesId, BaseModel model)
         {
-            // If no framePropertiesId specified, use the first available frame property
-            if (string.IsNullOrEmpty(framePropertiesId) || model?.Properties?.FrameProperties == null ||
-                !model.Properties.FrameProperties.Any())
+            if (string.IsNullOrEmpty(framePropertiesId) || model?.Properties?.FrameProperties == null)
             {
-                return model?.Properties?.FrameProperties?.FirstOrDefault();
+                return null;
             }
 
-            var result = model.Properties.FrameProperties.FirstOrDefault(fp =>
+            return model.Properties.FrameProperties.FirstOrDefault(fp =>
                 fp.Id == framePropertiesId);
-
-            // If specific property not found, return first available
-            if (result == null)
-            {
-                return model.Properties.FrameProperties.FirstOrDefault();
-            }
-
-            return result;
         }
 
-        // Imports beams from the JSON model into Revit
+        // Find floor thickness at a specific level
+        private double GetFloorThicknessAtLevel(string levelId, BaseModel model)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(levelId) || model?.Elements?.Floors == null)
+                    return 0;
+
+                // Find floors at this level
+                var floors = model.Elements.Floors.Where(f => f.LevelId == levelId).ToList();
+                if (!floors.Any())
+                    return 0;
+
+                // Get the floor properties for the first floor at this level
+                var floor = floors.First();
+                if (string.IsNullOrEmpty(floor.FloorPropertiesId) || model.Properties?.FloorProperties == null)
+                    return 0;
+
+                var floorProps = model.Properties.FloorProperties
+                    .FirstOrDefault(fp => fp.Id == floor.FloorPropertiesId);
+
+                if (floorProps == null)
+                    return 0;
+
+                // Return thickness in feet (convert from model units which are usually inches)
+                return floorProps.Thickness / 12.0;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error getting floor thickness: {ex.Message}");
+                return 0; // Return zero thickness on error
+            }
+        }
+
         public int ImportBeams(List<CE.Beam> beams, Dictionary<string, DB.ElementId> levelIdMap, BaseModel model)
         {
             int count = 0;
@@ -161,7 +185,7 @@ namespace Revit.Import.Elements
             {
                 try
                 {
-                    // Skip if required data is missing
+                    // Skip if required data is missing - but don't check framePropertiesId
                     if (string.IsNullOrEmpty(jsonBeam.LevelId) ||
                         jsonBeam.StartPoint == null ||
                         jsonBeam.EndPoint == null)
@@ -185,7 +209,7 @@ namespace Revit.Import.Elements
                         continue;
                     }
 
-                    // Get frame properties and find appropriate beam type - MODIFIED
+                    // Get frame properties and find appropriate beam type
                     var frameProps = GetFrameProperties(jsonBeam.FramePropertiesId, model);
                     DB.FamilySymbol familySymbol = FindFrameElementType(frameProps, false);
 
@@ -216,33 +240,23 @@ namespace Revit.Import.Elements
                     // Set beam reference level
                     beam.get_Parameter(DB.BuiltInParameter.INSTANCE_REFERENCE_LEVEL_PARAM).Set(levelId);
 
-                    // Get the floor thickness for the level - default to 0 if not found
-                    double floorThickness = 0;
+                    // Calculate offset based on floor thickness at this level
+                    double floorThickness = GetFloorThicknessAtLevel(jsonBeam.LevelId, model);
+                    double offset = -floorThickness; // Negative to position below the floor
 
-                    // Find a floor on this level that has properties
-                    var levelFloors = model.Elements.Floors.Where(f => f.LevelId == jsonBeam.LevelId).ToList();
-                    if (levelFloors.Any() && !string.IsNullOrEmpty(levelFloors[0].FloorPropertiesId))
+                    Debug.WriteLine($"Beam {jsonBeam.Id}: Offset of {offset} feet applied based on floor thickness of {floorThickness} feet at level {level.Name}");
+
+                    // Set start and end level offsets safely
+                    try
                     {
-                        // Get floor properties
-                        var floorProps = model.Properties.FloorProperties
-                            .FirstOrDefault(fp => fp.Id == levelFloors[0].FloorPropertiesId);
-
-                        if (floorProps != null)
-                        {
-                            // Get thickness in feet (convert from model units)
-                            floorThickness = floorProps.Thickness / 12.0;
-                            Debug.WriteLine($"Found floor thickness of {floorThickness} feet for level {level.Name}");
-                        }
+                        beam.get_Parameter(DB.BuiltInParameter.STRUCTURAL_BEAM_END0_ELEVATION).Set(offset);
+                        beam.get_Parameter(DB.BuiltInParameter.STRUCTURAL_BEAM_END1_ELEVATION).Set(offset);
                     }
-
-                    // Set negative offset equal to floor thickness
-                    double startOffset = -floorThickness;
-                    double endOffset = -floorThickness;
-
-                    beam.get_Parameter(DB.BuiltInParameter.STRUCTURAL_BEAM_END0_ELEVATION).Set(startOffset);
-                    beam.get_Parameter(DB.BuiltInParameter.STRUCTURAL_BEAM_END1_ELEVATION).Set(endOffset);
-
-                    Debug.WriteLine($"Set beam offsets to {startOffset} feet based on floor thickness");
+                    catch (Exception paramEx)
+                    {
+                        Debug.WriteLine($"Error setting beam offset parameters: {paramEx.Message}");
+                        // Continue with beam creation even if offset setting fails
+                    }
 
                     count++;
                     Debug.WriteLine($"Created beam {jsonBeam.Id} with type {familySymbol.Name}");
@@ -256,7 +270,7 @@ namespace Revit.Import.Elements
             return count;
         }
 
-        // Imports braces from the JSON model into Revit
+        // IMPORTANT: Keep original method signature to match what ImportManager expects
         public int ImportBraces(List<CE.Brace> braces, Dictionary<string, DB.ElementId> levelIdMap, BaseModel model)
         {
             int count = 0;
@@ -267,6 +281,7 @@ namespace Revit.Import.Elements
                 {
                     // Skip if required data is missing
                     if (string.IsNullOrEmpty(jsonBrace.BaseLevelId) ||
+                        string.IsNullOrEmpty(jsonBrace.FramePropertiesId) ||
                         jsonBrace.StartPoint == null ||
                         jsonBrace.EndPoint == null)
                     {
@@ -289,7 +304,7 @@ namespace Revit.Import.Elements
                         continue;
                     }
 
-                    // Get frame properties and find appropriate brace type - MODIFIED
+                    // Get frame properties and find appropriate brace type
                     var frameProps = GetFrameProperties(jsonBrace.FramePropertiesId, model);
                     DB.FamilySymbol familySymbol = FindFrameElementType(frameProps, true);
 
@@ -321,10 +336,30 @@ namespace Revit.Import.Elements
                     if (!string.IsNullOrEmpty(jsonBrace.TopLevelId) &&
                         levelIdMap.TryGetValue(jsonBrace.TopLevelId, out DB.ElementId topLevelId))
                     {
-                        DB.Parameter topLevelParam = brace.get_Parameter(DB.BuiltInParameter.FAMILY_TOP_LEVEL_PARAM);
-                        if (topLevelParam != null && !topLevelParam.IsReadOnly)
+                        try
                         {
-                            topLevelParam.Set(topLevelId);
+                            DB.Parameter topLevelParam = brace.get_Parameter(DB.BuiltInParameter.FAMILY_TOP_LEVEL_PARAM);
+                            if (topLevelParam != null && !topLevelParam.IsReadOnly)
+                            {
+                                topLevelParam.Set(topLevelId);
+                            }
+
+                            // Calculate top offset based on floor thickness at the top level
+                            double floorThickness = GetFloorThicknessAtLevel(jsonBrace.TopLevelId, model);
+                            double topOffset = -floorThickness; // Negative to position below the floor
+
+                            // Set top offset
+                            DB.Parameter topOffsetParam = brace.get_Parameter(DB.BuiltInParameter.FAMILY_TOP_LEVEL_OFFSET_PARAM);
+                            if (topOffsetParam != null && !topOffsetParam.IsReadOnly)
+                            {
+                                topOffsetParam.Set(topOffset);
+                                Debug.WriteLine($"Brace {jsonBrace.Id}: Top offset of {topOffset} feet applied based on floor thickness");
+                            }
+                        }
+                        catch (Exception paramEx)
+                        {
+                            Debug.WriteLine($"Error setting brace parameters: {paramEx.Message}");
+                            // Continue with brace creation even if parameter setting fails
                         }
                     }
 

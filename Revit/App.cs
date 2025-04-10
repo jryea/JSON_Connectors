@@ -39,6 +39,12 @@ namespace Revit
             // Create buttons
             PushButton buttonModelImport = panel.AddItem(btnModelImport) as PushButton;
 
+            // Create export button data
+            PushButtonData btnModelExport = Export.ModelExportCommand.GetButtonData();
+
+            // Create button
+            PushButton buttonModelExport = panel.AddItem(btnModelExport) as PushButton;
+
             return Result.Succeeded;
         }
 

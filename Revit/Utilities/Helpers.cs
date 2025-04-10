@@ -46,5 +46,26 @@ namespace Revit.Utilities
         {
             throw new NotImplementedException();
         }
+
+        // Converts Revit XYZ to JSON 3D point
+        public static CG.Point3D ConvertToJsonCoordinates(DB.XYZ point)
+        {
+            // Convert from Revit's internal units (feet) to JSON units (inches)
+            double x = point.X * 12.0;
+            double y = point.Y * 12.0;
+            double z = point.Z * 12.0;
+
+            return new CG.Point3D(x, y, z);
+        }
+
+        // Converts Revit XYZ to JSON 2D point
+        public static CG.Point2D ConvertToJsonCoordinates2D(DB.XYZ point)
+        {
+            // Convert from Revit's internal units (feet) to JSON units (inches)
+            double x = point.X * 12.0;
+            double y = point.Y * 12.0;
+
+            return new CG.Point2D(x, y);
+        }
     }
 }

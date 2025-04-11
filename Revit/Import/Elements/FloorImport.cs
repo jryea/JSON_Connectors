@@ -21,6 +21,7 @@ namespace Revit.Import.Elements
         {
             _doc = doc;
         }
+
         public int Import(Dictionary<string, DB.ElementId> levelIdMap, Dictionary<string, DB.ElementId> floorPropertyIdMap, BaseModel model)
         {
             int count = 0;
@@ -182,6 +183,13 @@ namespace Revit.Import.Elements
 
                     // Create the floor
                     DB.Floor floor = DB.Floor.Create(_doc, floorBoundary, floorType.Id, levelId);
+
+                    // Set the is Structural parameter to true
+                    DB.Parameter structuralParam = floor.get_Parameter(DB.BuiltInParameter.FLOOR_PARAM_IS_STRUCTURAL);
+                    if (structuralParam != null && !structuralParam.IsReadOnly)
+                    {
+                        structuralParam.Set(1); // 1 means true for integer parameters
+                    }
 
                     if (floor != null)
                         count++;

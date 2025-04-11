@@ -6,6 +6,7 @@ using CE = Core.Models.Elements;
 using CG = Core.Models.Geometry;
 using Core.Models;
 using Revit.Utilities;
+using System.Diagnostics;
 
 namespace Revit.Export.Elements
 {
@@ -98,17 +99,15 @@ namespace Revit.Export.Elements
                         }
                         else
                         {
-                            // Skip this floor
                             continue;
                         }
                     }
-
-                    catch (Exception ex)
+                    catch (Exception)
                     {
                         // Skip floors with errors
                         continue;
                     }
-                
+
                     // Skip floors with too few points
                     if (floor.Points.Count < 3)
                         continue;

@@ -33,54 +33,88 @@ namespace Revit.Export.Elements
             Dictionary<DB.ElementId, string> levelIdMap = CreateLevelMapping(model);
             Dictionary<DB.ElementId, string> framePropertiesMap = CreateFramePropertiesMapping(model);
 
-            foreach (var revitColumn in revitColumns)
-            {
-                try
-                {
-                    // Get column location
-                    DB.LocationPoint location = revitColumn.Location as DB.LocationPoint;
-                    if (location == null)
-                        continue;
+            // Group the Revit columns by their XY location
+            var columnGroups = GroupColumnsByLocation(revitColumns);
 
-                    DB.XYZ point = location.Point;
+            // Process each group of stacked columns
+            foreach (var columnGroup in columnGroups)
+            {
+                var location = columnGroup.Key;
+                var columnInstances = columnGroup.Value;
+
+                // Get column properties to use for all instances
+                DB.FamilyInstance sampleColumn = columnInstances.First();
+                DB.LocationPoint locationPoint = sampleColumn.Location as DB.LocationPoint;
+                if (locationPoint == null) continue;
+
+                DB.XYZ point = locationPoint.Point;
+                CG.Point2D columnPoint = new CG.Point2D(point.X * 12.0, point.Y * 12.0); // Convert to inches
+
+                // Get the column type
+                DB.ElementId typeId = sampleColumn.GetTypeId();
+                string framePropertiesId = null;
+                if (framePropertiesMap.ContainsKey(typeId))
+                    framePropertiesId = framePropertiesMap[typeId];
+
+                // Find all levels in the model
+                var orderedLevels = model.ModelLayout.Levels
+                    .OrderBy(l => l.Elevation)
+                    .ToList();
+
+                // Create columns spanning between consecutive levels
+                // This mimics the stacked column pattern in the imported JSON
+                for (int i = 0; i < orderedLevels.Count - 1; i++)
+                {
+                    string baseLevelId = orderedLevels[i].Id;
+                    string topLevelId = orderedLevels[i + 1].Id;
 
                     // Create column object
-                    CE.Column column = new CE.Column();
-
-                    // Set base and top levels
-                    DB.ElementId baseLevelId = revitColumn.get_Parameter(DB.BuiltInParameter.FAMILY_BASE_LEVEL_PARAM).AsElementId();
-                    DB.ElementId topLevelId = revitColumn.get_Parameter(DB.BuiltInParameter.FAMILY_TOP_LEVEL_PARAM).AsElementId();
-
-                    if (levelIdMap.ContainsKey(baseLevelId))
-                        column.BaseLevelId = levelIdMap[baseLevelId];
-
-                    if (levelIdMap.ContainsKey(topLevelId))
-                        column.TopLevelId = levelIdMap[topLevelId];
-                    else
-                        column.TopLevelId = column.BaseLevelId; // Default to base level if top level not found
-
-                    // Set column type
-                    DB.ElementId typeId = revitColumn.GetTypeId();
-                    if (framePropertiesMap.ContainsKey(typeId))
-                        column.FramePropertiesId = framePropertiesMap[typeId];
-
-                    // Set column location
-                    column.StartPoint = new CG.Point2D(point.X * 12.0, point.Y * 12.0); // Convert to inches
-                    column.EndPoint = column.StartPoint; // Same as start point for simple representation
-
-                    // Determine if column is part of lateral system (approximation)
-                    column.IsLateral = IsColumnLateral(revitColumn);
+                    CE.Column column = new CE.Column
+                    {
+                        StartPoint = columnPoint,
+                        EndPoint = columnPoint, // Same as start point for simple representation
+                        BaseLevelId = baseLevelId,
+                        TopLevelId = topLevelId,
+                        FramePropertiesId = framePropertiesId,
+                        IsLateral = IsColumnLateral(sampleColumn)
+                    };
 
                     columns.Add(column);
                     count++;
                 }
-                catch (Exception)
-                {
-                    // Skip this column and continue with the next one
-                }
             }
 
             return count;
+        }
+
+        // Group columns by their XY location
+        private Dictionary<Tuple<double, double>, List<DB.FamilyInstance>> GroupColumnsByLocation(IList<DB.FamilyInstance> revitColumns)
+        {
+            var result = new Dictionary<Tuple<double, double>, List<DB.FamilyInstance>>();
+
+            // Round to 3 decimal places for grouping by location
+            const double tolerance = 0.001;
+
+            foreach (var column in revitColumns)
+            {
+                var locationPoint = column.Location as DB.LocationPoint;
+                if (locationPoint == null) continue;
+
+                // Round the coordinates for reliable grouping
+                double x = Math.Round(locationPoint.Point.X / tolerance) * tolerance;
+                double y = Math.Round(locationPoint.Point.Y / tolerance) * tolerance;
+
+                var key = Tuple.Create(x, y);
+
+                if (!result.ContainsKey(key))
+                {
+                    result[key] = new List<DB.FamilyInstance>();
+                }
+
+                result[key].Add(column);
+            }
+
+            return result;
         }
 
         private bool IsColumnLateral(DB.FamilyInstance column)
@@ -134,7 +168,6 @@ namespace Revit.Export.Elements
             {
                 // Default to false if any error occurs
             }
-
             return false;
         }
 
@@ -160,7 +193,6 @@ namespace Revit.Export.Elements
                     levelMap[revitLevel.Id] = modelLevel.Id;
                 }
             }
-
             return levelMap;
         }
 

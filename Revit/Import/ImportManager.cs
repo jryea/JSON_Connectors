@@ -136,6 +136,24 @@ namespace Revit.Import
         }
 
         // Creates mappings between JSON level IDs and Revit level elements
+        // For ImportManager.cs
+        private string FormatLevelName(string jsonLevelName)
+        {
+            if (string.IsNullOrEmpty(jsonLevelName))
+                return "Level";
+
+            // If the name is only a number, add "Level " prefix
+            if (int.TryParse(jsonLevelName, out _))
+                return $"Level {jsonLevelName}";
+
+            // If the name contains "story", replace "story" with "level"
+            if (jsonLevelName.ToLower().Contains("story"))
+                return jsonLevelName.ToLower().Replace("story", "Level");
+
+            // Otherwise, use the name as is
+            return jsonLevelName;
+        }
+
         private void CreateLevelMappings(List<Level> levels)
         {
             _levelIdMap.Clear();
@@ -153,7 +171,7 @@ namespace Revit.Import
 
             foreach (Level jsonLevel in levels)
             {
-                string levelName = $"Level {jsonLevel.Name}";
+                string levelName = FormatLevelName(jsonLevel.Name);
 
                 // Ensure the level name is unique
                 while (existingLevelNames.Contains(levelName))

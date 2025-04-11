@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using DB = Autodesk.Revit.DB;
 using CL = Core.Models.ModelLayout;
 using Revit.Utilities;
-using System.Linq;
 
 namespace Revit.Import.ModelLayout
 {
@@ -15,6 +15,24 @@ namespace Revit.Import.ModelLayout
         public LevelImport(DB.Document doc)
         {
             _doc = doc;
+        }
+
+        // Helper method to format level names according to requirements
+        private string FormatLevelName(string jsonLevelName)
+        {
+            if (string.IsNullOrEmpty(jsonLevelName))
+                return "Level";
+
+            // If the name is only a number, add "Level " prefix
+            if (int.TryParse(jsonLevelName, out _))
+                return $"Level {jsonLevelName}";
+
+            // If the name contains "story", replace "story" with "level"
+            if (jsonLevelName.ToLower().Contains("story"))
+                return jsonLevelName.ToLower().Replace("story", "Level");
+
+            // Otherwise, use the name as is
+            return jsonLevelName;
         }
 
         // Imports levels from the JSON model into Revit
@@ -34,8 +52,8 @@ namespace Revit.Import.ModelLayout
                 var jsonLevel = levels[i];
                 try
                 {
-                    // Determine the desired level name
-                    string levelName = $"Level {i}";
+                    // Format the level name according to requirements
+                    string levelName = FormatLevelName(jsonLevel.Name);
 
                     // Check if the level is already in the mapping
                     if (levelMapping.ContainsKey(jsonLevel.Id))
@@ -43,7 +61,7 @@ namespace Revit.Import.ModelLayout
                         continue;
                     }
 
-                    // Check if a level with the desired name already exists in Revit
+                    // Check if a level with the formatted name already exists in Revit
                     if (existingLevels.TryGetValue(levelName, out DB.Level existingLevel))
                     {
                         // Add the existing level to the mapping

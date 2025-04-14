@@ -32,6 +32,9 @@ namespace Revit.Import.Elements
             if (floors == null || floors.Count == 0)
                 return 0;
 
+            // Create floor property mappings before processing floors
+            CreateFloorPropertyMappings(model.Properties.FloorProperties);
+
             // Check if any floor types exist
             DB.FilteredElementCollector floorTypeCollector = new DB.FilteredElementCollector(_doc);
             floorTypeCollector.OfClass(typeof(DB.FloorType));

@@ -22,8 +22,6 @@ namespace Revit.Import
         private readonly Dictionary<string, DB.ElementId> _levelIdMap;
         private readonly Dictionary<string, DB.ElementId> _gridIdMap;
         private readonly Dictionary<string, DB.ElementId> _materialIdMap;
-        private readonly Dictionary<string, DB.ElementId> _floorPropertyIdMap;
-        private readonly Dictionary<string, DB.ElementId> _wallPropertyIdMap;
         private BaseModel _currentModel;
 
         public ImportManager(DB.Document doc, UIApplication uiApp)
@@ -33,8 +31,6 @@ namespace Revit.Import
             _levelIdMap = new Dictionary<string, DB.ElementId>();
             _gridIdMap = new Dictionary<string, DB.ElementId>();
             _materialIdMap = new Dictionary<string, DB.ElementId>();
-            _floorPropertyIdMap = new Dictionary<string, DB.ElementId>();
-            _wallPropertyIdMap = new Dictionary<string, DB.ElementId>();
         }
 
         // Imports the entire model from JSON file
@@ -74,8 +70,6 @@ namespace Revit.Import
         private void CreateMappings(BaseModel model)
         {
             CreateLevelMappings(model.ModelLayout.Levels);
-            CreateFloorPropertyMappings(model.Properties.FloorProperties);
-            CreateWallPropertyMappings(model.Properties.WallProperties);
         }
 
         private void ImportLayoutElements(BaseModel model, ref int totalImported)
@@ -122,7 +116,7 @@ namespace Revit.Import
             if (model.Elements.Floors != null && model.Elements.Floors.Count > 0)
             {
                 FloorImport floorImport = new FloorImport(_doc);
-                int floorsImported = floorImport.Import( _levelIdMap, _floorPropertyIdMap, model);
+                int floorsImported = floorImport.Import( _levelIdMap, model);
                 totalImported += floorsImported;
             }
 
@@ -130,7 +124,7 @@ namespace Revit.Import
             if (model.Elements.Walls != null && model.Elements.Walls.Count > 0)
             {
                 WallImport wallImport = new WallImport(_doc);
-                int wallsImported = wallImport.Import(model.Elements.Walls, _levelIdMap, _wallPropertyIdMap);
+                int wallsImported = wallImport.Import(model.Elements.Walls, _levelIdMap, model);
                 totalImported += wallsImported;
             }
         }
@@ -194,121 +188,6 @@ namespace Revit.Import
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"Failed to create level '{levelName}': {ex.Message}");
-                }
-            }
-        }
-
-        // Creates mappings between JSON floor properties and Revit floor types
-        private void CreateFloorPropertyMappings(List<FloorProperties> floorProperties)
-        {
-            _floorPropertyIdMap.Clear();
-
-            if (floorProperties == null || floorProperties.Count == 0)
-                return;
-
-            // Collect all floor types
-            DB.FilteredElementCollector collector = new DB.FilteredElementCollector(_doc);
-            collector.OfClass(typeof(DB.FloorType));
-            List<DB.FloorType> floorTypes = collector.Cast<DB.FloorType>().ToList();
-
-            if (floorTypes.Count == 0)
-                return;
-
-            // Sort floor types into categories
-            List<DB.FloorType> concreteTypes = floorTypes
-                .Where(ft => ft.Name.Contains("Concrete") && !ft.Name.Contains("Metal"))
-                .ToList();
-
-            List<DB.FloorType> deckTypes = floorTypes
-                .Where(ft => ft.Name.Contains("Metal Deck") || ft.Name.Contains("Deck"))
-                .ToList();
-
-            // Get preferred deck type
-            DB.FloorType preferredDeckType = deckTypes.FirstOrDefault(ft =>
-                ft.Name.Contains("3") && ft.Name.Contains("Concrete") &&
-                ft.Name.Contains("Metal Deck"));
-
-            // Default floor types
-            DB.FloorType defaultDeckType = preferredDeckType ?? deckTypes.FirstOrDefault();
-            DB.FloorType defaultConcreteType = concreteTypes.FirstOrDefault();
-            DB.FloorType defaultType = defaultConcreteType ?? floorTypes.FirstOrDefault();
-
-            // Map each floor property to a floor type
-            foreach (FloorProperties prop in floorProperties)
-            {
-                DB.FloorType matchedType = null;
-
-                // Determine type based on floor property type
-                string floorTypeStr = prop.Type?.ToLower() ?? "";
-
-                if (floorTypeStr == "composite" || floorTypeStr == "noncomposite")
-                {
-                    // Use deck type for composite floors
-                    matchedType = defaultDeckType ?? defaultType;
-                }
-                else if (floorTypeStr == "slab")
-                {
-                    // For slabs, find or create appropriate concrete type
-                    // Note: We don't create types here - that will happen in the FloorImport class
-                    string thicknessStr = $"{prop.Thickness}\"";
-                    string typeName = $"{thicknessStr} Concrete";
-
-                    matchedType = concreteTypes.FirstOrDefault(ft =>
-                        ft.Name.Equals(typeName, StringComparison.OrdinalIgnoreCase));
-
-                    if (matchedType == null)
-                    {
-                        matchedType = defaultConcreteType ?? defaultType;
-                    }
-                }
-                else
-                {
-                    // Default to concrete type
-                    matchedType = defaultType;
-                }
-
-                // Add to mapping
-                if (matchedType != null)
-                {
-                    _floorPropertyIdMap[prop.Id] = matchedType.Id;
-                    Debug.WriteLine($"Mapped floor property '{prop.Name}' of type '{prop.Type}' to floor type '{matchedType.Name}'");
-                }
-            }
-        }
-
-        // Creates mappings between JSON wall properties and Revit wall types
-        private void CreateWallPropertyMappings(List<WallProperties> wallProperties)
-        {
-            _wallPropertyIdMap.Clear();
-
-            if (wallProperties == null || wallProperties.Count == 0)
-                return;
-
-            // Collect all wall types
-            DB.FilteredElementCollector collector = new DB.FilteredElementCollector(_doc);
-            collector.OfClass(typeof(DB.WallType));
-            List<DB.WallType> wallTypes = collector.Cast<DB.WallType>().ToList();
-
-            // Default wall type
-            DB.WallType defaultWallType = wallTypes.FirstOrDefault();
-
-            // Map each wall property to a wall type
-            foreach (WallProperties prop in wallProperties)
-            {
-                // Find a matching wall type by name (if possible)
-                DB.WallType matchedType = wallTypes.FirstOrDefault(wt =>
-                    wt.Name.Equals(prop.Name, StringComparison.OrdinalIgnoreCase));
-
-                // If no match, use default
-                if (matchedType == null)
-                {
-                    matchedType = defaultWallType;
-                }
-
-                // Add to mapping
-                if (matchedType != null)
-                {
-                    _wallPropertyIdMap[prop.Id] = matchedType.Id;
                 }
             }
         }

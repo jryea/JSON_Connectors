@@ -1,8 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using DB = Autodesk.Revit.DB;
+using Core.Models;
 using CE = Core.Models.Elements;
 using Revit.Utilities;
+using Core.Models.Properties;
+using System.Diagnostics;
+using System.Linq;
 
 namespace Revit.Import.Elements
 {
@@ -10,14 +14,16 @@ namespace Revit.Import.Elements
     public class WallImport
     {
         private readonly DB.Document _doc;
+        private Dictionary<string, DB.ElementId> _wallPropertyIdMap;
 
         public WallImport(DB.Document doc)
         {
             _doc = doc;
+            _wallPropertyIdMap = new Dictionary<string, DB.ElementId>();
         }
 
         // Imports walls from the JSON model into Revit
-        public int Import(List<CE.Wall> walls, Dictionary<string, DB.ElementId> levelIdMap, Dictionary<string, DB.ElementId> wallPropertyIdMap)
+        public int Import(List<CE.Wall> walls, Dictionary<string, DB.ElementId> levelIdMap, BaseModel model)
         {
             int count = 0;
 
@@ -49,7 +55,7 @@ namespace Revit.Import.Elements
                     // Get wall type
                     DB.ElementId wallTypeId = DB.ElementId.InvalidElementId;
                     if (!string.IsNullOrEmpty(jsonWall.PropertiesId) &&
-                        wallPropertyIdMap.TryGetValue(jsonWall.PropertiesId, out wallTypeId))
+                        _wallPropertyIdMap.TryGetValue(jsonWall.PropertiesId, out wallTypeId))
                     {
                         // Wall type found in mapping
                     }
@@ -108,6 +114,44 @@ namespace Revit.Import.Elements
             }
 
             return count;
+        }
+
+        // Method for creating wall property mappings
+        private void CreateWallPropertyMappings(List<WallProperties> wallProperties)
+        {
+            _wallPropertyIdMap.Clear();
+
+            if (wallProperties == null || wallProperties.Count == 0)
+                return;
+
+            // Collect all wall types
+            DB.FilteredElementCollector collector = new DB.FilteredElementCollector(_doc);
+            collector.OfClass(typeof(DB.WallType));
+            List<DB.WallType> wallTypes = collector.Cast<DB.WallType>().ToList();
+
+            // Default wall type
+            DB.WallType defaultWallType = wallTypes.FirstOrDefault();
+
+            // Map each wall property to a wall type
+            foreach (WallProperties prop in wallProperties)
+            {
+                // Find a matching wall type by name (if possible)
+                DB.WallType matchedType = wallTypes.FirstOrDefault(wt =>
+                    wt.Name.Trim().Equals(prop.Name, StringComparison.OrdinalIgnoreCase));
+
+                // If no match, use default
+                if (matchedType == null)
+                {
+                    matchedType = defaultWallType;
+                }
+
+                // Add to mapping
+                if (matchedType != null)
+                {
+                    _wallPropertyIdMap[prop.Id] = matchedType.Id;
+                    Debug.WriteLine($"Mapped wall property '{prop.Name}' to wall type '{matchedType.Name}'");
+                }
+            }
         }
     }
 }

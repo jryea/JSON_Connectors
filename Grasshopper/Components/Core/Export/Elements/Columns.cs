@@ -7,8 +7,6 @@ using Core.Models.ModelLayout;
 using Core.Models.Properties;
 using Core.Models.Geometry; 
 using Grasshopper.Utilities;
-using Grasshopper.Kernel.Data;
-using Grasshopper.Kernel.Types;
 using System.Linq;
 
 namespace Grasshopper.Components.Core.Export.Elements
@@ -37,7 +35,6 @@ namespace Grasshopper.Components.Core.Export.Elements
         {
             pManager.AddGenericParameter("Columns", "C", "Column objects", GH_ParamAccess.list);
         }
-
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             List<RG.Line> lines = new List<RG.Line>();
@@ -52,19 +49,48 @@ namespace Grasshopper.Components.Core.Export.Elements
             if (!DA.GetDataList(3, framePropObjs)) return;
             DA.GetDataList(4, isLateral);
 
-            // Ensure isLateral has the correct count and replace null values with false
-            for (int i = 0; i < baseLevelObjs.Count; i++)
+            // Extend base level objects list if needed
+            if (baseLevelObjs.Count > 0 && baseLevelObjs.Count < lines.Count)
             {
-                if (i >= isLateral.Count)
-                {
-                    isLateral.Insert(i, false);
-                }
+                object lastBaseLevel = baseLevelObjs[baseLevelObjs.Count - 1];
+                while (baseLevelObjs.Count < lines.Count)
+                    baseLevelObjs.Add(lastBaseLevel);
             }
 
-            // Check that the number of branches matches the number of levels and properties
+            // Extend top level objects list if needed
+            if (topLevelObjs.Count > 0 && topLevelObjs.Count < lines.Count)
+            {
+                object lastTopLevel = topLevelObjs[topLevelObjs.Count - 1];
+                while (topLevelObjs.Count < lines.Count)
+                    topLevelObjs.Add(lastTopLevel);
+            }
+
+            // Extend frame property objects list if needed
+            if (framePropObjs.Count > 0 && framePropObjs.Count < lines.Count)
+            {
+                object lastFrameProp = framePropObjs[framePropObjs.Count - 1];
+                while (framePropObjs.Count < lines.Count)
+                    framePropObjs.Add(lastFrameProp);
+            }
+
+            // Extend isLateral list if needed
+            if (isLateral.Count > 0 && isLateral.Count < lines.Count)
+            {
+                bool lastIsLateral = isLateral[isLateral.Count - 1];
+                while (isLateral.Count < lines.Count)
+                    isLateral.Add(lastIsLateral);
+            }
+            else if (isLateral.Count == 0)
+            {
+                // Default to false for all columns if no value was provided
+                isLateral = Enumerable.Repeat(false, lines.Count).ToList();
+            }
+
+            // Check that the number of branches matches after extension
             if (lines.Count != baseLevelObjs.Count ||
                 lines.Count != topLevelObjs.Count ||
-                lines.Count != framePropObjs.Count)
+                lines.Count != framePropObjs.Count ||
+                lines.Count != isLateral.Count)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
                     $"Number of column lines ({lines.Count}) must match number of base levels ({baseLevelObjs.Count}), " +

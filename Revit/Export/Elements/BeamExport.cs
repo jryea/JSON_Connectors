@@ -138,6 +138,19 @@ namespace Revit.Export.Elements
             return false;
         }
 
+        private bool IsValidBeam(CG.Point2D startPoint, CG.Point2D endPoint)
+        {
+            // Calculate distance between points
+            double deltaX = endPoint.X - startPoint.X;
+            double deltaY = endPoint.Y - startPoint.Y;
+            double length = Math.Sqrt(deltaX * deltaX + deltaY * deltaY);
+
+            // Define minimum length (e.g., 0.1 inches)
+            const double minLength = 0.1;
+
+            return length >= minLength;
+        }
+
         private Dictionary<DB.ElementId, string> CreateLevelMapping(BaseModel model)
         {
             Dictionary<DB.ElementId, string> levelMap = new Dictionary<DB.ElementId, string>();

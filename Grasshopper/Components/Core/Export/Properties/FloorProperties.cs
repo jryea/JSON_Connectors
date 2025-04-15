@@ -38,7 +38,7 @@ namespace Grasshopper.Components.Core.Export.Properties
             pManager.AddGenericParameter("Floor Properties", "FP", "Floor property definitions for the structural model", GH_ParamAccess.list);
         }
 
-      
+
         // This is the method that actually does the work.
         protected override void SolveInstance(IGH_DataAccess DA)
         {
@@ -62,31 +62,43 @@ namespace Grasshopper.Components.Core.Export.Properties
                 return;
             }
 
+            // Extend lists to match names length by duplicating the last item
+            if (types.Count > 0 && types.Count < names.Count)
+            {
+                string lastType = types[types.Count - 1];
+                while (types.Count < names.Count)
+                    types.Add(lastType);
+            }
+
+            if (thicknesses.Count > 0 && thicknesses.Count < names.Count)
+            {
+                double lastThickness = thicknesses[thicknesses.Count - 1];
+                while (thicknesses.Count < names.Count)
+                    thicknesses.Add(lastThickness);
+            }
+
+            if (materialObjs.Count > 0 && materialObjs.Count < names.Count)
+            {
+                object lastMaterial = materialObjs[materialObjs.Count - 1];
+                while (materialObjs.Count < names.Count)
+                    materialObjs.Add(lastMaterial);
+            }
+
+            // Handle optional reinforcements list
+            if (reinforcements.Count > 0 && reinforcements.Count < names.Count)
+            {
+                string lastReinforcement = reinforcements[reinforcements.Count - 1];
+                while (reinforcements.Count < names.Count)
+                    reinforcements.Add(lastReinforcement);
+            }
+
+            // Verify list lengths again after extension
             if (names.Count != types.Count || names.Count != thicknesses.Count || names.Count != materialObjs.Count)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
                     $"Number of names ({names.Count}) must match number of types ({types.Count}), " +
                     $"thicknesses ({thicknesses.Count}), and materials ({materialObjs.Count})");
                 return;
-            }
-
-            // Ensure optional reinforcements have the right size or are empty
-            if (reinforcements.Count > 0 && reinforcements.Count != names.Count)
-            {
-                if (reinforcements.Count == 1)
-                {
-                    // Use the single value for all properties
-                    string reinforcement = reinforcements[0];
-                    reinforcements.Clear();
-                    for (int i = 0; i < names.Count; i++)
-                        reinforcements.Add(reinforcement);
-                }
-                else
-                {
-                    AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
-                        $"Number of reinforcements ({reinforcements.Count}) must match number of names ({names.Count}) or be a single value");
-                    return;
-                }
             }
 
             try
@@ -219,7 +231,6 @@ namespace Grasshopper.Components.Core.Export.Properties
             else
                 return "Unknown";
         }
-
     
         // Gets the unique ID for this component. Do not change this ID after release.
         public override Guid ComponentGuid => new Guid("5A6B7C8D-9E0F-1A2B-3C4D-5E6F7A8B9C0D");

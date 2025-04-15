@@ -43,6 +43,9 @@ namespace Revit.Export
                 // Export layout elements first
                 totalExported += ExportLayoutElements();
 
+                // Create unique FloorTypes from Levels specifically for Revit
+                CreateFloorTypesFromLevels();
+
                 // Export property definitions
                 totalExported += ExportProperties();
 
@@ -58,6 +61,36 @@ namespace Revit.Export
             }
 
             return totalExported;
+        }
+
+        // Create unique FloorTypes based on Levels for Revit export only
+        private void CreateFloorTypesFromLevels()
+        {
+            // Clear any existing floor types
+            _model.ModelLayout.FloorTypes = new List<FloorType>();
+
+            // Create a unique FloorType for each Level
+            foreach (var level in _model.ModelLayout.Levels)
+            {
+                // Generate a unique floor type ID
+                string floorTypeId = Core.Utilities.IdGenerator.Generate(Core.Utilities.IdGenerator.Layout.FLOOR_TYPE);
+
+                // Create a new FloorType using the level name
+                FloorType floorType = new FloorType
+                {
+                    Id = floorTypeId,
+                    Name = level.Name, // Use level name as the floor type name
+                    Description = $"Floor type for {level.Name}"
+                };
+
+                // Add to the model's FloorTypes collection
+                _model.ModelLayout.FloorTypes.Add(floorType);
+
+                // Associate this FloorType with the Level
+                level.FloorTypeId = floorTypeId;
+            }
+
+            Debug.WriteLine($"Created {_model.ModelLayout.FloorTypes.Count} unique FloorTypes for Revit export");
         }
 
         private void InitializeMetadata()

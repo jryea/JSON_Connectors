@@ -25,7 +25,7 @@ namespace Grasshopper.Components.Core.Export.Elements
             pManager.AddGenericParameter("Level", "LVL", "Level this beam belongs to", GH_ParamAccess.list);
             pManager.AddGenericParameter("Properties", "P", "Frame properties for this beam", GH_ParamAccess.list);
             pManager.AddBooleanParameter("Is Lateral", "IL", "Is beam part of the lateral system", GH_ParamAccess.item, false);
-            pManager.AddBooleanParameter("Is Joist", "IJ", "Is beam a joist", GH_ParamAccess.item, false);
+            pManager.AddBooleanParameter("Is Joist", "IJ", "Is beam a joist", GH_ParamAccess.item);
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
@@ -46,6 +46,26 @@ namespace Grasshopper.Components.Core.Export.Elements
             if (!DA.GetDataList(2, propObjs)) return;
             DA.GetData(3, ref isLateral);
             DA.GetData(4, ref isJoist);
+
+            // Ensure lists have matching lengths by extending levelObjs with the last item
+            if (levelObjs.Count > 0 && levelObjs.Count < lines.Count)
+            {
+                object lastLevel = levelObjs[levelObjs.Count - 1];
+                while (levelObjs.Count < lines.Count)
+                {
+                    levelObjs.Add(lastLevel);
+                }
+            }
+
+            // Check for properties list length and extend it too if needed
+            if (propObjs.Count > 0 && propObjs.Count < lines.Count)
+            {
+                object lastProp = propObjs[propObjs.Count - 1];
+                while (propObjs.Count < lines.Count)
+                {
+                    propObjs.Add(lastProp);
+                }
+            }
 
             if (lines.Count != levelObjs.Count || lines.Count != propObjs.Count)
             {

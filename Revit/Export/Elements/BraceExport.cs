@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Diagnostics;
 using DB = Autodesk.Revit.DB;
 using CE = Core.Models.Elements;
 using CG = Core.Models.Geometry;
@@ -52,29 +53,46 @@ namespace Revit.Export.Elements
                     // Create brace object
                     CE.Brace brace = new CE.Brace();
 
-                    // Set levels
-                    DB.ElementId baseLevelId = revitBrace.get_Parameter(DB.BuiltInParameter.FAMILY_BASE_LEVEL_PARAM).AsElementId();
-                    DB.ElementId topLevelId = revitBrace.get_Parameter(DB.BuiltInParameter.FAMILY_TOP_LEVEL_PARAM).AsElementId();
-
-                    if (levelIdMap.ContainsKey(baseLevelId))
-                        brace.BaseLevelId = levelIdMap[baseLevelId];
-
-                    if (levelIdMap.ContainsKey(topLevelId))
-                        brace.TopLevelId = levelIdMap[topLevelId];
-                    else
-                        brace.TopLevelId = brace.BaseLevelId; // Default to base level if top level not found
-
-                    // Set brace type
-                    DB.ElementId typeId = revitBrace.GetTypeId();
-                    if (framePropertiesMap.ContainsKey(typeId))
-                        brace.FramePropertiesId = framePropertiesMap[typeId];
-
                     // Set brace geometry
                     DB.XYZ startPoint = line.GetEndPoint(0);
                     DB.XYZ endPoint = line.GetEndPoint(1);
 
                     brace.StartPoint = new CG.Point2D(startPoint.X * 12.0, startPoint.Y * 12.0); // Convert to inches
                     brace.EndPoint = new CG.Point2D(endPoint.X * 12.0, endPoint.Y * 12.0);
+
+                    // Check for zero or near-zero length braces
+                    if (!IsValidBrace(brace.StartPoint, brace.EndPoint))
+                    {
+                        Debug.WriteLine($"Skipping zero-length or too short brace ({brace.StartPoint.X}, {brace.StartPoint.Y}) to ({brace.EndPoint.X}, {brace.EndPoint.Y})");
+                        continue;
+                    }
+
+                    // Get the reference level for the brace
+                    DB.ElementId referenceLevelId = revitBrace.get_Parameter(DB.BuiltInParameter.INSTANCE_REFERENCE_LEVEL_PARAM).AsElementId();
+                    if (levelIdMap.ContainsKey(referenceLevelId))
+                    {
+                        // Find closest levels to the start and end points
+                        string refLevelId = levelIdMap[referenceLevelId];
+
+                        // Find level closest to the bottom point
+                        string baseLevelId = FindClosestLevel(model, Math.Min(startPoint.Z, endPoint.Z) * 12.0); // Convert to inches
+                        if (!string.IsNullOrEmpty(baseLevelId))
+                            brace.BaseLevelId = baseLevelId;
+                        else
+                            brace.BaseLevelId = refLevelId; // Default to reference level
+
+                        // Find level closest to the top point
+                        string topLevelId = FindClosestLevel(model, Math.Max(startPoint.Z, endPoint.Z) * 12.0); // Convert to inches
+                        if (!string.IsNullOrEmpty(topLevelId))
+                            brace.TopLevelId = topLevelId;
+                        else
+                            brace.TopLevelId = refLevelId; // Default to reference level
+                    }
+
+                    // Set brace type
+                    DB.ElementId typeId = revitBrace.GetTypeId();
+                    if (framePropertiesMap.ContainsKey(typeId))
+                        brace.FramePropertiesId = framePropertiesMap[typeId];
 
                     // Set material
                     try
@@ -101,13 +119,42 @@ namespace Revit.Export.Elements
                     braces.Add(brace);
                     count++;
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
+                    Debug.WriteLine($"Error exporting brace: {ex.Message}");
                     // Skip this brace and continue with the next one
                 }
             }
 
             return count;
+        }
+
+        // Find the level closest to a given elevation
+        private string FindClosestLevel(BaseModel model, double elevation)
+        {
+            if (model.ModelLayout?.Levels == null || model.ModelLayout.Levels.Count == 0)
+                return null;
+
+            var sortedLevels = model.ModelLayout.Levels
+                .OrderBy(l => Math.Abs(l.Elevation - elevation))
+                .ToList();
+
+            // Return the ID of the closest level
+            return sortedLevels.FirstOrDefault()?.Id;
+        }
+
+        // Check if a brace has valid length (not zero or too short)
+        private bool IsValidBrace(CG.Point2D startPoint, CG.Point2D endPoint)
+        {
+            // Calculate distance between points
+            double deltaX = endPoint.X - startPoint.X;
+            double deltaY = endPoint.Y - startPoint.Y;
+            double length = Math.Sqrt(deltaX * deltaX + deltaY * deltaY);
+
+            // Define minimum length (0.1 inches)
+            const double minLength = 0.1;
+
+            return length >= minLength;
         }
 
         private Dictionary<DB.ElementId, string> CreateLevelMapping(BaseModel model)

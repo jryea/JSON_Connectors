@@ -3,10 +3,11 @@ using System.IO;
 using Grasshopper.Kernel;
 using RAM;
 using System.Collections.Generic;
+using Grasshopper.Components.Core;
 
 namespace Grasshopper.Components
 {
-    public class ExportToRAM : GH_Component
+    public class ExportToRAM : ComponentBase
     {
         public ExportToRAM()
             : base("Export To RAM", "J2RAM",

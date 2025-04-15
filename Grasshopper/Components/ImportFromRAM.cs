@@ -5,10 +5,11 @@ using Grasshopper.Kernel;
 using RAM;
 using Core.Models;
 using Core.Converters;
+using Grasshopper.Components.Core;
 
 namespace Grasshopper.Components
 {
-    public class ImportFromRAM : GH_Component
+    public class ImportFromRAM : ComponentBase
     {
         public ImportFromRAM()
             : base("Import From RAM", "RAM2J",

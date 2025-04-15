@@ -99,10 +99,13 @@ namespace Revit.Export.Properties
 
             foreach (var element in elements)
             {
+                DB.ElementId typeId = element.GetTypeId();
+                if (typeId == null || typeId == DB.ElementId.InvalidElementId)
+                    continue;
                 try
                 {
                     // Add the type ID to our collection
-                    typeIds.Add(element.GetTypeId());
+                    typeIds.Add(typeId);
                 }
                 catch (Exception ex)
                 {

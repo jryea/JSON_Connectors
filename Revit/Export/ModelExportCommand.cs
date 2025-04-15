@@ -1,14 +1,11 @@
 ﻿using System;
-using System.Diagnostics;
 using System.Reflection;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
-using Core.Converters;
-using Core.Models;
-using Microsoft.Win32;
 using SaveFileDialog = Microsoft.Win32.SaveFileDialog;
 using Revit.Utilities;
+using Revit;
 
 namespace Revit.Export
 {
@@ -49,7 +46,13 @@ namespace Revit.Export
                 return Result.Failed;
             }
         }
-
+        internal static System.Drawing.Bitmap ByteArrayToBitmap(byte[] byteArray)
+        {
+            using (var ms = new System.IO.MemoryStream(byteArray))
+            {
+                return new System.Drawing.Bitmap(ms);
+            }
+        }
         internal static PushButtonData GetButtonData()
         {
             string buttonInternalName = "btnExportModel";
@@ -59,8 +62,8 @@ namespace Revit.Export
                 buttonInternalName,
                 buttonTitle,
                 MethodBase.GetCurrentMethod().DeclaringType?.FullName,
-                JSON_Connectors.Properties.Resources.Blue_32,
-                JSON_Connectors.Properties.Resources.Blue_16,
+                ByteArrayToBitmap(Revit.Properties.Resources.IMEG_32),
+                ByteArrayToBitmap(Revit.Properties.Resources.IMEG_16),
                 "Export a complete structural model to JSON");
 
             return myButtonData.Data;

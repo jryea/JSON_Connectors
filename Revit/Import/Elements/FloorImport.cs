@@ -2,12 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using DB = Autodesk.Revit.DB;
-using CE = Core.Models.Elements;
 using Revit.Utilities;
-using Autodesk.Revit.UI;
 using System.Diagnostics;
-using Core.Models.Properties;
-using System.Net;
 using Core.Models;
 
 namespace Revit.Import.Elements
@@ -16,12 +12,56 @@ namespace Revit.Import.Elements
     public class FloorImport
     {
         private readonly DB.Document _doc;
-        private Dictionary<string, DB.ElementId> _floorPropertyIdMap;
+        private Dictionary<string, DB.FloorType> _floorTypeCache;
+        private DB.FloorType _defaultConcreteType;
+        private DB.FloorType _defaultDeckType;
+        private DB.FloorType _defaultFloorType;
 
         public FloorImport(DB.Document doc)
         {
             _doc = doc;
-            _floorPropertyIdMap = new Dictionary<string, DB.ElementId>();
+            _floorTypeCache = new Dictionary<string, DB.FloorType>();
+            InitializeFloorTypes();
+        }
+
+        private void InitializeFloorTypes()
+        {
+            // Get all floor types from the document
+            DB.FilteredElementCollector collector = new DB.FilteredElementCollector(_doc);
+            List<DB.FloorType> allFloorTypes = collector.OfClass(typeof(DB.FloorType))
+                .Cast<DB.FloorType>()
+                .ToList();
+
+            if (allFloorTypes.Count == 0)
+            {
+                Debug.WriteLine("No floor types found in the document");
+                return;
+            }
+
+            // Categorize floor types
+            var concreteTypes = allFloorTypes
+                .Where(ft => ft.Name.Contains("Concrete") && !ft.Name.Contains("Metal"))
+                .ToList();
+
+            var deckTypes = allFloorTypes
+                .Where(ft => ft.Name.Contains("Metal Deck") || ft.Name.Contains("Deck"))
+                .ToList();
+
+            // Find preferred deck type (3" Concrete on 2" Metal Deck)
+            _defaultDeckType = deckTypes.FirstOrDefault(ft =>
+                ft.Name.Contains("3") && ft.Name.Contains("Concrete") &&
+                ft.Name.Contains("Metal Deck")) ?? deckTypes.FirstOrDefault();
+
+            // Set default concrete type (preferring 6" concrete if available)
+            _defaultConcreteType = concreteTypes.FirstOrDefault(ft => ft.Name.Contains("6\""))
+                ?? concreteTypes.FirstOrDefault();
+
+            // Set default fallback type
+            _defaultFloorType = _defaultConcreteType ?? _defaultDeckType ?? allFloorTypes.FirstOrDefault();
+
+            Debug.WriteLine($"Default concrete type: {(_defaultConcreteType?.Name ?? "None")}");
+            Debug.WriteLine($"Default deck type: {(_defaultDeckType?.Name ?? "None")}");
+            Debug.WriteLine($"Default floor type: {(_defaultFloorType?.Name ?? "None")}");
         }
 
         public int Import(Dictionary<string, DB.ElementId> levelIdMap, BaseModel model)
@@ -29,54 +69,8 @@ namespace Revit.Import.Elements
             int count = 0;
             var floors = model.Elements.Floors;
 
-            if (floors == null || floors.Count == 0)
+            if (floors == null || floors.Count == 0 || _defaultFloorType == null)
                 return 0;
-
-            // Create floor property mappings before processing floors
-            CreateFloorPropertyMappings(model.Properties.FloorProperties);
-
-            // Check if any floor types exist
-            DB.FilteredElementCollector floorTypeCollector = new DB.FilteredElementCollector(_doc);
-            floorTypeCollector.OfClass(typeof(DB.FloorType));
-            List<DB.FloorType> existingFloorTypes = floorTypeCollector.Cast<DB.FloorType>().ToList();
-
-            if (existingFloorTypes.Count == 0)
-            {
-                TaskDialog.Show("Import Error", "No floor types found in the document. Cannot import floors.");
-                return 0;
-            }
-
-            // Create collections of concrete and metal deck floor types
-            List<DB.FloorType> concreteFloorTypes = existingFloorTypes
-                .Where(ft => ft.Name.Contains("Concrete"))
-                .ToList();
-
-            List<DB.FloorType> deckFloorTypes = existingFloorTypes
-                .Where(ft => ft.Name.Contains("Metal Deck") || ft.Name.Contains("Deck"))
-                .ToList();
-
-            // Preferred deck type - "3" Concrete on 2" Metal Deck"
-            DB.FloorType preferredDeckType = deckFloorTypes.FirstOrDefault(ft =>
-                ft.Name.Contains("3") && ft.Name.Contains("Concrete") &&
-                ft.Name.Contains("Metal Deck"));
-
-            // Default deck type - any metal deck type
-            DB.FloorType defaultDeckType = preferredDeckType ??
-                                          deckFloorTypes.FirstOrDefault();
-
-            // Default concrete type
-            DB.FloorType defaultConcreteType = concreteFloorTypes.FirstOrDefault(ft =>
-                ft.Name.Contains("6\"")) ??
-                concreteFloorTypes.FirstOrDefault() ??
-                existingFloorTypes.FirstOrDefault();
-
-            Debug.WriteLine($"Found {deckFloorTypes.Count} deck floor types");
-            foreach (var dt in deckFloorTypes)
-            {
-                Debug.WriteLine($"Available deck type: {dt.Name}");
-            }
-
-            Debug.WriteLine($"Preferred deck type: {(preferredDeckType != null ? preferredDeckType.Name : "None found")}");
 
             foreach (var jsonFloor in floors)
             {
@@ -95,112 +89,23 @@ namespace Revit.Import.Elements
                     if (level == null)
                         continue;
 
-                    // Get floor properties
-                    DB.FloorType floorType = null;
-
-                    // Use existing mapping if available
-                    if (_floorPropertyIdMap.TryGetValue(jsonFloor.FloorPropertiesId, out DB.ElementId floorTypeId))
-                    {
-                        floorType = _doc.GetElement(floorTypeId) as DB.FloorType;
-                    }
-                    else
-                    {
-                        // Find floor properties in model
-                        var floorProps = model.Properties.FloorProperties
-                            .FirstOrDefault(fp => fp.Id == jsonFloor.FloorPropertiesId);
-
-                        if (floorProps != null)
-                        {
-                            double thickness = floorProps.Thickness;
-                            string thicknessStr = $"{thickness}\"";
-                            string floorTypeStr = floorProps.Type?.ToLower() ?? "";
-
-                            // For 'Composite' and 'NonComposite' types, use metal deck types
-                            if (floorTypeStr == "composite" || floorTypeStr == "noncomposite")
-                            {
-                                // Use preferred deck type first, then any metal deck, then concrete as fallback
-                                floorType = defaultDeckType ?? defaultConcreteType;
-                            }
-                            if (floorTypeStr == "slab")
-                            {
-                                // Format thickness string correctly
-                                string desiredTypeName = $"{thicknessStr} Concrete";
-
-                                // Use case-insensitive comparison and trim spaces
-                                floorType = concreteFloorTypes.FirstOrDefault(ft =>
-                                    ft.Name.Trim().Equals(desiredTypeName, StringComparison.OrdinalIgnoreCase));
-
-                                Debug.WriteLine($"Looking for floor type '{desiredTypeName}' - Found: {(floorType != null ? "Yes" : "No")}");
-
-                                // If no matching type exists, create one
-                                if (floorType == null && defaultConcreteType != null)
-                                {
-                                    Debug.WriteLine($"Creating new floor type '{desiredTypeName}' from {defaultConcreteType.Name}");
-                                    floorType = CreateFloorTypeWithThickness(defaultConcreteType, thickness, desiredTypeName);
-
-                                    // Double-check if duplication succeeded
-                                    if (floorType.Id == defaultConcreteType.Id)
-                                    {
-                                        Debug.WriteLine("WARNING: Floor type duplication failed - using default type instead");
-                                    }
-                                }
-                                else if (floorType == null)
-                                {
-                                    Debug.WriteLine($"No matching floor type found and cannot create one - using default concrete type");
-                                    floorType = defaultConcreteType;
-                                }
-                            }
-                            else
-                            {
-                                // Default to concrete type for unknown types
-                                floorType = defaultConcreteType;
-                            }
-                        }
-                        else
-                        {
-                            // Fallback to default concrete type if no properties found
-                            floorType = defaultConcreteType;
-                        }
-
-                        // Update mapping for future floors
-                        if (floorType != null && !string.IsNullOrEmpty(jsonFloor.FloorPropertiesId))
-                        {
-                            _floorPropertyIdMap[jsonFloor.FloorPropertiesId] = floorType.Id;
-                        }
-                    }
-
-                    // Skip if no floor type is available
+                    // Get floor type for this floor
+                    DB.FloorType floorType = GetFloorTypeForFloor(jsonFloor, model);
                     if (floorType == null)
                         continue;
 
                     // Create a curve loop for the floor boundary
-                    DB.CurveLoop floorLoop = new DB.CurveLoop();
-
-                    // Convert each point and add to curve loop
-                    for (int i = 0; i < jsonFloor.Points.Count; i++)
-                    {
-                        DB.XYZ startPoint = Helpers.ConvertToRevitCoordinates(jsonFloor.Points[i]);
-                        DB.XYZ endPoint;
-
-                        // If last point, connect back to first point
-                        if (i == jsonFloor.Points.Count - 1)
-                        {
-                            endPoint = Helpers.ConvertToRevitCoordinates(jsonFloor.Points[0]);
-                        }
-                        else
-                        {
-                            endPoint = Helpers.ConvertToRevitCoordinates(jsonFloor.Points[i + 1]);
-                        }
-
-                        DB.Line line = DB.Line.CreateBound(startPoint, endPoint);
-                        floorLoop.Append(line);
-                    }
+                    DB.CurveLoop floorLoop = CreateFloorBoundary(jsonFloor);
+                    if (floorLoop == null)
+                        continue;
 
                     // Create list of curve loops
                     List<DB.CurveLoop> floorBoundary = new List<DB.CurveLoop> { floorLoop };
 
                     // Create the floor
                     DB.Floor floor = DB.Floor.Create(_doc, floorBoundary, floorType.Id, levelId);
+                    if (floor == null)
+                        continue;
 
                     // Set the is Structural parameter to true
                     DB.Parameter structuralParam = floor.get_Parameter(DB.BuiltInParameter.FLOOR_PARAM_IS_STRUCTURAL);
@@ -209,8 +114,8 @@ namespace Revit.Import.Elements
                         structuralParam.Set(1); // 1 means true for integer parameters
                     }
 
-                    if (floor != null)
-                        count++;
+                    count++;
+                    Debug.WriteLine($"Created floor with type '{floorType.Name}' at level '{level.Name}'");
                 }
                 catch (Exception ex)
                 {
@@ -221,81 +126,100 @@ namespace Revit.Import.Elements
             return count;
         }
 
-        // Method for creating floor property mappings
-        private void CreateFloorPropertyMappings(List<FloorProperties> floorProperties)
+        private DB.CurveLoop CreateFloorBoundary(Core.Models.Elements.Floor jsonFloor)
         {
-            _floorPropertyIdMap.Clear();
-
-            if (floorProperties == null || floorProperties.Count == 0)
-                return;
-
-            // Collect all floor types
-            DB.FilteredElementCollector collector = new DB.FilteredElementCollector(_doc);
-            collector.OfClass(typeof(DB.FloorType));
-            List<DB.FloorType> floorTypes = collector.Cast<DB.FloorType>().ToList();
-
-            if (floorTypes.Count == 0)
-                return;
-
-            // Sort floor types into categories
-            List<DB.FloorType> concreteTypes = floorTypes
-                .Where(ft => ft.Name.Contains("Concrete") && !ft.Name.Contains("Metal"))
-                .ToList();
-
-            List<DB.FloorType> deckTypes = floorTypes
-                .Where(ft => ft.Name.Contains("Metal Deck") || ft.Name.Contains("Deck"))
-                .ToList();
-
-            // Get preferred deck type
-            DB.FloorType preferredDeckType = deckTypes.FirstOrDefault(ft =>
-                ft.Name.Contains("3") && ft.Name.Contains("Concrete") &&
-                ft.Name.Contains("Metal Deck"));
-
-            // Default floor types
-            DB.FloorType defaultDeckType = preferredDeckType ?? deckTypes.FirstOrDefault();
-            DB.FloorType defaultConcreteType = concreteTypes.FirstOrDefault();
-            DB.FloorType defaultType = defaultConcreteType ?? floorTypes.FirstOrDefault();
-
-            // Map each floor property to a floor type
-            foreach (FloorProperties prop in floorProperties)
+            try
             {
-                DB.FloorType matchedType = null;
+                DB.CurveLoop floorLoop = new DB.CurveLoop();
 
-                // Determine type based on floor property type
-                string floorTypeStr = prop.Type?.ToLower() ?? "";
-
-                if (floorTypeStr == "composite" || floorTypeStr == "noncomposite")
+                // Convert each point and add to curve loop
+                for (int i = 0; i < jsonFloor.Points.Count; i++)
                 {
-                    // Use deck type for composite floors
-                    matchedType = defaultDeckType ?? defaultType;
-                }
-                else if (floorTypeStr == "slab")
-                {
-                    // For slabs, find appropriate concrete type
-                    string thicknessStr = $"{prop.Thickness}\"";
-                    string typeName = $"{thicknessStr} Concrete";
+                    DB.XYZ startPoint = Helpers.ConvertToRevitCoordinates(jsonFloor.Points[i]);
+                    DB.XYZ endPoint;
 
-                    matchedType = concreteTypes.FirstOrDefault(ft =>
-                        ft.Name.Trim().Equals(typeName, StringComparison.OrdinalIgnoreCase));
-
-                    if (matchedType == null)
+                    // If last point, connect back to first point
+                    if (i == jsonFloor.Points.Count - 1)
                     {
-                        matchedType = defaultConcreteType ?? defaultType;
+                        endPoint = Helpers.ConvertToRevitCoordinates(jsonFloor.Points[0]);
                     }
-                }
-                else
-                {
-                    // Default to concrete type
-                    matchedType = defaultType;
+                    else
+                    {
+                        endPoint = Helpers.ConvertToRevitCoordinates(jsonFloor.Points[i + 1]);
+                    }
+
+                    DB.Line line = DB.Line.CreateBound(startPoint, endPoint);
+                    floorLoop.Append(line);
                 }
 
-                // Add to mapping
-                if (matchedType != null)
+                return floorLoop;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error creating floor boundary: {ex.Message}");
+                return null;
+            }
+        }
+
+        private DB.FloorType GetFloorTypeForFloor(Core.Models.Elements.Floor jsonFloor, BaseModel model)
+        {
+            // Check if we already have a cached floor type for this floor property
+            string cacheKey = jsonFloor.FloorPropertiesId ?? "default";
+            if (_floorTypeCache.TryGetValue(cacheKey, out DB.FloorType cachedType))
+                return cachedType;
+
+            // Find floor properties in model
+            var floorProps = model.Properties.FloorProperties
+                .FirstOrDefault(fp => fp.Id == jsonFloor.FloorPropertiesId);
+
+            if (floorProps == null)
+            {
+                _floorTypeCache[cacheKey] = _defaultFloorType;
+                return _defaultFloorType;
+            }
+
+            // Determine floor type based on properties
+            DB.FloorType floorType = null;
+            string floorTypeStr = floorProps.Type?.ToLower() ?? "";
+            double thickness = floorProps.Thickness;
+
+            if (floorTypeStr == "composite" || floorTypeStr == "noncomposite")
+            {
+                // Use deck type for composite floors
+                floorType = _defaultDeckType ?? _defaultFloorType;
+            }
+            else if (floorTypeStr == "slab")
+            {
+                // For slabs, find or create appropriate concrete type
+                string thicknessStr = $"{thickness}\"";
+                string typeName = $"{thicknessStr} Concrete";
+
+                // Look for existing type with matching name
+                DB.FilteredElementCollector collector = new DB.FilteredElementCollector(_doc);
+                floorType = collector.OfClass(typeof(DB.FloorType))
+                    .Cast<DB.FloorType>()
+                    .FirstOrDefault(ft => ft.Name.Trim().Equals(typeName, StringComparison.OrdinalIgnoreCase));
+
+                if (floorType == null && _defaultConcreteType != null)
                 {
-                    _floorPropertyIdMap[prop.Id] = matchedType.Id;
-                    Debug.WriteLine($"Mapped floor property '{prop.Name}' of type '{prop.Type}' to floor type '{matchedType.Name}'");
+                    // Try to create a new type with the right thickness
+                    floorType = CreateFloorTypeWithThickness(_defaultConcreteType, thickness, typeName);
+                }
+
+                if (floorType == null)
+                {
+                    floorType = _defaultConcreteType ?? _defaultFloorType;
                 }
             }
+            else
+            {
+                // Default case
+                floorType = _defaultFloorType;
+            }
+
+            // Cache the result for future lookups
+            _floorTypeCache[cacheKey] = floorType;
+            return floorType;
         }
 
         // Create a new floor type with the specified thickness by duplicating an existing type
@@ -303,63 +227,48 @@ namespace Revit.Import.Elements
         {
             try
             {
-                Debug.WriteLine($"Attempting to duplicate floor type '{baseFloorType.Name}' with new name '{newTypeName}'");
+                Debug.WriteLine($"Creating floor type '{newTypeName}' with thickness {thickness}\"");
+
+                // Check if the type already exists
+                DB.FilteredElementCollector collector = new DB.FilteredElementCollector(_doc);
+                var existingType = collector.OfClass(typeof(DB.FloorType))
+                    .Cast<DB.FloorType>()
+                    .FirstOrDefault(ft => ft.Name.Equals(newTypeName, StringComparison.OrdinalIgnoreCase));
+
+                if (existingType != null)
+                {
+                    Debug.WriteLine($"Floor type '{newTypeName}' already exists, using that");
+                    return existingType;
+                }
 
                 // Duplicate the floor type
                 DB.FloorType newFloorType = baseFloorType.Duplicate(newTypeName) as DB.FloorType;
-
                 if (newFloorType == null)
-                {
-                    Debug.WriteLine("Error: Floor type duplication returned null");
                     return baseFloorType;
-                }
-
-                Debug.WriteLine($"Successfully duplicated floor type. New ID: {newFloorType.Id}");
 
                 // Get the compound structure
                 DB.CompoundStructure cs = newFloorType.GetCompoundStructure();
                 if (cs == null)
-                {
-                    Debug.WriteLine("Error: New floor type has no compound structure");
                     return newFloorType;
-                }
 
                 // Convert inches to feet for Revit
                 double thicknessInFeet = thickness / 12.0;
 
-                // Get the core layer (structural) for a concrete slab
-                int coreLayerIndex = cs.GetFirstCoreLayerIndex();
-                if (coreLayerIndex < 0 || coreLayerIndex >= cs.LayerCount)
+                // Assuming single layer floor - set the thickness directly
+                if (cs.LayerCount == 1)
                 {
-                    // If no core layer, try to find a concrete layer
-                    for (int i = 0; i < cs.LayerCount; i++)
-                    {
-                        DB.Material material = _doc.GetElement(cs.GetMaterialId(i)) as DB.Material;
-                        if (material != null && material.Name.Contains("Concrete"))
-                        {
-                            coreLayerIndex = i;
-                            break;
-                        }
-                    }
-
-                    // If still no match, use the thickest layer
-                    if (coreLayerIndex < 0 || coreLayerIndex >= cs.LayerCount)
-                    {
-                        double maxThickness = 0;
-                        for (int i = 0; i < cs.LayerCount; i++)
-                        {
-                            double layerThickness = cs.GetLayerWidth(i);
-                            if (layerThickness > maxThickness)
-                            {
-                                maxThickness = layerThickness;
-                                coreLayerIndex = i;
-                            }
-                        }
-                    }
+                    cs.SetLayerWidth(0, thicknessInFeet);
+                    newFloorType.SetCompoundStructure(cs);
+                    Debug.WriteLine($"Created single-layer floor type with thickness {thicknessInFeet}ft");
+                    return newFloorType;
                 }
-
-                if (coreLayerIndex >= 0 && coreLayerIndex < cs.LayerCount)
+                else
                 {
+                    // Find appropriate layer to modify (usually core structural layer)
+                    int layerToModify = FindLayerToModify(cs);
+                    if (layerToModify < 0)
+                        return newFloorType;
+
                     // Calculate current total thickness
                     double currentTotalThickness = 0;
                     for (int i = 0; i < cs.LayerCount; i++)
@@ -367,38 +276,58 @@ namespace Revit.Import.Elements
                         currentTotalThickness += cs.GetLayerWidth(i);
                     }
 
-                    // Get current core thickness
-                    double currentCoreThickness = cs.GetLayerWidth(coreLayerIndex);
-
                     // Calculate thickness difference needed
                     double thicknessDiff = thicknessInFeet - currentTotalThickness;
 
                     // Modify layer width
-                    double newCoreThickness = Math.Max(0.01, currentCoreThickness + thicknessDiff);
-
-                    Debug.WriteLine($"Adjusting core layer {coreLayerIndex} thickness from {currentCoreThickness}ft to {newCoreThickness}ft");
-                    Debug.WriteLine($"Total thickness changing from {currentTotalThickness}ft to {thicknessInFeet}ft");
-
-                    cs.SetLayerWidth(coreLayerIndex, newCoreThickness);
+                    double currentLayerThickness = cs.GetLayerWidth(layerToModify);
+                    double newLayerThickness = Math.Max(0.01, currentLayerThickness + thicknessDiff);
+                    cs.SetLayerWidth(layerToModify, newLayerThickness);
 
                     // Apply changes
                     newFloorType.SetCompoundStructure(cs);
 
-                    Debug.WriteLine($"Successfully created floor type '{newTypeName}' with core thickness {newCoreThickness}ft");
+                    Debug.WriteLine($"Created multi-layer floor type with adjusted thickness {newLayerThickness}ft");
                     return newFloorType;
                 }
-                else
-                {
-                    Debug.WriteLine("Error: Could not identify a core layer to modify");
-                }
-
-                return newFloorType;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error creating floor type with thickness {thickness}: {ex.Message}");
+                Debug.WriteLine($"Error creating floor type: {ex.Message}");
                 return baseFloorType;
             }
+        }
+
+        private int FindLayerToModify(DB.CompoundStructure cs)
+        {
+            // Try to get the core layer first
+            int coreLayerIndex = cs.GetFirstCoreLayerIndex();
+            if (coreLayerIndex >= 0 && coreLayerIndex < cs.LayerCount)
+                return coreLayerIndex;
+
+            // If no core layer, try to find a concrete layer
+            for (int i = 0; i < cs.LayerCount; i++)
+            {
+                DB.Material material = _doc.GetElement(cs.GetMaterialId(i)) as DB.Material;
+                if (material != null && material.Name.Contains("Concrete"))
+                    return i;
+            }
+
+            // If still no match, use the thickest layer
+            int thickestLayer = -1;
+            double maxThickness = 0;
+
+            for (int i = 0; i < cs.LayerCount; i++)
+            {
+                double layerThickness = cs.GetLayerWidth(i);
+                if (layerThickness > maxThickness)
+                {
+                    maxThickness = layerThickness;
+                    thickestLayer = i;
+                }
+            }
+
+            return thickestLayer;
         }
     }
 }

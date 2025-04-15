@@ -7,6 +7,7 @@ using Autodesk.Revit.UI;
 using Core.Converters;
 using Core.Models;
 using Revit.Utilities;
+using System.Drawing;
 
 namespace Revit.Import
 {
@@ -50,6 +51,14 @@ namespace Revit.Import
             }
         }
 
+        internal static System.Drawing.Bitmap ByteArrayToBitmap(byte[] byteArray)
+        {
+            using (var ms = new System.IO.MemoryStream(byteArray))
+            {
+                return new System.Drawing.Bitmap(ms);
+            }
+        }
+
         internal static PushButtonData GetButtonData()
         {
             string buttonInternalName = "btnImportModel";
@@ -59,8 +68,8 @@ namespace Revit.Import
                 buttonInternalName,
                 buttonTitle,
                 MethodBase.GetCurrentMethod().DeclaringType?.FullName,
-                JSON_Connectors.Properties.Resources.Green_32,
-                JSON_Connectors.Properties.Resources.Green_16,
+                ByteArrayToBitmap(Revit.Properties.Resources.IMEG_32),
+                ByteArrayToBitmap(Revit.Properties.Resources.IMEG_16),
                 "Import a complete structural model from JSON");
 
             return myButtonData.Data;

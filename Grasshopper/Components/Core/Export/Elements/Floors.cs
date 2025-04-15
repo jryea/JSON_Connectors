@@ -52,6 +52,39 @@ namespace Grasshopper.Components.Core.Export.Elements
             DA.GetDataList(3, diaphragmObjs);
             DA.GetDataList(4, surfaceLoadObjs);
 
+            // Extend level objects list if needed
+            if (levelObjs.Count > 0 && levelObjs.Count < pointsTree.PathCount)
+            {
+                object lastLevel = levelObjs[levelObjs.Count - 1];
+                while (levelObjs.Count < pointsTree.PathCount)
+                    levelObjs.Add(lastLevel);
+            }
+
+            // Extend property objects list if needed
+            if (propObjs.Count > 0 && propObjs.Count < pointsTree.PathCount)
+            {
+                object lastProp = propObjs[propObjs.Count - 1];
+                while (propObjs.Count < pointsTree.PathCount)
+                    propObjs.Add(lastProp);
+            }
+
+            // Extend diaphragm objects list if needed
+            if (diaphragmObjs.Count > 0 && diaphragmObjs.Count < pointsTree.PathCount)
+            {
+                object lastDiaphragm = diaphragmObjs[diaphragmObjs.Count - 1];
+                while (diaphragmObjs.Count < pointsTree.PathCount)
+                    diaphragmObjs.Add(lastDiaphragm);
+            }
+
+            // Extend surface load objects list if needed
+            if (surfaceLoadObjs.Count > 0 && surfaceLoadObjs.Count < pointsTree.PathCount)
+            {
+                object lastSurfaceLoad = surfaceLoadObjs[surfaceLoadObjs.Count - 1];
+                while (surfaceLoadObjs.Count < pointsTree.PathCount)
+                    surfaceLoadObjs.Add(lastSurfaceLoad);
+            }
+
+            // Validate list lengths after extension
             if (pointsTree.PathCount != levelObjs.Count || pointsTree.PathCount != propObjs.Count)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
@@ -130,6 +163,7 @@ namespace Grasshopper.Components.Core.Export.Elements
 
             DA.SetDataList(0, floors);
         }
+        
 
         private T ExtractObject<T>(object obj, string typeName) where T : class
         {

@@ -5,53 +5,43 @@ using Core.Models.Properties;
 using Core.Models.Metadata;
 using System;
 using System.Collections.Generic;
+using Core.Utilities;
 
 namespace Core.Models
 {
-    /// <summary>
-    /// Root model representing a complete building structure
-    /// </summary>
+    // Root model representing a complete building structure
     public class BaseModel
     {
-        /// <summary>
-        /// Unique identifier for the model
-        /// </summary>
+        // Unique identifier for the model
         public string Id { get; set; } = Guid.NewGuid().ToString();
 
-        /// <summary>
-        /// Container for all structural elements
-        /// </summary>
+        // Container for all structural elements
         public ElementContainer Elements { get; set; } = new ElementContainer();
 
-        /// <summary>
-        /// Container for all load definitions and combinations
-        /// </summary>
+        // Container for all load definitions and combinations
         public LoadContainer Loads { get; set; } = new LoadContainer();
 
-        /// <summary>
-        /// Container for all property definitions
-        /// </summary>
+        // Container for all property definitions
         public PropertiesContainer Properties { get; set; } = new PropertiesContainer();
 
-        /// <summary>
-        /// Analysis results from structural analysis
-        /// </summary>
+        // Analysis results from structural analysis
         public Dictionary<string, object> AnalysisResults { get; set; } = new Dictionary<string, object>();
 
-        /// <summary>
-        /// Model layout components (grids, levels, floor types)
-        /// </summary>
+        // Model layout components (grids, levels, floor types)
         public ModelLayoutContainer ModelLayout { get; set; } = new ModelLayoutContainer();
 
-        /// <summary>
-        /// Version control information
-        /// </summary>
+        // Version control information
         public Dictionary<string, object> VersionControl { get; set; } = new Dictionary<string, object>();
 
-        /// <summary>
-        /// Project metadata information
-        /// </summary>
+        // Project metadata information
         public MetadataContainer Metadata { get; set; } = new MetadataContainer();
+
+        // Removes duplicate geometry elements from the model
+
+        public void RemoveDuplicateGeometry()
+        {
+            DuplicateGeometryHandler.RemoveDuplicateElements(this);
+        }
     }
     
 }

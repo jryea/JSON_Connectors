@@ -28,11 +28,40 @@ namespace Core.Converters
             }
         }
 
-        public static BaseModel Deserialize(string json)
+        public static string SerializeWithCleanup(BaseModel baseModel)
+        {
+            if (baseModel == null)
+                return null;
+
+            // Create a deep copy to avoid modifying the original
+            BaseModel cleanModel = DeepCopy(baseModel);
+
+            // Remove duplicates on the copy
+            cleanModel.RemoveDuplicateGeometry();
+
+            // Serialize the clean copy
+            return Serialize(cleanModel);
+        }
+
+        private static BaseModel DeepCopy(BaseModel original)
+        {
+            string json = Serialize(original);
+            return Deserialize(json);
+        }
+
+        public static BaseModel Deserialize(string json, bool removeDuplicates = true)
         {
             try
             {
-                return JsonSerializer.Deserialize<BaseModel>(json, _options);
+                BaseModel model = JsonSerializer.Deserialize<BaseModel>(json, _options);
+
+                // Remove duplicate elements
+                if (removeDuplicates && model != null)
+                {
+                    model.RemoveDuplicateGeometry();
+                }
+
+                return model;
             }
             catch (Exception ex)
             {
@@ -40,13 +69,20 @@ namespace Core.Converters
             }
         }
 
-        public static void SaveToFile(BaseModel baseModel, string filePath)
+        public static void SaveToFile(BaseModel baseModel, string filePath, bool removeDuplicates = true)
         {
             try
             {
+                // remove duplicate elements before saving  
+                if (removeDuplicates && baseModel != null)
+                {
+                    baseModel.RemoveDuplicateGeometry();
+                }
+
                 string json = Serialize(baseModel);
                 File.WriteAllText(filePath, json);
             }
+
             catch (UnauthorizedAccessException ex)
             {
                 throw new Exception($"Access to the path '{filePath}' is denied: {ex.Message}", ex);

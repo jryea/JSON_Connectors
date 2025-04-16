@@ -161,7 +161,8 @@ namespace RAM
                             beamCount = beamImporter.Import(
                                 model.Elements.Beams,
                                 model.ModelLayout.Levels,
-                                model.Properties.FrameProperties);
+                                model.Properties.FrameProperties,
+                                model.Properties.Materials);
                         }
 
                         // Import columns
@@ -171,7 +172,8 @@ namespace RAM
                             columnCount = columnImporter.Import(
                                 model.Elements.Columns,
                                 model.ModelLayout.Levels,
-                                model.Properties.FrameProperties);
+                                model.Properties.FrameProperties,
+                                model.Properties.Materials);
                         }
 
                         // Import walls

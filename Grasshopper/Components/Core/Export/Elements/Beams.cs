@@ -24,8 +24,8 @@ namespace Grasshopper.Components.Core.Export.Elements
             pManager.AddLineParameter("Lines", "L", "Lines representing beams", GH_ParamAccess.list);
             pManager.AddGenericParameter("Level", "LVL", "Level this beam belongs to", GH_ParamAccess.list);
             pManager.AddGenericParameter("Properties", "P", "Frame properties for this beam", GH_ParamAccess.list);
-            pManager.AddBooleanParameter("Is Lateral", "IL", "Is beam part of the lateral system", GH_ParamAccess.item, false);
-            pManager.AddBooleanParameter("Is Joist", "IJ", "Is beam a joist", GH_ParamAccess.item);
+            pManager.AddBooleanParameter("Is Lateral", "IL", "Is beam part of the lateral system", GH_ParamAccess.list);
+            pManager.AddBooleanParameter("Is Joist", "IJ", "Is beam a joist", GH_ParamAccess.list);
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
@@ -38,14 +38,14 @@ namespace Grasshopper.Components.Core.Export.Elements
             List<RG.Line> lines = new List<RG.Line>();
             List<object> levelObjs = new List<object>();
             List<object> propObjs = new List<object>();
-            bool isLateral = false;
-            bool isJoist = false;
+            List<bool> isLateralList = new List<bool>();
+            List<bool> isJoistList = new List<bool>();
 
             if (!DA.GetDataList(0, lines)) return;
             if (!DA.GetDataList(1, levelObjs)) return;
             if (!DA.GetDataList(2, propObjs)) return;
-            DA.GetData(3, ref isLateral);
-            DA.GetData(4, ref isJoist);
+            if (!DA.GetDataList(3, isLateralList)) return;
+            if (!DA.GetDataList(4, isJoistList)) return;
 
             // Ensure lists have matching lengths by extending levelObjs with the last item
             if (levelObjs.Count > 0 && levelObjs.Count < lines.Count)
@@ -57,7 +57,7 @@ namespace Grasshopper.Components.Core.Export.Elements
                 }
             }
 
-            // Check for properties list length and extend it too if needed
+            // Check for properties list length and extend if needed
             if (propObjs.Count > 0 && propObjs.Count < lines.Count)
             {
                 object lastProp = propObjs[propObjs.Count - 1];
@@ -67,17 +67,41 @@ namespace Grasshopper.Components.Core.Export.Elements
                 }
             }
 
-            if (lines.Count != levelObjs.Count || lines.Count != propObjs.Count)
+            // Check for lateral flag list length and extend if needed
+            if (isLateralList.Count < lines.Count)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
-                    "Number of lines must match number of levels and properties");
-                return;
+                if (isLateralList.Count == 0)
+                {
+                    isLateralList.Add(false); // Default value if no input provided
+                }
+                bool lastLateral = isLateralList[isLateralList.Count - 1];
+                while (isLateralList.Count < lines.Count)
+                {
+                    isLateralList.Add(lastLateral);
+                }
             }
+
+            // Check for joist flag list length and extend if needed    
+            if (isJoistList.Count < lines.Count)
+            {
+                if (isLateralList.Count == 0)
+                {
+                    isLateralList.Add(false); // Default value if no input provided
+                }
+                bool lastLateral = isLateralList[isLateralList.Count - 1];
+                while (isLateralList.Count < lines.Count)
+                {
+                    isLateralList.Add(lastLateral);
+                }
+            }
+
 
             List<GH_Beam> beams = new List<GH_Beam>();
             for (int i = 0; i < lines.Count; i++)
             {
                 RG.Line line = lines[i];
+                bool isLateral = isLateralList[i];
+                bool isJoist = isJoistList[i];  
                 Level level = ExtractObject<Level>(levelObjs[i], "Level");
                 FrameProperties frameProps = ExtractObject<FrameProperties>(propObjs[i], "FrameProperties");
 

@@ -2,11 +2,14 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using CE = Core.Models.Elements;
+using CL = Core.Models.ModelLayout;
+using CP = Core.Models.Properties;
+using RAM.Utilities;
+using RAMDATAACCESSLib;
 using Core.Models.Elements;
 using Core.Models.ModelLayout;
 using Core.Models.Properties;
-using RAM.Utilities;
-using RAMDATAACCESSLib;
 
 namespace RAM.Import.Elements
 {
@@ -21,7 +24,9 @@ namespace RAM.Import.Elements
             _lengthUnit = lengthUnit;
         }
 
-        public int Import(IEnumerable<Beam> beams, IEnumerable<Level> levels, IEnumerable<FrameProperties> frameProperties)
+        public int Import(IEnumerable<Beam> beams, IEnumerable<Level> levels,
+                 IEnumerable<FrameProperties> frameProperties,
+                 IEnumerable<Material> materials)
         {
             try
             {
@@ -37,7 +42,7 @@ namespace RAM.Import.Elements
                 var sortedLevels = levels.OrderBy(l => l.Elevation).ToList();
 
                 // Map floor types to their "master" level (first level with that floor type)
-                Dictionary<string, Level> masterLevelByFloorTypeId = new Dictionary<string, Level>();
+                Dictionary<string, CL.Level> masterLevelByFloorTypeId = new Dictionary<string, CL.Level>();
 
                 // Find the first (lowest) level for each floor type - this will be the "master" level
                 foreach (var level in sortedLevels)
@@ -61,28 +66,26 @@ namespace RAM.Import.Elements
                     Console.WriteLine($"Mapped Core floor type {coreFloorTypeId} to RAM floor type {ramFloorType.strLabel}");
                 }
 
-                // Map materials
-                var materialMap = MapMaterials(frameProperties);
-
                 // Import beams
                 int count = 0;
-                foreach (var beam in beams)
+                foreach (CE.Beam beam in beams)
                 {
                     if (beam.StartPoint == null || beam.EndPoint == null ||
                         string.IsNullOrEmpty(beam.LevelId))
                         continue;
 
                     // Get the level this beam belongs to
-                    Level beamLevel = levels.FirstOrDefault(l => l.Id == beam.LevelId);
+                    CL.Level beamLevel = levels.FirstOrDefault(l => l.Id == beam.LevelId);
                     if (beamLevel == null)
                         continue;
 
+                    // Get the floor Type ID for this level
                     string floorTypeId = beamLevel.FloorTypeId;
                     if (string.IsNullOrEmpty(floorTypeId))
                         continue;
 
                     // Check if this is the master level for this floor type
-                    if (masterLevelByFloorTypeId.TryGetValue(floorTypeId, out Level masterLevel) &&
+                    if (masterLevelByFloorTypeId.TryGetValue(floorTypeId, out CL.Level masterLevel) &&
                         masterLevel.Id != beamLevel.Id)
                     {
                         // Skip this beam as it's not on the master level for its floor type
@@ -99,9 +102,11 @@ namespace RAM.Import.Elements
                     }
 
                     // Get material type
-                    EMATERIALTYPES beamMaterial = EMATERIALTYPES.ESteelMat;
-                    if (!string.IsNullOrEmpty(beam.FramePropertiesId))
-                        materialMap.TryGetValue(beam.FramePropertiesId, out beamMaterial);
+                    EMATERIALTYPES beamMaterial = Helpers.GetRAMMaterialType(
+                        beam.FramePropertiesId,
+                        frameProperties,
+                        materials,
+                        beam.IsJoist);
 
                     // Convert coordinates
                     double x1 = Helpers.ConvertToInches(beam.StartPoint.X, _lengthUnit);
@@ -135,37 +140,6 @@ namespace RAM.Import.Elements
                 Console.WriteLine($"Error importing beams: {ex.Message}");
                 throw;
             }
-        }
-
-        private Dictionary<string, EMATERIALTYPES> MapMaterials(IEnumerable<FrameProperties> frameProperties)
-        {
-            var map = new Dictionary<string, EMATERIALTYPES>();
-
-            foreach (var prop in frameProperties ?? Enumerable.Empty<FrameProperties>())
-            {
-                if (string.IsNullOrEmpty(prop.Id))
-                    continue;
-
-                EMATERIALTYPES type = EMATERIALTYPES.ESteelMat;
-
-                bool isJoist = prop.Name?.ToLower().Contains("joist") == true ||
-                               prop.Shape?.ToLower().Contains("joist") == true;
-
-                if (isJoist)
-                {
-                    type = EMATERIALTYPES.ESteelJoistMat;
-                }
-                else if (prop.MaterialId != null)
-                {
-                    string materialName = prop.MaterialId.ToLower();
-                    if (materialName.Contains("concrete"))
-                        type = EMATERIALTYPES.EConcreteMat;
-                }
-
-                map[prop.Id] = type;
-            }
-
-            return map;
         }
     }
 }

@@ -14,38 +14,73 @@ namespace RAM.Utilities
     public static class Helpers
     {
         // Convert material types
-        public static EMATERIALTYPES ConvertMaterialType(Material material)
+        //public static EMATERIALTYPES ConvertMaterialType(Material material)
+        //{
+        //    if (material == null)
+        //        return EMATERIALTYPES.ESteelMat;
+
+        //    string materialType = material.Type?.ToLower() ?? "";
+
+        //    if (materialType.Contains("concrete"))
+        //        return EMATERIALTYPES.EConcreteMat;
+        //    else if (materialType.Contains("joist"))
+        //        return EMATERIALTYPES.ESteelJoistMat;
+        //    else if (materialType.Contains("steel"))
+        //        return EMATERIALTYPES.ESteelMat;
+        //    else
+        //        return EMATERIALTYPES.ESteelMat;
+        //}
+
+        // Get material type for RAM taking into account both material type and joist designation
+        public static EMATERIALTYPES GetRAMMaterialType(string framePropId,
+                                                      IEnumerable<FrameProperties> frameProperties,
+                                                      IEnumerable<Material> materials,
+                                                      bool isJoist = false)
         {
-            if (material == null)
-                return EMATERIALTYPES.ESteelMat;
-
-            string materialType = material.Type?.ToLower() ?? "";
-
-            if (materialType.Contains("concrete"))
-                return EMATERIALTYPES.EConcreteMat;
-            else if (materialType.Contains("joist"))
+            // If it's a joist, return joist material type regardless of base material
+            if (isJoist)
                 return EMATERIALTYPES.ESteelJoistMat;
-            else if (materialType.Contains("steel"))
-                return EMATERIALTYPES.ESteelMat;
-            else
-                return EMATERIALTYPES.ESteelMat;
+
+            // Get the frame property to find the material ID
+            string materialId = null;
+            if (!string.IsNullOrEmpty(framePropId))
+            {
+                var frameProp = frameProperties?.FirstOrDefault(fp => fp.Id == framePropId);
+                if (frameProp != null)
+                {
+                    materialId = frameProp.MaterialId;
+                }
+            }
+
+            // Get the actual material
+            var material = materials?.FirstOrDefault(m => m.Id == materialId);
+
+            // Determine material type based on the material
+            if (material != null && !string.IsNullOrEmpty(material.Type))
+            {
+                if (material.Type.ToLower().Contains("concrete"))
+                    return EMATERIALTYPES.EConcreteMat;
+            }
+
+            // Default to steel
+            return EMATERIALTYPES.ESteelMat;
         }
 
         // Get material type as enum from integer
-        public static EMATERIALTYPES GetMaterialType(int materialTypeId)
-        {
-            switch (materialTypeId)
-            {
-                case 0:
-                    return EMATERIALTYPES.ESteelMat;
-                case 1:
-                    return EMATERIALTYPES.EConcreteMat;
-                case 2:
-                    return EMATERIALTYPES.ESteelJoistMat;
-                default:
-                    return EMATERIALTYPES.ESteelMat;
-            }
-        }
+        //public static EMATERIALTYPES GetMaterialType(int materialTypeId)
+        //{
+        //    switch (materialTypeId)
+        //    {
+        //        case 0:
+        //            return EMATERIALTYPES.ESteelMat;
+        //        case 1:
+        //            return EMATERIALTYPES.EConcreteMat;
+        //        case 2:
+        //            return EMATERIALTYPES.ESteelJoistMat;
+        //        default:
+        //            return EMATERIALTYPES.ESteelMat;
+        //    }
+        //}
 
         // Convert coordinates to inches (RAM standard unit)
         public static double ConvertToInches(double value, string unitType)

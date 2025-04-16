@@ -21,7 +21,9 @@ namespace RAM.Import.Elements
             _lengthUnit = lengthUnit;
         }
 
-        public int Import(IEnumerable<Column> columns, IEnumerable<Level> levels, IEnumerable<FrameProperties> frameProperties)
+        public int Import(IEnumerable<Column> columns, IEnumerable<Level> levels,
+                         IEnumerable<FrameProperties> frameProperties,
+                         IEnumerable<Material> materials)
         {
             try
             {
@@ -63,9 +65,6 @@ namespace RAM.Import.Elements
                     ramFloorTypeByFloorTypeId[coreFloorTypeId] = ramFloorType;
                     Console.WriteLine($"Mapped Core floor type {coreFloorTypeId} to RAM floor type {ramFloorType.strLabel}");
                 }
-
-                // Map materials
-                var materialMap = MapMaterials(frameProperties);
 
                 // Track processed columns to avoid duplicates
                 HashSet<string> processedColumns = new HashSet<string>();
@@ -117,9 +116,11 @@ namespace RAM.Import.Elements
                     }
 
                     // Get material type
-                    EMATERIALTYPES columnMaterial = EMATERIALTYPES.ESteelMat; // Default to steel
-                    if (!string.IsNullOrEmpty(column.FramePropertiesId))
-                        materialMap.TryGetValue(column.FramePropertiesId, out columnMaterial);
+                    EMATERIALTYPES columnMaterial = Helpers.GetRAMMaterialType(
+                        column.FramePropertiesId,
+                        frameProperties,
+                        materials,
+                        false);
 
                     // Convert coordinates
                     double x = Helpers.ConvertToInches(column.StartPoint.X, _lengthUnit);
@@ -164,32 +165,6 @@ namespace RAM.Import.Elements
                 Console.WriteLine($"Error importing columns: {ex.Message}");
                 throw;
             }
-        }
-
-        private Dictionary<string, EMATERIALTYPES> MapMaterials(IEnumerable<FrameProperties> frameProperties)
-        {
-            var map = new Dictionary<string, EMATERIALTYPES>();
-
-            foreach (var prop in frameProperties ?? Enumerable.Empty<FrameProperties>())
-            {
-                if (string.IsNullOrEmpty(prop.Id))
-                    continue;
-
-                EMATERIALTYPES type = EMATERIALTYPES.ESteelMat;
-
-                if (prop.MaterialId != null)
-                {
-                    // Try to determine material type from material ID or properties
-                    if (prop.MaterialId.ToLower().Contains("concrete"))
-                    {
-                        type = EMATERIALTYPES.EConcreteMat;
-                    }
-                }
-
-                map[prop.Id] = type;
-            }
-
-            return map;
         }
     }
 }

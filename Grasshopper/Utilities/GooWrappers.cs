@@ -10,9 +10,7 @@ using Core.Models.Geometry;
 
 namespace Grasshopper.Utilities
 {
-    /// <summary>
-    /// Base class for all Grasshopper Goo wrappers in JSON Connectors
-    /// </summary>
+    // Base class for all Grasshopper Goo wrappers in JSON Connectors
     public abstract class GH_ModelGoo<T> : GH_Goo<T> where T : class
     {
         public GH_ModelGoo() { }

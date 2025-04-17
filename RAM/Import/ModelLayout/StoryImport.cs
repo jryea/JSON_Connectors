@@ -51,7 +51,6 @@ namespace RAM.Import.ModelLayout
         }
 
         // Imports levels/stories to RAM
-
         public int Import(IEnumerable<Level> levels)
         {
             try
@@ -59,8 +58,8 @@ namespace RAM.Import.ModelLayout
                 int count = 0;
                 IStories ramStories = _model.GetStories();
 
-                // Sort levels by elevation in ascending order
-                var sortedLevels = levels.OrderBy(l => l.Elevation).ToList();
+                // Sort levels by elevation in ascending order and filter out those with elevation 0
+                var sortedLevels = levels.Where(l => l.Elevation != 0).OrderBy(l => l.Elevation).ToList();
 
                 // Calculate story heights based on the differences between elevations
                 double previousElevation = 0;

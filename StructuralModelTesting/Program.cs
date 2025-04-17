@@ -118,7 +118,7 @@ namespace StructuralModelTester
             string jsonPath = BrowseForFile("Select JSON File", "JSON files (*.json)|*.json");
             if (string.IsNullOrEmpty(jsonPath)) return;
 
-            string ramPath = BrowseForFile("Save RAM File", "RAM files (*.ram)|*.ram|All files (*.*)|*.*", true);
+            string ramPath = BrowseForFile("Save RAM File", "RAM files (*.rss)|*.ram|All files (*.*)|*.*", true);
             if (string.IsNullOrEmpty(ramPath)) return;
 
             try

@@ -66,6 +66,9 @@ namespace RAM.Import.Elements
                     Console.WriteLine($"Mapped Core floor type {coreFloorTypeId} to RAM floor type {ramFloorType.strLabel}");
                 }
 
+                // Track processed beams per floor type to avoid duplicates
+                Dictionary<string, HashSet<string>> processedBeamsByFloorType = new Dictionary<string, HashSet<string>>();
+
                 // Import beams
                 int count = 0;
                 foreach (CE.Beam beam in beams)
@@ -93,6 +96,32 @@ namespace RAM.Import.Elements
                         continue;
                     }
 
+                    // Convert coordinates with rounding to ensure consistent comparison
+                    double x1 = Math.Round(Helpers.ConvertToInches(beam.StartPoint.X, _lengthUnit), 6);
+                    double y1 = Math.Round(Helpers.ConvertToInches(beam.StartPoint.Y, _lengthUnit), 6);
+                    double x2 = Math.Round(Helpers.ConvertToInches(beam.EndPoint.X, _lengthUnit), 6);
+                    double y2 = Math.Round(Helpers.ConvertToInches(beam.EndPoint.Y, _lengthUnit), 6);
+
+                    // Create a geometric key for this beam (normalize direction)
+                    string beamKey = CreateBeamGeometricKey(x1, y1, x2, y2);
+
+                    // Check if this beam already exists in this floor type
+                    if (!processedBeamsByFloorType.TryGetValue(floorTypeId, out var processedBeams))
+                    {
+                        processedBeams = new HashSet<string>();
+                        processedBeamsByFloorType[floorTypeId] = processedBeams;
+                    }
+
+                    if (processedBeams.Contains(beamKey))
+                    {
+                        // Skip this beam as it's a duplicate
+                        Console.WriteLine($"Skipping duplicate beam on floor type {floorTypeId}");
+                        continue;
+                    }
+
+                    // Add the beam to the processed set
+                    processedBeams.Add(beamKey);
+
                     // Get RAM floor type for this floor type
                     if (!ramFloorTypeByFloorTypeId.TryGetValue(floorTypeId, out IFloorType ramFloorType))
                     {
@@ -107,12 +136,6 @@ namespace RAM.Import.Elements
                         frameProperties,
                         materials,
                         beam.IsJoist);
-
-                    // Convert coordinates
-                    double x1 = Helpers.ConvertToInches(beam.StartPoint.X, _lengthUnit);
-                    double y1 = Helpers.ConvertToInches(beam.StartPoint.Y, _lengthUnit);
-                    double x2 = Helpers.ConvertToInches(beam.EndPoint.X, _lengthUnit);
-                    double y2 = Helpers.ConvertToInches(beam.EndPoint.Y, _lengthUnit);
 
                     try
                     {
@@ -140,6 +163,26 @@ namespace RAM.Import.Elements
                 Console.WriteLine($"Error importing beams: {ex.Message}");
                 throw;
             }
+        }
+
+        // Helper method to create a normalized geometric key for a beam
+        private string CreateBeamGeometricKey(double x1, double y1, double x2, double y2)
+        {
+            // Normalize beam direction (smaller X or Y coordinates first)
+            if ((Math.Abs(x2 - x1) > Math.Abs(y2 - y1) && x2 < x1) ||
+                (Math.Abs(y2 - y1) >= Math.Abs(x2 - x1) && y2 < y1))
+            {
+                // Swap points to ensure consistent direction
+                double tempX = x1;
+                double tempY = y1;
+                x1 = x2;
+                y1 = y2;
+                x2 = tempX;
+                y2 = tempY;
+            }
+
+            // Return the formatted key
+            return $"{x1},{y1}_{x2},{y2}";
         }
     }
 }

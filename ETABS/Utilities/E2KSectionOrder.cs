@@ -5,7 +5,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using Core.Models;
 
-namespace ETABS.Export
+namespace ETABS.Utilities
 {
     // Class to specify the order of sections in an E2K file
     public class E2KSectionOrder

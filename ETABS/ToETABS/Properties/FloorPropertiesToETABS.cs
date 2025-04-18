@@ -3,7 +3,7 @@ using System.Linq;
 using System.Text;
 using Core.Models.Properties;
 
-namespace ETABS.Export.Properties
+namespace ETABS.ToETABS.Properties
 {
     /// <summary>
     /// Converts Core FloorProperties objects to ETABS E2K format text for slab properties

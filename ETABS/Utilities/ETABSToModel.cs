@@ -9,7 +9,7 @@ using ETABS.Import.Loads;
 using ETABS.Import.Metadata;
 using ETABS.Import.ModelLayout;
 using ETABS.Import.Properties;
-using ETABS.Import.Utilities;
+using ETABS.Utilities;
 using System;
 using System.Collections.Generic;
 

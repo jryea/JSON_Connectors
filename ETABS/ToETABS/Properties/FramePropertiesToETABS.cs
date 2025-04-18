@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using Core.Models.Properties;
 
-namespace ETABS.Export.Properties
+namespace ETABS.ToETABS.Properties
 {
     // Converts Core FrameProperties objects to ETABS E2K format
     public class FramePropertiesToETABS

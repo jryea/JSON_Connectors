@@ -1,7 +1,6 @@
 ﻿using System;
 using System.IO;
 using Grasshopper.Kernel;
-using ETABS.Export;
 using ETABS;
 using System.Collections.Generic;
 using Grasshopper.Components.Core;

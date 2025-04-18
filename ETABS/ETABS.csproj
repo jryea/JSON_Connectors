@@ -5,6 +5,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="ToETABS\Elements\AreaElementsToETABS.cs" />
+    <Compile Remove="ToETABS\Elements\Assignment\BraceAssignmentToETABS.cs" />
+    <Compile Remove="ToETABS\Elements\Assignment\ColumnAssignmentToETABS.cs" />
+    <Compile Remove="ToETABS\Elements\Connectivity\BraceConnectivityToETABS.cs" />
+    <Compile Remove="ToETABS\Elements\Connectivity\ColumnConnectivityToETABS.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Core\Core.csproj" />
   </ItemGroup>
 

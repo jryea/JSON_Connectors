@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using System.Linq;
 
-namespace ETABS.Import.Utilities
+namespace ETABS.Utilities
 {
     // Utility class to parse area elements (floors, walls) from E2K files
     public class AreaParser

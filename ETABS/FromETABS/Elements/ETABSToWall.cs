@@ -6,7 +6,7 @@ using Core.Models.Geometry;
 using Core.Models.ModelLayout;
 using Core.Models.Properties;
 using Core.Utilities;
-using ETABS.Import.Utilities;
+using ETABS.Utilities;
 
 namespace ETABS.Import.Elements
 {

@@ -2,7 +2,7 @@
 using System.Text;
 using Core.Models.Properties;
 
-namespace ETABS.Export.Properties
+namespace ETABS.ToETABS.Properties
 {
     /// <summary>
     /// Converts Core Diaphragm objects to ETABS E2K format text

@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 
-namespace ETABS.Import.Utilities
+namespace ETABS.Utilities
 {
     // Utility class to parse line connectivities from E2K files
     public class LineConnectivityParser

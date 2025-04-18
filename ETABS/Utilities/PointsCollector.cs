@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using Core.Models.Geometry;
 
-namespace ETABS.Import.Utilities
+namespace ETABS.Utilities
 {
 
     // Utility class to parse and collect point coordinates from E2K files

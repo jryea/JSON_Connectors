@@ -4,7 +4,7 @@ using System.Text;
 using Core.Models.Properties;
 using Utils = Core.Utilities.Utilities;
 
-namespace ETABS.Export.Properties
+namespace ETABS.ToETABS.Properties
 {
     // Converts Core WallProperties objects to ETABS E2K format text
     public class WallPropertiesToETABS

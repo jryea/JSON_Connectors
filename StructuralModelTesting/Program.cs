@@ -49,8 +49,9 @@ namespace StructuralModelTester
                 Console.WriteLine("\nSelect an option:");
                 Console.WriteLine("1. Convert JSON to RAM");
                 Console.WriteLine("2. Convert RAM to JSON");
-                Console.WriteLine("3. Analyze Model");
-                Console.WriteLine("4. Analyze ETABS E2K file");
+                Console.WriteLine("3. Convert JSON to E2K");
+                Console.WriteLine("4. Analyze Model");
+                Console.WriteLine("5. Analyze ETABS E2K file");
                 Console.WriteLine("0. Exit");
 
                 Console.Write("\nOption: ");
@@ -67,9 +68,12 @@ namespace StructuralModelTester
                         ConvertRamToJson();
                         break;
                     case "3":
-                        AnalyzeModel();
+                        ConvertJsonToE2K();
                         break;
                     case "4":
+                        AnalyzeModel();
+                        break;
+                    case "5":
                         AnalyzeEtabsFile();
                         break;
                     default:
@@ -143,7 +147,7 @@ namespace StructuralModelTester
                 }
 
                 // Parse points first for checking element lengths
-                var pointsCollector = new ETABS.Import.Utilities.PointsCollector();
+                var pointsCollector = new ETABS.Utilities.PointsCollector();
                 if (e2kSections.TryGetValue("POINT COORDINATES", out string pointsSection))
                 {
                     pointsCollector.ParsePoints(pointsSection);
@@ -153,7 +157,7 @@ namespace StructuralModelTester
                 // Check frame elements
                 int beamCount = 0, columnCount = 0, braceCount = 0;
                 int shortBeams = 0, shortBraces = 0;
-                var lineConnectivityParser = new ETABS.Import.Utilities.LineConnectivityParser();
+                var lineConnectivityParser = new ETABS.Utilities.LineConnectivityParser();
 
                 if (e2kSections.TryGetValue("LINE CONNECTIVITIES", out string lineConnectivitiesSection))
                 {
@@ -277,7 +281,7 @@ namespace StructuralModelTester
                 }
 
                 // Check for duplicate line elements by analyzing line assignments
-                var lineAssignmentParser = new ETABS.Import.Utilities.LineAssignmentParser();
+                var lineAssignmentParser = new ETABS.Utilities.LineAssignmentParser();
                 var duplicateBeams = 0;
                 var duplicateColumns = 0;
                 var duplicateBraces = 0;
@@ -424,7 +428,7 @@ namespace StructuralModelTester
                 // Count wall and floor elements
                 int wallCount = 0, floorCount = 0;
                 int smallWalls = 0, smallFloors = 0;
-                var areaParser = new ETABS.Import.Utilities.AreaParser();
+                var areaParser = new ETABS.Utilities.AreaParser();
 
                 if (e2kSections.TryGetValue("AREA CONNECTIVITIES", out string areaConnectivitiesSection))
                 {
@@ -822,6 +826,40 @@ namespace StructuralModelTester
             catch (Exception ex)
             {
                 Console.WriteLine($"Error: {ex.Message}");
+            }
+        }
+
+        static void ConvertJsonToE2K()
+        {
+            string jsonPath = BrowseForFile("Select JSON File", "JSON files (*.json)|*.json");
+            if (string.IsNullOrEmpty(jsonPath)) return;
+
+            string e2kPath = BrowseForFile("Save E2K File", "ETABS files (*.e2k)|*.e2k|All files (*.*)|*.*", true);
+            if (string.IsNullOrEmpty(e2kPath)) return;
+
+            try
+            {
+                Console.WriteLine("Converting JSON to E2K...");
+
+                // Load the JSON file content
+                string jsonContent = File.ReadAllText(jsonPath);
+
+                // Create the converter and process the model
+                var converter = new ETABS.GrasshopperToETABS();
+                string e2kContent = converter.ProcessModel(jsonContent, null, null);
+
+                // Save the E2K content to file
+                File.WriteAllText(e2kPath, e2kContent);
+
+                Console.WriteLine($"Successfully converted JSON to E2K and saved to {e2kPath}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error: {ex.Message}");
+                if (ex.InnerException != null)
+                {
+                    Console.WriteLine($"Inner Error: {ex.InnerException.Message}");
+                }
             }
         }
 

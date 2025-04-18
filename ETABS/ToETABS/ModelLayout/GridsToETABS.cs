@@ -3,7 +3,7 @@ using System.Text;
 using Core.Models.ModelLayout;
 using Utils = Core.Utilities.Utilities;
 
-namespace ETABS.Export.ModelLayout
+namespace ETABS.ToETABS.ModelLayout
 {
 
     // Converts Core Grid objects to ETABS E2K format text

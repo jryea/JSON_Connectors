@@ -5,7 +5,7 @@ using System.Text;
 using Core.Models.Loads;
 using Core.Models.Properties;
 
-namespace ETABS.Export.Loads
+namespace ETABS.ToETABS.Loads
 {
     // Converts SurfaceLoad objects to E2K Shell Uniform Load Sets format
     public class ShellPropsToETABS

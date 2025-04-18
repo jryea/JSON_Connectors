@@ -2,7 +2,7 @@
 using System.Text.RegularExpressions;
 using System.Linq;
 
-namespace ETABS.Import.Utilities
+namespace ETABS.Utilities
 {
     public class LineAssignmentParser
     {

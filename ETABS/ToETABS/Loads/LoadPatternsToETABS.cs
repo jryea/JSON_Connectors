@@ -4,7 +4,7 @@ using System.Text;
 using System.Linq;
 using Core.Models.Loads;
 
-namespace ETABS.Export.Loads
+namespace ETABS.ToETABS.Loads
 {
     /// <summary>
     /// Converts Core LoadDefinition objects to ETABS E2K format text for Load Patterns section

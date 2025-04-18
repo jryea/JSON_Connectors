@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using Core.Models.ModelLayout;
 
-namespace ETABS.Export.ModelLayout
+namespace ETABS.ToETABS.ModelLayout
 {
     /// <summary>
     /// Converts Core Level objects to ETABS E2K format text

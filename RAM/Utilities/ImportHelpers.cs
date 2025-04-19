@@ -11,27 +11,10 @@ using RAMDATAACCESSLib;
 
 namespace RAM.Utilities
 {
-    public static class Helpers
+    public static class ImportHelpers
     {
-        // Convert material types
-        //public static EMATERIALTYPES ConvertMaterialType(Material material)
-        //{
-        //    if (material == null)
-        //        return EMATERIALTYPES.ESteelMat;
+        
 
-        //    string materialType = material.Type?.ToLower() ?? "";
-
-        //    if (materialType.Contains("concrete"))
-        //        return EMATERIALTYPES.EConcreteMat;
-        //    else if (materialType.Contains("joist"))
-        //        return EMATERIALTYPES.ESteelJoistMat;
-        //    else if (materialType.Contains("steel"))
-        //        return EMATERIALTYPES.ESteelMat;
-        //    else
-        //        return EMATERIALTYPES.ESteelMat;
-        //}
-
-        // Get material type for RAM taking into account both material type and joist designation
         public static EMATERIALTYPES GetRAMMaterialType(string framePropId,
                                                       IEnumerable<FrameProperties> frameProperties,
                                                       IEnumerable<Material> materials,
@@ -64,61 +47,6 @@ namespace RAM.Utilities
 
             // Default to steel
             return EMATERIALTYPES.ESteelMat;
-        }
-
-        // Get material type as enum from integer
-        //public static EMATERIALTYPES GetMaterialType(int materialTypeId)
-        //{
-        //    switch (materialTypeId)
-        //    {
-        //        case 0:
-        //            return EMATERIALTYPES.ESteelMat;
-        //        case 1:
-        //            return EMATERIALTYPES.EConcreteMat;
-        //        case 2:
-        //            return EMATERIALTYPES.ESteelJoistMat;
-        //        default:
-        //            return EMATERIALTYPES.ESteelMat;
-        //    }
-        //}
-
-        // Convert coordinates to inches (RAM standard unit)
-        public static double ConvertToInches(double value, string unitType)
-        {
-            switch (unitType?.ToLower() ?? "inches")
-            {
-                case "inches":
-                    return value;
-                case "feet":
-                    return value * 12;
-                case "millimeters":
-                    return value * 0.0393701;
-                case "centimeters":
-                    return value * 0.393701;
-                case "meters":
-                    return value * 39.3701;
-                default:
-                    return value; // Assume inches if unknown
-            }
-        }
-
-        // Convert from inches to specified unit
-        public static double ConvertFromInches(double inches, string unitType)
-        {
-            switch (unitType?.ToLower() ?? "inches")
-            {
-                case "feet":
-                    return inches / 12.0;
-                case "millimeters":
-                    return inches * 25.4;
-                case "centimeters":
-                    return inches * 2.54;
-                case "meters":
-                    return inches * 0.0254;
-                case "inches":
-                default:
-                    return inches;
-            }
         }
 
         // Get deck properties based on deck type and gage
@@ -379,25 +307,83 @@ namespace RAM.Utilities
             return storyName;
         }
 
-        // Create a mapping from level IDs to their names
-        public static Dictionary<string, string> CreateLevelIdMapping(List<Level> levels)
+
+        // RAM/Utilities/ImportHelpers.cs
+        public static Dictionary<string, string> CreateLevelToFloorTypeMapping(IEnumerable<Level> levels)
         {
             var mapping = new Dictionary<string, string>();
 
-            if (levels == null)
-                return mapping;
-
             foreach (var level in levels)
             {
-                if (!string.IsNullOrEmpty(level.Id) && !string.IsNullOrEmpty(level.Name))
+                if (!string.IsNullOrEmpty(level.Id) && !string.IsNullOrEmpty(level.FloorTypeId))
                 {
-                    mapping[level.Id] = level.Name;
-                    mapping[$"Story{level.Name}"] = level.Id;
-                    mapping[level.Name] = level.Id;
+                    mapping[level.Id] = level.FloorTypeId;
                 }
             }
 
             return mapping;
+        }
+
+        public static Dictionary<string, string> CreateLevelToStoryMapping(IEnumerable<Level> levels, IStories ramStories)
+        {
+            var mapping = new Dictionary<string, string>();
+
+            Console.WriteLine("Creating Level to Story Mapping based on Elevation...");
+            Console.WriteLine("Levels:");
+            foreach (var level in levels)
+            {
+                Console.WriteLine($"Level ID: {level.Id}, Name: {level.Name}, Elevation: {level.Elevation}");
+            }
+
+            Console.WriteLine("RAM Stories:");
+            for (int i = 0; i < ramStories.GetCount(); i++)
+            {
+                IStory story = ramStories.GetAt(i);
+                Console.WriteLine($"Story ID: {story.lUID}, Label: {story.strLabel}, Elevation: {story.dElevation}");
+            }
+
+            foreach (var level in levels)
+            {
+                for (int i = 0; i < ramStories.GetCount(); i++)
+                {
+                    IStory story = ramStories.GetAt(i);
+                    Console.WriteLine($"Comparing Level Elevation '{level.Elevation}' with Story Elevation '{story.dElevation}'...");
+                    if (Math.Abs(level.Elevation - story.dElevation) < 0.01) // Allow for small floating-point differences
+                    {
+                        mapping[level.Id] = story.lUID.ToString();
+                        Console.WriteLine($"Mapped Level ID {level.Id} to Story ID {story.lUID}");
+                        break;
+                    }
+                }
+            }
+
+            Console.WriteLine("Final Mapping:");
+            foreach (var kvp in mapping)
+            {
+                Console.WriteLine($"Level ID: {kvp.Key}, Story ID: {kvp.Value}");
+            }
+
+            return mapping;
+        }
+    }
+
+    public static class ModelLayoutFilter
+    {
+        // Filters levels to exclude those with elevation 0.
+        public static IEnumerable<Level> GetValidLevels(IEnumerable<Level> levels)
+        {
+            return levels.Where(level => level.Elevation != 0);
+        }
+
+        // Filters floor types to include only those associated with valid levels.
+        public static IEnumerable<FloorType> GetValidFloorTypes(IEnumerable<FloorType> floorTypes, IEnumerable<Level> levels)
+        {
+            var validLevelFloorTypeIds = levels
+                .Where(level => level.Elevation != 0)
+                .Select(level => level.FloorTypeId)
+                .Distinct();
+
+            return floorTypes.Where(floorType => validLevelFloorTypeIds.Contains(floorType.Id));
         }
     }
 }

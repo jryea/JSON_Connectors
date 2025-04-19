@@ -8,11 +8,12 @@ using RAM.Import.Elements;
 using RAM.Import.Loads;
 using RAM.Utilities;
 using RAMDATAACCESSLib;
+using RAM.Import.Properties;
 
 namespace RAM
 {
     // Provides integration between JSON structural models and RAM
-    public class JSONToRAMConverter
+    public class RAMImporter
     {
         // Converts a JSON file to a RAM model
         public (bool Success, string Message) ConvertJSONFileToRAM(string jsonFilePath, string ramFilePath)
@@ -93,33 +94,27 @@ namespace RAM
                         return (false, "Failed to create RAM model file.");
                     }
 
-                    // Import floor types first (required for grids and stories)
+                    // Filter valid levels first
+                    var validLevels = ModelLayoutFilter.GetValidLevels(model.ModelLayout.Levels);
+
+                    // Create the level-to-floor-type mapping using valid levels
+                    var levelToFloorTypeMapping = ImportHelpers.CreateLevelToFloorTypeMapping(validLevels);
+
+                    // Import floor types
                     var floorTypeImporter = new FloorTypeImport(modelManager.Model);
                     int floorTypeCount = 0;
                     if (model.ModelLayout.FloorTypes != null && model.ModelLayout.FloorTypes.Count > 0)
                     {
-                        floorTypeCount = floorTypeImporter.Import(model.ModelLayout.FloorTypes);
-                    }
-                    else
-                    {
-                        // Create at least one default floor type if none exist
-                        IFloorTypes ramFloorTypes = modelManager.Model.GetFloorTypes();
-                        ramFloorTypes.Add("Default");
-                        floorTypeCount = 1;
+                        floorTypeCount = floorTypeImporter.Import(model.ModelLayout.FloorTypes, validLevels);
                     }
 
-                    // Import stories/levels (before grids since grids will be assigned to floor types)
+                    // Import stories
                     var storyImporter = new StoryImport(modelManager.Model, lengthUnit);
                     int storyCount = 0;
                     if (model.ModelLayout.Levels != null && model.ModelLayout.Levels.Count > 0)
                     {
-                        // Set up floor type mapping first
-                        if (model.ModelLayout.FloorTypes != null)
-                        {
-                            storyImporter.SetFloorTypeMapping(model.ModelLayout.FloorTypes);
-                        }
-
-                        storyCount = storyImporter.Import(model.ModelLayout.Levels);
+                        storyImporter.SetFloorTypeMapping(model.ModelLayout.FloorTypes);
+                        storyCount = storyImporter.Import(validLevels);
                     }
 
                     // Import grid lines
@@ -147,9 +142,19 @@ namespace RAM
                             model.Loads.LoadDefinitions);
                     }
 
+                    // Import properties
+                    if (model.Properties.FloorProperties != null && model.Properties.FloorProperties.Count > 0)
+                    {
+                        var slabImporter = new SlabPropertiesImport(modelManager.Model, lengthUnit);
+                        var slabMappings = slabImporter.Import(
+                            model.Properties.FloorProperties,
+                            levelToFloorTypeMapping);
+                    }
+
                     // Import structural elements
                     int beamCount = 0;
                     int columnCount = 0;
+                    int braceCount = 0;
                     int wallCount = 0;
 
                     if (model.Elements != null)
@@ -160,9 +165,11 @@ namespace RAM
                             var beamImporter = new BeamImport(modelManager.Model, lengthUnit);
                             beamCount = beamImporter.Import(
                                 model.Elements.Beams,
-                                model.ModelLayout.Levels,
+                                validLevels,
                                 model.Properties.FrameProperties,
-                                model.Properties.Materials);
+                                model.Properties.Materials,
+                                levelToFloorTypeMapping);
+                            Console.WriteLine($"Imported {beamCount} beams.");
                         }
 
                         // Import columns
@@ -171,10 +178,21 @@ namespace RAM
                             var columnImporter = new ColumnImport(modelManager.Model, lengthUnit);
                             columnCount = columnImporter.Import(
                                 model.Elements.Columns,
-                                model.ModelLayout.Levels,
+                                validLevels,
+                                model.Properties.FrameProperties,
+                                model.Properties.Materials,
+                                levelToFloorTypeMapping);
+                        }
+
+                        if (model.Elements.Braces != null && model.Elements.Braces.Count > 0)
+                        {
+                            var braceImporter = new BraceImport(modelManager.Model, lengthUnit);
+                            braceCount = braceImporter.Import(
+                                model.Elements.Braces,
+                                validLevels,
                                 model.Properties.FrameProperties,
                                 model.Properties.Materials);
-                        }
+                        }   
 
                         // Import walls
                         if (model.Elements.Walls != null && model.Elements.Walls.Count > 0)
@@ -182,7 +200,8 @@ namespace RAM
                             var wallImporter = new WallImport(modelManager.Model, lengthUnit);
                             wallCount = wallImporter.Import(
                                 model.Elements.Walls,
-                                model.ModelLayout.Levels,
+                                validLevels,
+                                levelToFloorTypeMapping,
                                 model.Properties.WallProperties);
                         }
                     }

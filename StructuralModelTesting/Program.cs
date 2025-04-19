@@ -351,18 +351,15 @@ namespace StructuralModelTester
 
                             if (p1 == null) continue;
 
-                            // For columns, just use the start point as the key
-                            string geoKey = $"{p1.X:F2},{p1.Y:F2}";
-
-                            // Check each story assignment
+                            // For columns, use the start point and story as the key
                             foreach (var assignment in assignments)
                             {
-                                string storyKey = $"{geoKey}_{assignment.Story}";
+                                string geoKey = $"{p1.X:F2},{p1.Y:F2}_{assignment.Story}";
 
-                                if (!columnKeys.TryGetValue(storyKey, out var storyElements))
+                                if (!columnKeys.TryGetValue(geoKey, out var storyElements))
                                 {
                                     storyElements = new List<string>();
-                                    columnKeys[storyKey] = storyElements;
+                                    columnKeys[geoKey] = storyElements;
                                 }
 
                                 // If we already have this column at this story, it's a duplicate
@@ -377,6 +374,7 @@ namespace StructuralModelTester
                             }
                         }
                     }
+
 
                     // Check brace assignments
                     foreach (var braceId in lineConnectivityParser.Braces.Keys)
@@ -735,7 +733,7 @@ namespace StructuralModelTester
 
             try
             {
-                var converter = new JSONToRAMConverter();
+                var converter = new RAMImporter();
                 var result = converter.ConvertJSONFileToRAM(jsonPath, ramPath);
 
                 Console.WriteLine(result.Success ? "Success" : "Failed");
@@ -762,7 +760,7 @@ namespace StructuralModelTester
 
             try
             {
-                var converter = new RAMToJSONConverter();
+                var converter = new RAMExporter();
                 var result = converter.ConvertRAMToJSON(ramPath);
 
                 if (result.Success && !string.IsNullOrEmpty(result.JsonOutput))

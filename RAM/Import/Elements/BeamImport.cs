@@ -10,6 +10,7 @@ using RAMDATAACCESSLib;
 using Core.Models.Elements;
 using Core.Models.ModelLayout;
 using Core.Models.Properties;
+using Core.Utilities;
 
 namespace RAM.Import.Elements
 {
@@ -26,7 +27,8 @@ namespace RAM.Import.Elements
 
         public int Import(IEnumerable<Beam> beams, IEnumerable<Level> levels,
                  IEnumerable<FrameProperties> frameProperties,
-                 IEnumerable<Material> materials)
+                 IEnumerable<Material> materials,
+                 Dictionary<string, string> levelToFloorTypeMapping)
         {
             try
             {
@@ -38,32 +40,19 @@ namespace RAM.Import.Elements
                 if (ramFloorTypes.GetCount() == 0)
                     return 0;
 
-                // Sort levels by elevation
-                var sortedLevels = levels.OrderBy(l => l.Elevation).ToList();
-
-                // Map floor types to their "master" level (first level with that floor type)
-                Dictionary<string, CL.Level> masterLevelByFloorTypeId = new Dictionary<string, CL.Level>();
-
-                // Find the first (lowest) level for each floor type - this will be the "master" level
-                foreach (var level in sortedLevels)
-                {
-                    if (!string.IsNullOrEmpty(level.FloorTypeId) && !masterLevelByFloorTypeId.ContainsKey(level.FloorTypeId))
-                    {
-                        masterLevelByFloorTypeId[level.FloorTypeId] = level;
-                        Console.WriteLine($"Floor type {level.FloorTypeId} has master level {level.Name} at elevation {level.Elevation}");
-                    }
-                }
-
                 // Map Core floor types to RAM floor types
                 Dictionary<string, IFloorType> ramFloorTypeByFloorTypeId = new Dictionary<string, IFloorType>();
 
                 // Assign RAM floor types to Core floor types
-                for (int i = 0; i < ramFloorTypes.GetCount() && i < masterLevelByFloorTypeId.Count; i++)
+                for (int i = 0; i < ramFloorTypes.GetCount(); i++)
                 {
                     IFloorType ramFloorType = ramFloorTypes.GetAt(i);
-                    string coreFloorTypeId = masterLevelByFloorTypeId.Keys.ElementAt(i);
-                    ramFloorTypeByFloorTypeId[coreFloorTypeId] = ramFloorType;
-                    Console.WriteLine($"Mapped Core floor type {coreFloorTypeId} to RAM floor type {ramFloorType.strLabel}");
+                    string coreFloorTypeId = levelToFloorTypeMapping.Values.ElementAtOrDefault(i);
+                    if (!string.IsNullOrEmpty(coreFloorTypeId))
+                    {
+                        ramFloorTypeByFloorTypeId[coreFloorTypeId] = ramFloorType;
+                        Console.WriteLine($"Mapped Core floor type {coreFloorTypeId} to RAM floor type {ramFloorType.strLabel}");
+                    }
                 }
 
                 // Track processed beams per floor type to avoid duplicates
@@ -77,30 +66,19 @@ namespace RAM.Import.Elements
                         string.IsNullOrEmpty(beam.LevelId))
                         continue;
 
-                    // Get the level this beam belongs to
-                    CL.Level beamLevel = levels.FirstOrDefault(l => l.Id == beam.LevelId);
-                    if (beamLevel == null)
-                        continue;
-
-                    // Get the floor Type ID for this level
-                    string floorTypeId = beamLevel.FloorTypeId;
-                    if (string.IsNullOrEmpty(floorTypeId))
-                        continue;
-
-                    // Check if this is the master level for this floor type
-                    if (masterLevelByFloorTypeId.TryGetValue(floorTypeId, out CL.Level masterLevel) &&
-                        masterLevel.Id != beamLevel.Id)
+                    // Get the floor type ID for the beam's level
+                    if (!levelToFloorTypeMapping.TryGetValue(beam.LevelId, out string floorTypeId) ||
+                        string.IsNullOrEmpty(floorTypeId))
                     {
-                        // Skip this beam as it's not on the master level for its floor type
-                        Console.WriteLine($"Skipping beam on level {beamLevel.Name} - not the master level for floor type {floorTypeId}");
+                        Console.WriteLine($"No floor type mapping found for level {beam.LevelId}");
                         continue;
                     }
 
                     // Convert coordinates with rounding to ensure consistent comparison
-                    double x1 = Math.Round(Helpers.ConvertToInches(beam.StartPoint.X, _lengthUnit), 6);
-                    double y1 = Math.Round(Helpers.ConvertToInches(beam.StartPoint.Y, _lengthUnit), 6);
-                    double x2 = Math.Round(Helpers.ConvertToInches(beam.EndPoint.X, _lengthUnit), 6);
-                    double y2 = Math.Round(Helpers.ConvertToInches(beam.EndPoint.Y, _lengthUnit), 6);
+                    double x1 = Math.Round(UnitConversionUtils.ConvertToInches(beam.StartPoint.X, _lengthUnit), 6);
+                    double y1 = Math.Round(UnitConversionUtils.ConvertToInches(beam.StartPoint.Y, _lengthUnit), 6);
+                    double x2 = Math.Round(UnitConversionUtils.ConvertToInches(beam.EndPoint.X, _lengthUnit), 6);
+                    double y2 = Math.Round(UnitConversionUtils.ConvertToInches(beam.EndPoint.Y, _lengthUnit), 6);
 
                     // Create a geometric key for this beam (normalize direction)
                     string beamKey = CreateBeamGeometricKey(x1, y1, x2, y2);
@@ -131,7 +109,7 @@ namespace RAM.Import.Elements
                     }
 
                     // Get material type
-                    EMATERIALTYPES beamMaterial = Helpers.GetRAMMaterialType(
+                    EMATERIALTYPES beamMaterial = ImportHelpers.GetRAMMaterialType(
                         beam.FramePropertiesId,
                         frameProperties,
                         materials,
@@ -146,7 +124,7 @@ namespace RAM.Import.Elements
                             if (ramBeam != null)
                             {
                                 count++;
-                                Console.WriteLine($"Added beam from master level {masterLevel.Name} to floor type {ramFloorType.strLabel}");
+                                Console.WriteLine($"Added beam to floor type {ramFloorType.strLabel}");
                             }
                         }
                     }

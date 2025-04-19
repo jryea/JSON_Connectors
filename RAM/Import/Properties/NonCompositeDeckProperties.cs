@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using Core.Models.Properties;
+using Core.Utilities;
 using RAM.Utilities;
 using RAMDATAACCESSLib;
 
@@ -45,7 +46,7 @@ namespace RAM.Import.Properties
                     if (nonCompDeckProp != null)
                     {
                         // Set additional properties if available
-                        double effectiveThickness = Helpers.ConvertToInches(floorProp.Thickness, _lengthUnit);
+                        double effectiveThickness = UnitConversionUtils.ConvertToInches(floorProp.Thickness, _lengthUnit);
                         double selfWeight = 0.0;
 
                         if (floorProp.DeckProperties != null)
@@ -67,13 +68,13 @@ namespace RAM.Import.Properties
                             }
 
                             // Calculate self weight
-                            Helpers.GetDeckProperties(deckType, deckGage, out selfWeight);
+                            ImportHelpers.GetDeckProperties(deckType, deckGage, out selfWeight);
 
                             // Set effective thickness if available
                             if (floorProp.DeckProperties.ContainsKey("effectiveThickness") &&
                                 floorProp.DeckProperties["effectiveThickness"] is double thickness)
                             {
-                                effectiveThickness = Helpers.ConvertToInches(thickness, _lengthUnit);
+                                effectiveThickness = UnitConversionUtils.ConvertToInches(thickness, _lengthUnit);
                             }
                         }
 

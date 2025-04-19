@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Core.Models.Elements;
 using Core.Models.ModelLayout;
+using Core.Utilities; 
 using RAM.Utilities;
 using RAMDATAACCESSLib;
 
@@ -52,13 +53,13 @@ namespace RAM.Import.ModelLayout
                         continue;
 
                     // Determine if grid is horizontal or vertical
-                    bool isVertical = Core.Utilities.Utilities.AreLinePointsVertical(grid.StartPoint, grid.EndPoint);
+                    bool isVertical = Core.Utilities.ModelUtils.AreLinePointsVertical(grid.StartPoint, grid.EndPoint);
 
                     // Convert coordinates to RAM units (inches)
-                    double startX = Helpers.ConvertToInches(grid.StartPoint.X, _lengthUnit);
-                    double startY = Helpers.ConvertToInches(grid.StartPoint.Y, _lengthUnit);
-                    double endX = Helpers.ConvertToInches(grid.EndPoint.X, _lengthUnit);
-                    double endY = Helpers.ConvertToInches(grid.EndPoint.Y, _lengthUnit);
+                    double startX = UnitConversionUtils.ConvertToInches(grid.StartPoint.X, _lengthUnit);
+                    double startY = UnitConversionUtils.ConvertToInches(grid.StartPoint.Y, _lengthUnit);
+                    double endX = UnitConversionUtils.ConvertToInches(grid.EndPoint.X, _lengthUnit);
+                    double endY = UnitConversionUtils.ConvertToInches(grid.EndPoint.Y, _lengthUnit);
 
                     // For vertical grids, the X coordinate is constant
                     if (isVertical)

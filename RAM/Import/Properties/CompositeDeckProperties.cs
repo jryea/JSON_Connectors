@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using Core.Models.Properties;
+using Core.Utilities;
 using RAM.Utilities;
 using RAMDATAACCESSLib;
 
@@ -61,7 +62,7 @@ namespace RAM.Import.Properties
                         if (floorProp.DeckProperties.ContainsKey("studLength") &&
                             floorProp.DeckProperties["studLength"] is double length)
                         {
-                            studLength = Helpers.ConvertToInches(length, _lengthUnit);
+                            studLength = UnitConversionUtils.ConvertToInches(length, _lengthUnit);
                         }
                     }
 
@@ -71,7 +72,7 @@ namespace RAM.Import.Properties
                         floorProp.DeckProperties.ContainsKey("toppingThickness") &&
                         floorProp.DeckProperties["toppingThickness"] is double topThickness)
                     {
-                        toppingThickness = Helpers.ConvertToInches(topThickness, _lengthUnit);
+                        toppingThickness = UnitConversionUtils.ConvertToInches(topThickness, _lengthUnit);
                     }
                     else
                     {
@@ -81,13 +82,13 @@ namespace RAM.Import.Properties
                                           floorProp.DeckProperties["deckDepth"] is double depth
                                           ? depth : 1.5;
 
-                        toppingThickness = Helpers.ConvertToInches(floorProp.Thickness, _lengthUnit) - deckDepth;
+                        toppingThickness = UnitConversionUtils.ConvertToInches(floorProp.Thickness, _lengthUnit) - deckDepth;
                         if (toppingThickness < 0) toppingThickness = 2.5; // Fallback to a reasonable value
                     }
 
                     // Get deck self weight based on deck type and gage
                     double selfWeight;
-                    Helpers.GetDeckProperties(deckType, deckGage, out selfWeight);
+                    ImportHelpers.GetDeckProperties(deckType, deckGage, out selfWeight);
 
                     // Create the composite deck property in RAM
                     ICompDeckProp compDeckProp = compDeckProps.Add2(

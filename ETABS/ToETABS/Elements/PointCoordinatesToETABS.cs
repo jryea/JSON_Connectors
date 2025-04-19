@@ -23,6 +23,10 @@ namespace ETABS.ToETABS.Elements
         // Counter for generating point IDs
         private int _pointCounter;
 
+        // Debug counters
+        private int _pointsCreated = 0;
+        private int _pointsReused = 0;
+
         /// <summary>
         /// Initializes a new instance of the PointCoordinatesToETABS class.
         /// </summary>
@@ -33,32 +37,43 @@ namespace ETABS.ToETABS.Elements
             _pointCounter = 1;
         }
 
-        // Gets the point mapping dictionary for use by other converters.
+        /// <summary>
+        /// Gets the point mapping dictionary for use by other converters.
+        /// </summary>
         public Dictionary<Point2D, string> PointMapping => _pointMapping;
 
-        // Gets or creates a point ID for the specified point.
-        // This is the core method that ensures point deduplication.
+        /// <summary>
+        /// Gets or creates a point ID for the specified point.
+        /// This is the core method that ensures point deduplication.
+        /// </summary>
+        /// <param name="point">The point to get or create an ID for.</param>
+        /// <returns>The point ID as a string, or "0" if the point is null.</returns>
         public string GetOrCreatePointId(Point2D point)
         {
             if (point == null)
                 return "0";
 
-            // Create a normalized point with rounded coordinates to ensure consistency
+            // Normalize to nearest 0.25 inch
             Point2D normalizedPoint = new Point2D(
-                Math.Round(point.X, 6),
-                Math.Round(point.Y, 6)
+                Math.Round(point.X * 4) / 4,
+                Math.Round(point.Y * 4) / 4
             );
 
-            // Try to find the point using the dictionary's built-in lookup which uses the comparer
+            string coordKey = $"({normalizedPoint.X:F2},{normalizedPoint.Y:F2})";
+
             if (_pointMapping.TryGetValue(normalizedPoint, out string existingId))
             {
+                _pointsReused++;
+                Console.WriteLine($"REUSED Point {coordKey} - ID: {existingId}");
                 return existingId;
             }
 
-            // If not found, create a new point ID
             string pointId = _pointCounter.ToString();
             _pointMapping[normalizedPoint] = pointId;
             _pointCounter++;
+            _pointsCreated++;
+
+            Console.WriteLine($"CREATED Point {coordKey} - ID: {pointId}");
 
             return pointId;
         }
@@ -76,12 +91,20 @@ namespace ETABS.ToETABS.Elements
             // Reset for new conversion
             _pointMapping.Clear();
             _pointCounter = 1;
+            _pointsCreated = 0;
+            _pointsReused = 0;
+
+            Console.WriteLine("PointMapping cleared and counter reset");
 
             // E2K Point Coordinates Header
             sb.AppendLine("$ POINT COORDINATES");
 
             // Process all elements to collect points
+            Console.WriteLine($"Collecting points from {elements.Beams?.Count ?? 0} beams");
             CollectPoints(elements, layout);
+
+            // Check for duplicates after collection
+            CheckForDuplicates();
 
             // Write out all unique points
             foreach (var entry in _pointMapping)
@@ -90,7 +113,52 @@ namespace ETABS.ToETABS.Elements
                 sb.AppendLine(pointLine);
             }
 
+            Console.WriteLine($"Points summary: Created {_pointsCreated}, Reused {_pointsReused}, Total {_pointMapping.Count}");
+
             return sb.ToString();
+        }
+
+        /// <summary>
+        /// Check for any duplicate points in the mapping
+        /// </summary>
+        private void CheckForDuplicates()
+        {
+            var coordCheck = new Dictionary<string, List<KeyValuePair<Point2D, string>>>();
+
+            foreach (var entry in _pointMapping)
+            {
+                string key = $"{entry.Key.X:F6},{entry.Key.Y:F6}";
+                if (!coordCheck.TryGetValue(key, out var pairs))
+                {
+                    pairs = new List<KeyValuePair<Point2D, string>>();
+                    coordCheck[key] = pairs;
+                }
+                pairs.Add(entry);
+            }
+
+            int duplicatesFound = 0;
+
+            foreach (var entry in coordCheck)
+            {
+                if (entry.Value.Count > 1)
+                {
+                    duplicatesFound++;
+                    Console.WriteLine($"DUPLICATE IN MAPPING: {entry.Key} has {entry.Value.Count} points:");
+                    foreach (var pair in entry.Value)
+                    {
+                        Console.WriteLine($"  Point ID {pair.Value}: ({pair.Key.X:F12},{pair.Key.Y:F12})");
+                    }
+                }
+            }
+
+            if (duplicatesFound == 0)
+            {
+                Console.WriteLine("NO DUPLICATES FOUND - All points are unique!");
+            }
+            else
+            {
+                Console.WriteLine($"FOUND {duplicatesFound} SETS OF DUPLICATE COORDINATES");
+            }
         }
 
         /// <summary>
@@ -103,10 +171,12 @@ namespace ETABS.ToETABS.Elements
             // Process Walls
             if (elements.Walls != null)
             {
+                Console.WriteLine($"Processing {elements.Walls.Count} walls");
                 foreach (var wall in elements.Walls)
                 {
                     if (wall.Points != null)
                     {
+                        Console.WriteLine($"Wall {wall.Id} has {wall.Points.Count} points");
                         foreach (var point in wall.Points)
                         {
                             if (point != null)
@@ -119,10 +189,12 @@ namespace ETABS.ToETABS.Elements
             // Process Floors
             if (elements.Floors != null)
             {
+                Console.WriteLine($"Processing {elements.Floors.Count} floors");
                 foreach (var floor in elements.Floors)
                 {
                     if (floor.Points != null)
                     {
+                        Console.WriteLine($"Floor {floor.Id} has {floor.Points.Count} points");
                         foreach (var point in floor.Points)
                         {
                             if (point != null)
@@ -135,53 +207,56 @@ namespace ETABS.ToETABS.Elements
             // Process Beams
             if (elements.Beams != null)
             {
+                Console.WriteLine($"Processing {elements.Beams.Count} beams");
                 foreach (var beam in elements.Beams)
                 {
                     if (beam.StartPoint != null)
+                    {
+                        Console.WriteLine($"Beam {beam.Id} StartPoint: ({beam.StartPoint.X:F2},{beam.StartPoint.Y:F2})");
                         GetOrCreatePointId(beam.StartPoint);
+                    }
                     if (beam.EndPoint != null)
+                    {
+                        Console.WriteLine($"Beam {beam.Id} EndPoint: ({beam.EndPoint.X:F2},{beam.EndPoint.Y:F2})");
                         GetOrCreatePointId(beam.EndPoint);
+                    }
                 }
             }
 
             // Process Columns
             if (elements.Columns != null)
             {
+                Console.WriteLine($"Processing {elements.Columns.Count} columns");
                 foreach (var column in elements.Columns)
                 {
                     if (column.StartPoint != null)
+                    {
+                        Console.WriteLine($"Column {column.Id} StartPoint: ({column.StartPoint.X:F2},{column.StartPoint.Y:F2})");
                         GetOrCreatePointId(column.StartPoint);
+                    }
                     if (column.EndPoint != null)
+                    {
+                        Console.WriteLine($"Column {column.Id} EndPoint: ({column.EndPoint.X:F2},{column.EndPoint.Y:F2})");
                         GetOrCreatePointId(column.EndPoint);
+                    }
                 }
             }
 
             // Process Braces
             if (elements.Braces != null)
             {
+                Console.WriteLine($"Processing {elements.Braces.Count} braces");
                 foreach (var brace in elements.Braces)
                 {
                     if (brace.StartPoint != null)
+                    {
+                        Console.WriteLine($"Brace {brace.Id} StartPoint: ({brace.StartPoint.X:F2},{brace.StartPoint.Y:F2})");
                         GetOrCreatePointId(brace.StartPoint);
-                    if (brace.EndPoint != null)
-                        GetOrCreatePointId(brace.EndPoint);
-                }
-            }
-
-            // Process Grids
-            if (layout?.Grids != null)
-            {
-                foreach (var grid in layout.Grids)
-                {
-                    if (grid.StartPoint != null)
-                    {
-                        var point = new Point2D(grid.StartPoint.X, grid.StartPoint.Y);
-                        GetOrCreatePointId(point);
                     }
-                    if (grid.EndPoint != null)
+                    if (brace.EndPoint != null)
                     {
-                        var point = new Point2D(grid.EndPoint.X, grid.EndPoint.Y);
-                        GetOrCreatePointId(point);
+                        Console.WriteLine($"Brace {brace.Id} EndPoint: ({brace.EndPoint.X:F2},{brace.EndPoint.Y:F2})");
+                        GetOrCreatePointId(brace.EndPoint);
                     }
                 }
             }
@@ -207,7 +282,7 @@ namespace ETABS.ToETABS.Elements
     public class Point2DComparer : IEqualityComparer<Point2D>
     {
         // Consistent tolerance value used across the application
-        private const double Tolerance = 1e-6;
+        private const double Tolerance = 0.25;
 
         // Singleton instance
         private static readonly Point2DComparer _instance = new Point2DComparer();
@@ -233,7 +308,13 @@ namespace ETABS.ToETABS.Elements
             if (x == null || y == null)
                 return false;
 
-            return Math.Abs(x.X - y.X) < Tolerance && Math.Abs(x.Y - y.Y) < Tolerance;
+            // Round to consistent precision before comparing
+            double x1 = Math.Round(x.X, 6);
+            double y1 = Math.Round(x.Y, 6);
+            double x2 = Math.Round(y.X, 6);
+            double y2 = Math.Round(y.Y, 6);
+
+            return Math.Abs(x1 - x2) < Tolerance && Math.Abs(y1 - y2) < Tolerance;
         }
 
         /// <summary>
@@ -259,7 +340,11 @@ namespace ETABS.ToETABS.Elements
             }
         }
 
-        // Creates a normalized coordinate key for a point.
+        /// <summary>
+        /// Creates a normalized coordinate key for a point.
+        /// </summary>
+        /// <param name="point">The point.</param>
+        /// <returns>A string representation of the point coordinates.</returns>
         public static string GetCoordinateKey(Point2D point)
         {
             if (point == null)
@@ -268,13 +353,17 @@ namespace ETABS.ToETABS.Elements
             return $"{Math.Round(point.X, 6)},{Math.Round(point.Y, 6)}";
         }
 
-        // Creates a normalized coordinate key for a line between two points.
+        /// <summary>
+        /// Creates a normalized coordinate key for a line between two points.
+        /// </summary>
+        /// <param name="start">The start point.</param>
+        /// <param name="end">The end point.</param>
+        /// <returns>A string representation of the line coordinates.</returns>
         public static string GetLineCoordinateKey(Point2D start, Point2D end)
         {
             if (start == null || end == null)
                 return string.Empty;
 
-            // Normalize the points to ensure consistent keys
             double x1 = Math.Round(start.X, 6);
             double y1 = Math.Round(start.Y, 6);
             double x2 = Math.Round(end.X, 6);

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using Core.Models.Elements;
 using Core.Models.Geometry;
@@ -54,7 +53,7 @@ namespace ETABS.ToETABS.Elements.Connectivity
                 if (brace.StartPoint == null || brace.EndPoint == null)
                     continue;
 
-                // Check if we already have a connectivity for these coordinates
+                // Generate a unique key for the brace's start and end coordinates
                 string coordinateKey = Point2DComparer.GetLineCoordinateKey(brace.StartPoint, brace.EndPoint);
 
                 if (_connectivityByCoordinates.TryGetValue(coordinateKey, out string existingBraceId))
@@ -64,8 +63,8 @@ namespace ETABS.ToETABS.Elements.Connectivity
                     continue;
                 }
 
-                // Create a new brace ID
-                string braceId = $"BR{braceCounter++}";
+                // Create a new brace ID with the prefix "D"
+                string braceId = $"D{braceCounter++}";
                 _braceIdMapping[brace.Id] = braceId;
 
                 // Get point IDs from the central point coordinator
@@ -73,8 +72,7 @@ namespace ETABS.ToETABS.Elements.Connectivity
                 string endPointId = _pointCoordinates.GetOrCreatePointId(brace.EndPoint);
 
                 // Format brace connectivity
-                // Format: LINE "BR1" BRACE "3" "4" 0
-                sb.AppendLine($"  LINE \"{braceId}\" BRACE \"{startPointId}\" \"{endPointId}\" 0");
+                sb.AppendLine($"  LINE \"{braceId}\" BRACE \"{startPointId}\" \"{endPointId}\" 1");
 
                 // Store this connectivity
                 _connectivityByCoordinates[coordinateKey] = braceId;

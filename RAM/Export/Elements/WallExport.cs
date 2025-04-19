@@ -52,7 +52,7 @@ namespace RAM.Export.Elements
                         continue;
 
                     // Find the corresponding level ID for this story
-                    string levelId = Helpers.FindLevelIdForStory(ramStory, _levelMappings);
+                    string levelId = ImportHelpers.FindLevelIdForStory(ramStory, _levelMappings);
                     if (string.IsNullOrEmpty(levelId))
                         continue;
 
@@ -89,7 +89,7 @@ namespace RAM.Export.Elements
                 };
 
                         // Find base and top level IDs
-                        string baseLevelId = Helpers.FindBaseLevelIdForStory(ramStory, _model, _levelMappings);
+                        string baseLevelId = ImportHelpers.FindBaseLevelIdForStory(ramStory, _model, _levelMappings);
                         string topLevelId = FindTopLevelIdForWall(ramWall, ramStory);
 
                         // Create wall from RAM data

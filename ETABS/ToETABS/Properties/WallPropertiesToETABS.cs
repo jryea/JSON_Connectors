@@ -2,7 +2,7 @@
 using System.Linq;
 using System.Text;
 using Core.Models.Properties;
-using Utils = Core.Utilities.Utilities;
+using Utils = Core.Utilities.ModelUtils;
 
 namespace ETABS.ToETABS.Properties
 {

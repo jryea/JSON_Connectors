@@ -7,7 +7,7 @@ using Core.Models.Properties;
 
 namespace Core.Utilities
 {
-    public static class Utilities
+    public static class ModelUtils
     {
         // Tolerance for point comparisons
         private const double PointTolerance = 1e-6;

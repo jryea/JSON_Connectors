@@ -27,70 +27,41 @@ namespace ETABS.ToETABS.Elements.Assignment
         }
 
         // Converts column assignments to E2K format
+        // Converts column assignments to E2K format
         public string ExportAssignments(Dictionary<string, string> idMapping)
         {
             StringBuilder sb = new StringBuilder();
 
-            if (_columns == null || _columns.Count == 0 || idMapping == null || idMapping.Count == 0 || _levels == null)
-                return sb.ToString();
-
-            // Group columns by their E2K IDs from the mapping
-            var columnGroups = _columns
-                .Where(c => idMapping.ContainsKey(c.Id))
-                .GroupBy(c => idMapping[c.Id])
-                .ToDictionary(g => g.Key, g => g.ToList());
-
-            // Sort levels by elevation (descending)
-            var sortedLevels = _levels.OrderByDescending(l => l.Elevation).ToList();
-
-            foreach (var group in columnGroups)
+            foreach (var column in _columns)
             {
-                string lineId = group.Key;
-                var columnsInGroup = group.Value;
+                if (!idMapping.TryGetValue(column.Id, out string e2kId))
+                    continue;
 
-                // Collect all level IDs referenced by any column in the group
-                HashSet<string> relevantLevelIds = new HashSet<string>();
-                foreach (var column in columnsInGroup)
-                {
-                    if (!string.IsNullOrEmpty(column.BaseLevelId))
-                        relevantLevelIds.Add(column.BaseLevelId);
-                    if (!string.IsNullOrEmpty(column.TopLevelId))
-                        relevantLevelIds.Add(column.TopLevelId);
-                }
+                // Find the top level
+                var topLevel = _levels.FirstOrDefault(l => l.Id == column.TopLevelId);
 
-                // Get frame properties from one of the columns
+                if (topLevel == null)
+                    continue;
+
+                // Find section from frame properties
                 string sectionName = "Unknown";
-                var firstColumn = columnsInGroup.FirstOrDefault();
-                if (firstColumn != null)
+                if (!string.IsNullOrEmpty(column.FramePropertiesId))
                 {
-                    var frameProps = _frameProperties?.FirstOrDefault(fp => fp.Id == firstColumn.FramePropertiesId);
-                    if (frameProps != null)
-                    {
-                        sectionName = frameProps.Name;
-                    }
+                    var properties = _frameProperties.FirstOrDefault(p => p.Id == column.FramePropertiesId);
+                    if (properties != null)
+                        sectionName = properties.Name;
                 }
 
-                // For each relevant level
-                foreach (var levelId in relevantLevelIds)
-                {
-                    var level = sortedLevels.FirstOrDefault(l => l.Id == levelId);
-                    if (level == null)
-                        continue;
+                // Replace Unicode representation of double quote (\u0022) with "inch" in the section name
+                sectionName = sectionName.Replace("\u0022", "inch");
 
-                    // Format story name
-                    string storyName = level.Name.ToLower() == "base" ? "Base" : $"Story{level.Name}";
+                // Create an assignment for the top story only
+                string storyName = $"Story{topLevel.Name}";
 
-                    // Create line assignment
-                    sb.AppendLine(FormatColumnAssign(
-                        lineId,
-                        storyName,
-                        sectionName,
-                        "FIXED", // Default release
-                        3, // Default min num stations
-                        "YES", // Default auto mesh
-                        "YES"  // Default mesh at intersections
-                    ));
-                }
+                // Format: LINEASSIGN "C1" "Story1" SECTION "W12X26" MINNUMSTA 3 AUTOMESH "YES" MESHATINTERSECTIONS "YES"
+                sb.AppendLine($"  LINEASSIGN \"{e2kId}\" \"{storyName}\" SECTION \"{sectionName}\" MINNUMSTA 3 AUTOMESH \"YES\" MESHATINTERSECTIONS \"YES\"");
+
+                Console.WriteLine($"Created column assignment for {e2kId} at top story {storyName} with section {sectionName}");
             }
 
             return sb.ToString();

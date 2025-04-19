@@ -38,9 +38,7 @@ namespace ETABS.ToETABS
         // Add an injector instance
         private readonly E2KInjector _injector = new E2KInjector();
 
-        /// <summary>
-        /// Initializes a new instance of the ModelToETABS class
-        /// </summary>
+        // Initializes a new instance of the ModelToETABS class
         public ModelToETABS()
         {
             _controlsToETABS = new ControlsToETABS();
@@ -58,11 +56,7 @@ namespace ETABS.ToETABS
             _pointCoordinatesToETABS = new PointCoordinatesToETABS();
         }
 
-        /// <summary>
-        /// Converts a building structure model to ETABS E2K format
-        /// </summary>
-        /// <param name="model">The building model to convert</param>
-        /// <returns>E2K format text</returns>
+        // Converts a building structure model to ETABS E2K format
         public string ExportToE2K(BaseModel model)
         {
             try
@@ -85,7 +79,7 @@ namespace ETABS.ToETABS
                     sb.AppendLine();
                 }
 
-                // Convert grids
+                //Convert grids
                 if (model.ModelLayout.Grids.Count > 0)
                 {
                     string gridSection = _gridsToETABS.ConvertToE2K(model.ModelLayout.Grids);
@@ -163,16 +157,16 @@ namespace ETABS.ToETABS
                 sb.AppendLine();
 
                 // Create the area elements converter with the point coordinates instance
-                //var areaElementsToETABS = new AreaElementsToETABS(_pointCoordinatesToETABS);
+                var areaElementsToETABS = new AreaElementsToETABS(_pointCoordinatesToETABS);
 
                 // Convert area elements (both connectivities and assignments)
-                //string areaElementsSection = areaElementsToETABS.ConvertToE2K(
-                //    model.Elements,
-                //    model.ModelLayout.Levels,
-                //    model.Properties.WallProperties,
-                //    model.Properties.FloorProperties);
-                //sb.AppendLine(areaElementsSection);
-                //sb.AppendLine();
+                string areaElementsSection = areaElementsToETABS.ConvertToE2K(
+                    model.Elements,
+                    model.ModelLayout.Levels,
+                    model.Properties.WallProperties,
+                    model.Properties.FloorProperties);
+                sb.AppendLine(areaElementsSection);
+                sb.AppendLine();
 
                 //Convert shell uniform load sets
                 if (model.Loads.SurfaceLoads.Count > 0)

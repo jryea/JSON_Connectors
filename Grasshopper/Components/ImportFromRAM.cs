@@ -58,7 +58,7 @@ namespace Grasshopper.Components
 
             try
             {
-                var converter = new RAMToJSONConverter();
+                var converter = new RAMExporter();
                 (string JsonOutput, string Message, bool Success) result = converter.ConvertRAMToJSON(ramFilePath);
 
                 // Save JSON to file if path provided

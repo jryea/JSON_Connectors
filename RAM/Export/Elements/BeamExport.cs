@@ -52,7 +52,7 @@ namespace RAM.Export.Elements
                         continue;
 
                     // Find the corresponding level ID for this story
-                    string levelId = Helpers.FindLevelIdForStory(ramStory, _levelMappings);
+                    string levelId = ImportHelpers.FindLevelIdForStory(ramStory, _levelMappings);
                     if (string.IsNullOrEmpty(levelId))
                         continue;
 
@@ -86,7 +86,7 @@ namespace RAM.Export.Elements
                                 ConvertFromInches(pt2.dYLoc)
                             ),
                             LevelId = levelId,
-                            FramePropertiesId = Helpers.FindFramePropertiesId(ramBeam.strSectionLabel, _framePropMappings),
+                            FramePropertiesId = ImportHelpers.FindFramePropertiesId(ramBeam.strSectionLabel, _framePropMappings),
                             IsLateral = (ramBeam.eFramingType == EFRAMETYPE.MemberIsLateral), // Assuming 1 means lateral
                             IsJoist = (ramBeam.eMaterial == EMATERIALTYPES.ESteelJoistMat)
                         };

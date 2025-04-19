@@ -5,6 +5,7 @@ using System.Linq;
 using Core.Models.Elements;
 using Core.Models.ModelLayout;
 using Core.Models.Properties;
+using Core.Utilities;
 using RAM.Utilities;
 using RAMDATAACCESSLib;
 
@@ -22,8 +23,9 @@ namespace RAM.Import.Elements
         }
 
         public int Import(IEnumerable<Column> columns, IEnumerable<Level> levels,
-                         IEnumerable<FrameProperties> frameProperties,
-                         IEnumerable<Material> materials)
+                          IEnumerable<FrameProperties> frameProperties,
+                          IEnumerable<Material> materials,
+                          Dictionary<string, string> levelToFloorTypeMapping)
         {
             try
             {
@@ -35,109 +37,74 @@ namespace RAM.Import.Elements
                 if (ramFloorTypes.GetCount() == 0)
                     return 0;
 
-                // Create a map of level IDs to Level objects
-                Dictionary<string, Level> levelById = levels.ToDictionary(l => l.Id);
-
-                // Sort levels by elevation
-                var sortedLevels = levels.OrderBy(l => l.Elevation).ToList();
-
-                // Map floor types to their "master" level (first level with that floor type)
-                Dictionary<string, Level> masterLevelByFloorTypeId = new Dictionary<string, Level>();
-
-                // Find the first (lowest) level for each floor type - this will be the "master" level
-                foreach (var level in sortedLevels)
-                {
-                    if (!string.IsNullOrEmpty(level.FloorTypeId) && !masterLevelByFloorTypeId.ContainsKey(level.FloorTypeId))
-                    {
-                        masterLevelByFloorTypeId[level.FloorTypeId] = level;
-                        Console.WriteLine($"Floor type {level.FloorTypeId} has master level {level.Name} at elevation {level.Elevation}");
-                    }
-                }
-
                 // Map Core floor types to RAM floor types
                 Dictionary<string, IFloorType> ramFloorTypeByFloorTypeId = new Dictionary<string, IFloorType>();
 
                 // Assign RAM floor types to Core floor types
-                for (int i = 0; i < ramFloorTypes.GetCount() && i < masterLevelByFloorTypeId.Count; i++)
+                for (int i = 0; i < ramFloorTypes.GetCount(); i++)
                 {
                     IFloorType ramFloorType = ramFloorTypes.GetAt(i);
-                    string coreFloorTypeId = masterLevelByFloorTypeId.Keys.ElementAt(i);
-                    ramFloorTypeByFloorTypeId[coreFloorTypeId] = ramFloorType;
-                    Console.WriteLine($"Mapped Core floor type {coreFloorTypeId} to RAM floor type {ramFloorType.strLabel}");
+                    string coreFloorTypeId = levelToFloorTypeMapping.Values.ElementAtOrDefault(i);
+                    if (!string.IsNullOrEmpty(coreFloorTypeId))
+                    {
+                        ramFloorTypeByFloorTypeId[coreFloorTypeId] = ramFloorType;
+                        Console.WriteLine($"Mapped Core floor type {coreFloorTypeId} to RAM floor type {ramFloorType.strLabel}");
+                    }
                 }
 
-                // Track processed columns to avoid duplicates
-                HashSet<string> processedColumns = new HashSet<string>();
+                // Track processed columns per floor type to avoid duplicates
+                Dictionary<string, HashSet<string>> processedColumnsByFloorType = new Dictionary<string, HashSet<string>>();
 
-                // Process columns
+                // Import columns
                 int count = 0;
                 foreach (var column in columns)
                 {
-                    if (column.StartPoint == null || column.EndPoint == null)
+                    if (column.StartPoint == null || string.IsNullOrEmpty(column.TopLevelId))
                         continue;
 
-                    // Get the TOP level for this column (similar to beam's level)
-                    Level topLevel = null;
-                    if (!string.IsNullOrEmpty(column.TopLevelId) && levelById.TryGetValue(column.TopLevelId, out topLevel))
+                    // Get the floor type ID for the column's base level
+                    if (!levelToFloorTypeMapping.TryGetValue(column.TopLevelId, out string floorTypeId) ||
+                        string.IsNullOrEmpty(floorTypeId))
                     {
-                        // Great, we have the top level
-                    }
-                    else
-                    {
-                        // If no top level specified, try the highest level
-                        topLevel = sortedLevels.LastOrDefault();
-                        if (topLevel == null)
-                        {
-                            Console.WriteLine($"Skipping column {column.Id}: No levels found");
-                            continue;
-                        }
-                    }
-
-                    // Get the floor type ID for the top level
-                    string floorTypeId = topLevel.FloorTypeId;
-                    if (string.IsNullOrEmpty(floorTypeId))
-                    {
-                        Console.WriteLine($"Skipping column {column.Id}: Top level has no floor type");
+                        Console.WriteLine($"No floor type mapping found for base level {column.TopLevelId}");
                         continue;
                     }
 
-                    // Check if this is the master level for this floor type
-                    if (!masterLevelByFloorTypeId.TryGetValue(floorTypeId, out Level masterLevel))
-                    {
-                        Console.WriteLine($"Skipping column {column.Id}: No master level found for floor type {floorTypeId}");
-                        continue;
-                    }
-
-                    // Get the RAM floor type
+                    // Get RAM floor type for this floor type
                     if (!ramFloorTypeByFloorTypeId.TryGetValue(floorTypeId, out IFloorType ramFloorType))
                     {
-                        Console.WriteLine($"Skipping column {column.Id}: No RAM floor type found for floor type {floorTypeId}");
+                        Console.WriteLine($"No RAM floor type found for floor type {floorTypeId}");
                         continue;
                     }
-
-                    // Get material type
-                    EMATERIALTYPES columnMaterial = Helpers.GetRAMMaterialType(
-                        column.FramePropertiesId,
-                        frameProperties,
-                        materials,
-                        false);
 
                     // Convert coordinates
-                    double x = Helpers.ConvertToInches(column.StartPoint.X, _lengthUnit);
-                    double y = Helpers.ConvertToInches(column.StartPoint.Y, _lengthUnit);
+                    double x = UnitConversionUtils.ConvertToInches(column.StartPoint.X, _lengthUnit);
+                    double y = UnitConversionUtils.ConvertToInches(column.StartPoint.Y, _lengthUnit);
 
                     // Create a unique key for this column
-                    string columnKey = $"{x:F2}_{y:F2}_{columnMaterial}_{floorTypeId}";
+                    string columnKey = $"{x:F2}_{y:F2}_{floorTypeId}";
 
-                    // Skip if we've already processed this column on this floor type
+                    // Check if this column already exists in this floor type
+                    if (!processedColumnsByFloorType.TryGetValue(floorTypeId, out var processedColumns))
+                    {
+                        processedColumns = new HashSet<string>();
+                        processedColumnsByFloorType[floorTypeId] = processedColumns;
+                    }
+
                     if (processedColumns.Contains(columnKey))
                     {
-                        Console.WriteLine($"Skipping duplicate column in floor type {ramFloorType.strLabel}");
+                        Console.WriteLine($"Skipping duplicate column on floor type {floorTypeId}");
                         continue;
                     }
 
-                    // Add to processed set
+                    // Add the column to the processed set
                     processedColumns.Add(columnKey);
+
+                    // Get material type
+                    EMATERIALTYPES columnMaterial = ImportHelpers.GetRAMMaterialType(
+                        column.FramePropertiesId,
+                        frameProperties,
+                        materials);
 
                     try
                     {
@@ -148,7 +115,7 @@ namespace RAM.Import.Elements
                             if (ramColumn != null)
                             {
                                 count++;
-                                Console.WriteLine($"Added column to floor type {ramFloorType.strLabel} (master level: {masterLevel.Name})");
+                                Console.WriteLine($"Added column to floor type {ramFloorType.strLabel}");
                             }
                         }
                     }

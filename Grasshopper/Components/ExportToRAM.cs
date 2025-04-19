@@ -61,7 +61,7 @@ namespace Grasshopper.Components
 
             try
             {
-                var converter = new JSONToRAMConverter();
+                var converter = new RAMImporter();
 
                 // Determine if the input is a file path or direct JSON content
                 bool isFilePath = File.Exists(jsonInput) && jsonInput.EndsWith(".json", StringComparison.OrdinalIgnoreCase);

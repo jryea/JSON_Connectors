@@ -83,7 +83,7 @@ namespace RAM.Export.Elements
                             continue;
 
                         // Find the corresponding level ID for this story
-                        levelId = Helpers.FindLevelIdForStory(ramStory, _levelMappings);
+                        levelId = ImportHelpers.FindLevelIdForStory(ramStory, _levelMappings);
                         if (string.IsNullOrEmpty(levelId))
                             continue;
 

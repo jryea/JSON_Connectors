@@ -8,9 +8,6 @@ using Core.Utilities;
 
 namespace ETABS.ToETABS.Elements.Connectivity
 {
-    /// <summary>
-    /// Converts column connectivity information to ETABS E2K format
-    /// </summary>
     public class ColumnConnectivityToETABS : IConnectivityToETABS
     {
         private readonly PointCoordinatesToETABS _pointCoordinates;
@@ -19,28 +16,16 @@ namespace ETABS.ToETABS.Elements.Connectivity
 
         private List<Column> _columns;
 
-        /// <summary>
-        /// Constructor
-        /// </summary>
-        /// <param name="pointCoordinates">The point coordinates manager instance</param>
         public ColumnConnectivityToETABS(PointCoordinatesToETABS pointCoordinates)
         {
             _pointCoordinates = pointCoordinates ?? throw new ArgumentNullException(nameof(pointCoordinates));
         }
 
-        /// <summary>
-        /// Sets the columns to convert
-        /// </summary>
-        /// <param name="columns">Collection of columns</param>
         public void SetColumns(List<Column> columns)
         {
             _columns = columns;
         }
 
-        /// <summary>
-        /// Converts column connectivities to E2K format
-        /// </summary>
-        /// <returns>E2K formatted column connectivities</returns>
         public string ExportConnectivities()
         {
             StringBuilder sb = new StringBuilder();
@@ -49,54 +34,44 @@ namespace ETABS.ToETABS.Elements.Connectivity
             if (_columns == null || _columns.Count == 0)
                 return sb.ToString();
 
-            // Group columns by their start point coordinates
-            var columnGroups = new Dictionary<string, List<Column>>();
+            // Key is normalized coordinate string, value is the LINE ID
+            var uniqueColumnLocations = new Dictionary<string, string>();
 
             foreach (var column in _columns)
             {
                 if (column.StartPoint == null)
                     continue;
 
-                string coordinateKey = Point2DComparer.GetCoordinateKey(column.StartPoint);
+                // Normalize the coordinates
+                double x = Math.Round(column.StartPoint.X * 4) / 4;
+                double y = Math.Round(column.StartPoint.Y * 4) / 4;
 
-                if (!columnGroups.ContainsKey(coordinateKey))
-                    columnGroups[coordinateKey] = new List<Column>();
+                // Create a location key for this column's position
+                string locationKey = $"{x:F2},{y:F2}";
 
-                columnGroups[coordinateKey].Add(column);
-            }
-
-            foreach (var group in columnGroups)
-            {
-                // Take the first column from the group
-                var column = group.Value[0];
-
-                // Create a column ID
-                string columnId = $"C{columnCounter++}";
-
-                // Get the point ID from the central point coordinator
-                string pointId = _pointCoordinates.GetOrCreatePointId(column.StartPoint);
-
-                // Create line connectivity with the same point ID for both ends
-                // Format: LINE "C1" COLUMN "9" "9" 1
-                sb.AppendLine($"  LINE \"{columnId}\" COLUMN \"{pointId}\" \"{pointId}\" 1");
-
-                // Store the mapping from all columns in this group to the ID
-                foreach (var col in group.Value)
+                // Check if we already have a column at this location
+                if (uniqueColumnLocations.TryGetValue(locationKey, out string existingColumnId))
                 {
-                    _columnIdMapping[col.Id] = columnId;
+                    // Reuse existing connectivity
+                    _columnIdMapping[column.Id] = existingColumnId;
+                    continue;
                 }
 
-                // Store this connectivity
-                _connectivityByCoordinates[group.Key] = columnId;
+                // New location - create a column connectivity
+                string columnId = $"C{columnCounter++}";
+                _columnIdMapping[column.Id] = columnId;
+                uniqueColumnLocations[locationKey] = columnId;
+
+                // Get point ID from the coordinates manager
+                string pointId = _pointCoordinates.GetOrCreatePointId(column.StartPoint);
+
+                // Create vertical LINE with same point ID for start and end
+                sb.AppendLine($"  LINE \"{columnId}\" COLUMN \"{pointId}\" \"{pointId}\" 1");
             }
 
             return sb.ToString();
         }
 
-        /// <summary>
-        /// Gets the mapping from source column IDs to E2K column IDs
-        /// </summary>
-        /// <returns>Dictionary mapping source IDs to E2K IDs</returns>
         public Dictionary<string, string> GetIdMapping()
         {
             return _columnIdMapping;

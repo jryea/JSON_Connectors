@@ -52,11 +52,17 @@ namespace ETABS.ToETABS.Properties
             // Check for null or empty name
             if (string.IsNullOrEmpty(floorProp.Name))
             {
-                floorProp.Name = $"{floorProp.Thickness} in slab";
+                floorProp.Name = $"{floorProp.Thickness} inch slab";
             }
+
+            // Replace Unicode representation of double quote (\u0022) with "inch" in the floor property name
+            floorProp.Name = floorProp.Name.Replace("\u0022", " inch");
 
             // Get Material
             string materialName = _materials.FirstOrDefault(m => m.Id == floorProp.MaterialId)?.Name ?? "4000 psi";
+
+            // Replace Unicode representation of double quote (\u0022) with "inch" in the material name
+            materialName = materialName.Replace("\u0022", " inch");
 
             // Determine modeling type (default to ShellThin)
             string modelingType = "ShellThin";

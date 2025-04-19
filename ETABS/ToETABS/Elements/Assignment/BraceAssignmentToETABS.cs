@@ -8,14 +8,18 @@ using Core.Models.Properties;
 
 namespace ETABS.ToETABS.Elements.Assignment
 {
-    // Converts brace assignment information to ETABS E2K format
+    /// <summary>
+    /// Converts brace assignment information to ETABS E2K format
+    /// </summary>
     public class BraceAssignmentToETABS : IAssignmentToETABS
     {
         private List<Brace> _braces;
         private IEnumerable<Level> _levels;
         private IEnumerable<FrameProperties> _frameProperties;
 
-        // Sets the data needed for converting brace assignments
+        /// <summary>
+        /// Sets the data needed for converting brace assignments
+        /// </summary>
         public void SetData(
             List<Brace> braces,
             IEnumerable<Level> levels,
@@ -26,7 +30,9 @@ namespace ETABS.ToETABS.Elements.Assignment
             _frameProperties = frameProperties;
         }
 
-        // Converts brace assignments to E2K format
+        /// <summary>
+        /// Converts brace assignments to E2K format
+        /// </summary>
         public string ExportAssignments(Dictionary<string, string> idMapping)
         {
             StringBuilder sb = new StringBuilder();
@@ -48,13 +54,8 @@ namespace ETABS.ToETABS.Elements.Assignment
                     sectionName = frameProps.Name;
                 }
 
-                // Find the level for this brace (use top level)
+                // Find the top level for this brace
                 var level = _levels?.FirstOrDefault(l => l.Id == brace.TopLevelId);
-                if (level == null)
-                {
-                    // Try base level if top level isn't found
-                    level = _levels?.FirstOrDefault(l => l.Id == brace.BaseLevelId);
-                }
 
                 string storyName = "Story1"; // Default
                 if (level != null)
@@ -70,7 +71,9 @@ namespace ETABS.ToETABS.Elements.Assignment
             return sb.ToString();
         }
 
-        // Formats a brace assignment line for E2K format
+        /// <summary>
+        /// Formats a brace assignment line for E2K format
+        /// </summary>
         private string FormatBraceAssign(
             string lineId,
             string story,

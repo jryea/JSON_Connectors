@@ -14,12 +14,12 @@ namespace ETABS.ToETABS.Elements
     public class LineElementsToETABS
     {
         private readonly BeamConnectivityToETABS _beamConnectivityToETABS;
-        //private readonly ColumnConnectivityToETABS _columnConnectivityToETABS;
-        //private readonly BraceConnectivityToETABS _braceConnectivityToETABS;
+        private readonly ColumnConnectivityToETABS _columnConnectivityToETABS;
+        private readonly BraceConnectivityToETABS _braceConnectivityToETABS;
 
         private readonly BeamAssignmentToETABS _beamAssignmentToETABS;
-        //private readonly ColumnAssignmentToETABS _columnAssignmentToETABS;
-        //private readonly BraceAssignmentToETABS _braceAssignmentToETABS;
+        private readonly ColumnAssignmentToETABS _columnAssignmentToETABS;
+        private readonly BraceAssignmentToETABS _braceAssignmentToETABS;
 
         // Constructor that takes a PointCoordinatesToETABS instance
         public LineElementsToETABS(PointCoordinatesToETABS pointCoordinates)
@@ -29,12 +29,12 @@ namespace ETABS.ToETABS.Elements
 
             // Initialize specialized converters with the point coordinates instance
             _beamConnectivityToETABS = new BeamConnectivityToETABS(pointCoordinates);
-            //_columnConnectivityToETABS = new ColumnConnectivityToETABS(pointCoordinates);
-            //_braceConnectivityToETABS = new BraceConnectivityToETABS(pointCoordinates);
+            _columnConnectivityToETABS = new ColumnConnectivityToETABS(pointCoordinates);
+            _braceConnectivityToETABS = new BraceConnectivityToETABS(pointCoordinates);
 
             _beamAssignmentToETABS = new BeamAssignmentToETABS();
-            //_columnAssignmentToETABS = new ColumnAssignmentToETABS();
-            //_braceAssignmentToETABS = new BraceAssignmentToETABS();
+            _columnAssignmentToETABS = new ColumnAssignmentToETABS();
+            _braceAssignmentToETABS = new BraceAssignmentToETABS();
         }
 
         // Converts line elements (beams, columns, braces) to ETABS E2K format
@@ -47,28 +47,28 @@ namespace ETABS.ToETABS.Elements
 
             // Set data for connectivity converters
             _beamConnectivityToETABS.SetBeams(elements.Beams);
-            //_columnConnectivityToETABS.SetColumns(elements.Columns);
-            //_braceConnectivityToETABS.SetBraces(elements.Braces);
+            _columnConnectivityToETABS.SetColumns(elements.Columns);
+            _braceConnectivityToETABS.SetBraces(elements.Braces);
 
             // Set data for assignment converters
             _beamAssignmentToETABS.SetData(elements.Beams, levels, frameProperties);
-            //_columnAssignmentToETABS.SetData(elements.Columns, levels, frameProperties);
-            //_braceAssignmentToETABS.SetData(elements.Braces, levels, frameProperties);
+            _columnAssignmentToETABS.SetData(elements.Columns, levels, frameProperties);
+            _braceAssignmentToETABS.SetData(elements.Braces, levels, frameProperties);
 
             // Process all line connectivities
             sb.AppendLine("$ LINE CONNECTIVITIES");
 
             // Process column connectivities first (since they're often referenced by beams/braces)
-            //string columnConnectivities = _columnConnectivityToETABS.ExportConnectivities();
-            //sb.AppendLine(columnConnectivities);
+            string columnConnectivities = _columnConnectivityToETABS.ExportConnectivities();
+            sb.AppendLine(columnConnectivities);
 
             // Process beam connectivities
             string beamConnectivities = _beamConnectivityToETABS.ExportConnectivities();
             sb.AppendLine(beamConnectivities);
 
             // Process brace connectivities
-            //string braceConnectivities = _braceConnectivityToETABS.ExportConnectivities();
-            //sb.AppendLine(braceConnectivities);
+            string braceConnectivities = _braceConnectivityToETABS.ExportConnectivities();
+            sb.AppendLine(braceConnectivities);
 
             sb.AppendLine();
 
@@ -76,21 +76,21 @@ namespace ETABS.ToETABS.Elements
             sb.AppendLine("$ LINE ASSIGNS");
 
             // Get ID mappings from connectivity converters
-            //var columnIdMapping = _columnConnectivityToETABS.GetIdMapping();
+            var columnIdMapping = _columnConnectivityToETABS.GetIdMapping();
             var beamIdMapping = _beamConnectivityToETABS.GetIdMapping();
-            //var braceIdMapping = _braceConnectivityToETABS.GetIdMapping();
+            var braceIdMapping = _braceConnectivityToETABS.GetIdMapping();
 
             // Process column assignments
-            //string columnAssignments = _columnAssignmentToETABS.ExportAssignments(columnIdMapping);
-            //sb.AppendLine(columnAssignments);
+            string columnAssignments = _columnAssignmentToETABS.ExportAssignments(columnIdMapping);
+            sb.AppendLine(columnAssignments);
 
             // Process beam assignments
             string beamAssignments = _beamAssignmentToETABS.ExportAssignments(beamIdMapping);
             sb.AppendLine(beamAssignments);
 
             // Process brace assignments
-            //string braceAssignments = _braceAssignmentToETABS.ExportAssignments(braceIdMapping);
-            //sb.AppendLine(braceAssignments);
+            string braceAssignments = _braceAssignmentToETABS.ExportAssignments(braceIdMapping);
+            sb.AppendLine(braceAssignments);
 
             return sb.ToString();
         }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using Core.Models.Elements;
 using Core.Models.ModelLayout;
@@ -31,39 +32,29 @@ namespace ETABS.ToETABS.Elements
         /// <param name="wallProperties">The collection of wall properties</param>
         /// <param name="floorProperties">The collection of floor properties</param>
         /// <returns>E2K formatted area elements</returns>
+        /// <summary>
+        /// Converts area elements to E2K format
+        /// </summary>
+        /// <param name="elements">The structural elements to convert</param>
+        /// <param name="levels">The collection of levels</param>
+        /// <param name="wallProperties">The collection of wall properties</param>
+        /// <param name="floorProperties">The collection of floor properties</param>
+        /// <returns>E2K formatted area elements</returns>
         public string ConvertToE2K(
-            ElementContainer elements,
-            IEnumerable<Level> levels,
-            IEnumerable<WallProperties> wallProperties,
-            IEnumerable<FloorProperties> floorProperties)
+    ElementContainer elements,
+    IEnumerable<Level> levels,
+    IEnumerable<WallProperties> wallProperties,
+    IEnumerable<FloorProperties> floorProperties)
         {
             StringBuilder sb = new StringBuilder();
 
             // Process area connectivities
             sb.AppendLine("$ AREA CONNECTIVITIES");
 
-            // Process walls
-            if (elements.Walls != null && elements.Walls.Count > 0)
-            {
-                foreach (var wall in elements.Walls)
-                {
-                    if (wall.Points == null || wall.Points.Count < 3)
-                        continue;
+            // Dictionary to ensure unique floor connectivities in the XY plane
+            Dictionary<string, string> uniqueFloorConnectivities = new Dictionary<string, string>();
+            int floorCounter = 1; // Start floor naming with F1
 
-                    // Get point IDs for all wall vertices
-                    List<string> pointIds = new List<string>();
-                    foreach (var point in wall.Points)
-                    {
-                        string pointId = _pointCoordinates.GetOrCreatePointId(point);
-                        pointIds.Add(pointId);
-                    }
-
-                    // Format wall connectivity
-                    sb.AppendLine(FormatAreaConnectivity($"W{wall.Id}", "WALL", pointIds));
-                }
-            }
-
-            // Process floors
             if (elements.Floors != null && elements.Floors.Count > 0)
             {
                 foreach (var floor in elements.Floors)
@@ -71,16 +62,24 @@ namespace ETABS.ToETABS.Elements
                     if (floor.Points == null || floor.Points.Count < 3)
                         continue;
 
-                    // Get point IDs for all floor vertices
-                    List<string> pointIds = new List<string>();
-                    foreach (var point in floor.Points)
-                    {
-                        string pointId = _pointCoordinates.GetOrCreatePointId(point);
-                        pointIds.Add(pointId);
-                    }
+                    // Generate a unique key for the floor based on its point IDs
+                    string connectivityKey = string.Join("_", floor.Points.Select(p => $"{p.X:F3}_{p.Y:F3}"));
 
-                    // Format floor connectivity
-                    sb.AppendLine(FormatAreaConnectivity($"F{floor.Id}", "FLOOR", pointIds));
+                    if (!uniqueFloorConnectivities.ContainsKey(connectivityKey))
+                    {
+                        // Get point IDs for all floor vertices
+                        List<string> pointIds = new List<string>();
+                        foreach (var point in floor.Points)
+                        {
+                            string pointId = _pointCoordinates.GetOrCreatePointId(point);
+                            pointIds.Add(pointId);
+                        }
+
+                        // Format floor connectivity
+                        sb.AppendLine(FormatFloorConnectivity($"F{floorCounter}", pointIds));
+                        uniqueFloorConnectivities[connectivityKey] = $"F{floorCounter}";
+                        floorCounter++;
+                    }
                 }
             }
 
@@ -89,33 +88,16 @@ namespace ETABS.ToETABS.Elements
             // Process area assignments
             sb.AppendLine("$ AREA ASSIGNS");
 
-            // Process wall assignments
-            if (elements.Walls != null && elements.Walls.Count > 0)
-            {
-                foreach (var wall in elements.Walls)
-                {
-                    if (wall.Points == null || wall.Points.Count < 3)
-                        continue;
-
-                    // Find levels
-                    string baseStory = GetStoryName(wall.BaseLevelId, levels);
-                    string topStory = GetStoryName(wall.TopLevelId, levels);
-
-                    // Find wall properties
-                    string propertyName = GetWallPropertyName(wall.PropertiesId, wallProperties);
-
-                    // Format wall assignment
-                    sb.AppendLine(FormatWallAssignment($"W{wall.Id}", baseStory, topStory, propertyName));
-                }
-            }
-
-            // Process floor assignments
             if (elements.Floors != null && elements.Floors.Count > 0)
             {
                 foreach (var floor in elements.Floors)
                 {
                     if (floor.Points == null || floor.Points.Count < 3)
                         continue;
+
+                    // Generate the same unique key for the floor
+                    string connectivityKey = string.Join("_", floor.Points.Select(p => $"{p.X:F3}_{p.Y:F3}"));
+                    string areaId = uniqueFloorConnectivities[connectivityKey];
 
                     // Find level
                     string story = GetStoryName(floor.LevelId, levels);
@@ -124,22 +106,28 @@ namespace ETABS.ToETABS.Elements
                     string propertyName = GetFloorPropertyName(floor.FloorPropertiesId, floorProperties);
 
                     // Find diaphragm assignment
-                    string diaphragm = string.IsNullOrEmpty(floor.DiaphragmId) ? "NONE" : floor.DiaphragmId;
+                    string diaphragm = string.IsNullOrEmpty(floor.DiaphragmId) ? "D1" : floor.DiaphragmId;
 
                     // Format floor assignment
-                    sb.AppendLine(FormatFloorAssignment($"F{floor.Id}", story, propertyName, diaphragm));
+                    sb.AppendLine(FormatFloorAssignment(areaId, story, propertyName, diaphragm));
                 }
             }
 
             return sb.ToString();
         }
 
-        /// <summary>
-        /// Gets the story name for a level ID
-        /// </summary>
-        /// <param name="levelId">The level ID</param>
-        /// <param name="levels">The collection of levels</param>
-        /// <returns>The story name for ETABS</returns>
+        private string FormatFloorConnectivity(string areaId, List<string> pointIds)
+        {
+            // Format: AREA "F1" FLOOR 4 "1" "2" "3" "4" 0 0 0 0
+            return $"  AREA \"{areaId}\" FLOOR {pointIds.Count} {string.Join(" ", pointIds.ConvertAll(id => $"\"{id}\""))} 0 0 0 0";
+        }
+
+        private string FormatFloorAssignment(string areaId, string story, string propertyName, string diaphragm)
+        {
+            // Format: AREAASSIGN "F1" "Story2" SECTION "8 inch Concrete" DIAPHRAGM "D1" AUTOMESH "YES"
+            return $"  AREAASSIGN \"{areaId}\" \"{story}\" SECTION \"{propertyName}\" DIAPHRAGM \"{diaphragm}\" AUTOMESH \"YES\"";
+        }
+
         private string GetStoryName(string levelId, IEnumerable<Level> levels)
         {
             if (string.IsNullOrEmpty(levelId) || levels == null)
@@ -232,10 +220,6 @@ namespace ETABS.ToETABS.Elements
         /// <param name="propertyName">The floor property name</param>
         /// <param name="diaphragm">The diaphragm assignment</param>
         /// <returns>The formatted E2K line</returns>
-        private string FormatFloorAssignment(string areaId, string story, string propertyName, string diaphragm)
-        {
-            // Format: AREAASSIGN "F1" "Story2" SECTION "Slab1" DIAPHRAGM "RIGID" AUTOMESH "YES"
-            return $"  AREAASSIGN \"{areaId}\" \"{story}\" SECTION \"{propertyName}\" DIAPHRAGM \"{diaphragm}\" AUTOMESH \"YES\"";
-        }
+       
     }
 }

@@ -18,7 +18,7 @@ using RAMDATAACCESSLib;
 
 namespace RAM
 {
-    public class RAMToJSONConverter
+    public class RAMExporter
     {
         // Main method to convert RAM model to JSON
         public (string JsonOutput, string Message, bool Success) ConvertRAMToJSON(string ramFilePath)

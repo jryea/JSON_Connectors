@@ -52,7 +52,7 @@ namespace RAM.Export.Elements
                         continue;
 
                     // Find the corresponding level ID for this story
-                    string levelId = Helpers.FindLevelIdForStory(ramStory, _levelMappings);
+                    string levelId = ImportHelpers.FindLevelIdForStory(ramStory, _levelMappings);
                     if (string.IsNullOrEmpty(levelId))
                         continue;
 
@@ -74,7 +74,7 @@ namespace RAM.Export.Elements
                         ramColumn.GetEndCoordinates(ref pt1, ref pt2);
 
                         // Find the level below for the base level ID
-                        string baseLevelId = Helpers.FindBaseLevelIdForStory(ramStory, _model, _levelMappings);
+                        string baseLevelId = ImportHelpers.FindBaseLevelIdForStory(ramStory, _model, _levelMappings);
 
                         // Create column from RAM data
                         Column column = new Column

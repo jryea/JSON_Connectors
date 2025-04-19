@@ -1,14 +1,12 @@
-﻿// FloorTypeImporter.cs
+﻿// FloorTypeImport.cs
 using System;
 using System.Collections.Generic;
 using Core.Models.ModelLayout;
-using Core.Utilities;
 using RAM.Utilities;
 using RAMDATAACCESSLib;
 
 namespace RAM.Import.ModelLayout
 {
-    // Imports floor types to RAM from the Core model
     public class FloorTypeImport
     {
         private IModel _model;
@@ -18,15 +16,17 @@ namespace RAM.Import.ModelLayout
             _model = model;
         }
 
-        // Imports floor types to RAM
-        public int Import(IEnumerable<FloorType> floorTypes)
+        public int Import(IEnumerable<FloorType> floorTypes, IEnumerable<Level> levels)
         {
             try
             {
                 int count = 0;
                 IFloorTypes ramFloorTypes = _model.GetFloorTypes();
 
-                foreach (var floorType in floorTypes)
+                // Use the utility to filter valid floor types
+                var validFloorTypes = ModelLayoutFilter.GetValidFloorTypes(floorTypes, levels);
+
+                foreach (var floorType in validFloorTypes)
                 {
                     if (!string.IsNullOrEmpty(floorType.Name))
                     {

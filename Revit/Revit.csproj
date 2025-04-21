@@ -173,6 +173,8 @@
     <Compile Include="Export\Properties\FramePropertiesExport.cs" />
     <Compile Include="Export\Properties\MaterialExport.cs" />
     <Compile Include="Export\Properties\WallPropertiesExport.cs" />
+    <Compile Include="Import\Elements\BeamImport.cs" />
+    <Compile Include="Import\Elements\BraceImport.cs" />
     <Compile Include="Import\Elements\ColumnImport.cs" />
     <Compile Include="Import\Elements\FloorImport.cs" />
     <Compile Include="Import\Elements\FrameElementImport.cs" />

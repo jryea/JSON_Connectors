@@ -3,36 +3,26 @@ using Core.Utilities;
 
 namespace Core.Models.Elements
 {
-    /// <summary>
-    /// Represents an isolated footing element in the structural model
-    /// </summary>
+    // Represents an isolated footing element in the structural model
     public class IsolatedFooting : IIdentifiable
     {
-        /// <summary>
-        /// Unique identifier for the isolated footing
-        /// </summary>
-        public string Id { get; set; }
-
-        /// <summary>
-        /// Point defining the location of the isolated footing
-        /// </summary>
-        public Point3D Point { get; set; }
-
-        /// <summary>
-        /// Creates a new IsolatedFooting with a generated ID
-        /// </summary>
-        public IsolatedFooting()
-        {
-            Id = IdGenerator.Generate(IdGenerator.Elements.ISOLATED_FOOTING);
-        }
-
-        /// <summary>
-        /// Creates a new IsolatedFooting with specified properties
-        /// </summary>
-        /// <param name="point">Point defining the location of the isolated footing</param>
+        // Creates a new IsolatedFooting with specified properties
         public IsolatedFooting(Point3D point) : this()
         {
             Point = point;
+        }
+        
+        public string Id { get; set; }
+        public string Width { get; set; }
+        public string Length { get; set; }
+        public string Thickness { get; set; }
+        public Point3D Point { get; set; }
+        public string LevelId { get; set; }
+
+        // Creates a new IsolatedFooting with a generated ID
+        public IsolatedFooting()
+        {
+            Id = IdGenerator.Generate(IdGenerator.Elements.ISOLATED_FOOTING);
         }
     }
 }

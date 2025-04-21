@@ -87,20 +87,19 @@ namespace Revit.Import
 
         private void ImportStructuralElements(BaseModel model, ref int totalImported)
         {
-            // Import beams and braces with the combined frame element importer
-            FrameElementImport frameImport = new FrameElementImport(_doc);
-
-            // Import beams
+            // Import beams using the new BeamImport class
             if (model.Elements.Beams != null && model.Elements.Beams.Count > 0)
             {
-                int beamsImported = frameImport.ImportBeams(model.Elements.Beams, _levelIdMap, model);
+                BeamImport beamImport = new BeamImport(_doc);
+                int beamsImported = beamImport.Import(model.Elements.Beams, _levelIdMap, model);
                 totalImported += beamsImported;
             }
 
-            // Import braces
+            // Import braces using the new BraceImport class
             if (model.Elements.Braces != null && model.Elements.Braces.Count > 0)
             {
-                int bracesImported = frameImport.ImportBraces(model.Elements.Braces, _levelIdMap, model);
+                BraceImport braceImport = new BraceImport(_doc);
+                int bracesImported = braceImport.Import(model.Elements.Braces, _levelIdMap, model);
                 totalImported += bracesImported;
             }
 
@@ -116,7 +115,7 @@ namespace Revit.Import
             if (model.Elements.Floors != null && model.Elements.Floors.Count > 0)
             {
                 FloorImport floorImport = new FloorImport(_doc);
-                int floorsImported = floorImport.Import( _levelIdMap, model);
+                int floorsImported = floorImport.Import(_levelIdMap, model);
                 totalImported += floorsImported;
             }
 

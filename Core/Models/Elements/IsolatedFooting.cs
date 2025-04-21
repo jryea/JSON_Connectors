@@ -7,9 +7,13 @@ namespace Core.Models.Elements
     public class IsolatedFooting : IIdentifiable
     {
         // Creates a new IsolatedFooting with specified properties
-        public IsolatedFooting(Point3D point) : this()
+        public IsolatedFooting(Point3D point, string levelId = null, double width = 48.0, double length = 48.0, double thickness = 12.0)
         {
-            Point = point;
+            Point = Point;
+            Id = IdGenerator.Generate(IdGenerator.Elements.ISOLATED_FOOTING);
+            Width = "48.0";
+            Length = "48.0";
+            Thickness = "18.0";
         }
         
         public string Id { get; set; }
@@ -20,9 +24,5 @@ namespace Core.Models.Elements
         public string LevelId { get; set; }
 
         // Creates a new IsolatedFooting with a generated ID
-        public IsolatedFooting()
-        {
-            Id = IdGenerator.Generate(IdGenerator.Elements.ISOLATED_FOOTING);
-        }
     }
 }

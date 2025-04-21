@@ -188,7 +188,7 @@ namespace Grasshopper.Utilities
         {
             if (Value == null) return "Null IsolatedFooting";
             Point3D pt = Value.Point;
-            return $"IsolatedFooting: Point=({pt?.X:F2}, {pt?.Y:F2}, {pt?.Z:F2})";
+            return $"IsolatedFooting: Point=({pt?.X:F2}, {pt?.Y:F2}, {pt?.Z:F2}), W×D×T={Value.Width:F1}×{Value.Width:F1}×{Value.Thickness:F1}";
         }
     }
 

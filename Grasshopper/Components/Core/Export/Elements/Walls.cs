@@ -18,7 +18,6 @@ namespace Grasshopper.Components.Core.Export.Elements
               "IMEG", "Elements")
         {
         }
-
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddCurveParameter("Curves", "C", "Curves representing wall centerlines", GH_ParamAccess.list);
@@ -219,7 +218,6 @@ namespace Grasshopper.Components.Core.Export.Elements
 
             DA.SetDataList(0, walls);
         }
-
         private List<Point2D> GetStartAndEndPoints(Curve curve)
         {
             List<Point2D> points = new List<Point2D>();

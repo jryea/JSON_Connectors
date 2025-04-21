@@ -1,5 +1,5 @@
 ﻿using Grasshopper.Kernel;
-using Rhino.Geometry;
+using RG = Rhino.Geometry;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -41,7 +41,7 @@ namespace Grasshopper.Components.Core.Export.Elements
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
-            List<Point3d> points = new List<Point3d>();
+            List<RG.Point3d> points = new List<RG.Point3d>();
             List<object> levelObjs = new List<object>();
             List<double> widths = new List<double>();
             List<double> depths = new List<double>();

@@ -126,6 +126,14 @@ namespace Revit.Import
                 int wallsImported = wallImport.Import(model.Elements.Walls, _levelIdMap, model);
                 totalImported += wallsImported;
             }
+
+            // Import isolated footings
+            if (model.Elements.IsolatedFootings != null && model.Elements.IsolatedFootings.Count > 0)
+            {
+                IsolatedFootingImport footingImport = new IsolatedFootingImport(_doc);
+                int footingsImported = footingImport.Import(model.Elements.IsolatedFootings, _levelIdMap, model);
+                totalImported += footingsImported;
+            }
         }
 
         // Creates mappings between JSON level IDs and Revit level elements

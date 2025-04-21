@@ -7,6 +7,7 @@ using CE = Core.Models.Elements;
 using Core.Models;
 using Core.Models.Properties;
 using Revit.Utilities;
+using Autodesk.Revit.DB;
 
 namespace Revit.Import.Elements
 {
@@ -45,7 +46,7 @@ namespace Revit.Import.Elements
                     _footingTypes[key] = symbol;
                 }
 
-                // Also add by family name + symbol name for more specific matching
+                // Add by family name + symbol name for more specific matching
                 string combinedKey = $"{symbol.Family.Name}_{symbol.Name}".ToUpper();
                 if (!_footingTypes.ContainsKey(combinedKey))
                 {
@@ -67,19 +68,28 @@ namespace Revit.Import.Elements
                 return defaultType;
             }
 
-            // Try to find a rectangular footing type
-            var rectangularTypes = _footingTypes.Where(kvp =>
-                kvp.Key.Contains("RECTANGULAR") ||
-                kvp.Key.Contains("RECT") ||
-                kvp.Key.Contains("SQUARE")).ToList();
-
-            if (rectangularTypes.Any())
+            // Try to match by name
+            if (!string.IsNullOrEmpty(jsonFooting.Id))
             {
-                return rectangularTypes.First().Value;
+                string typeName = jsonFooting.Id.ToUpper();
+                if (_footingTypes.TryGetValue(typeName, out DB.FamilySymbol typeByName))
+                {
+                    return typeByName;
+                }
+            }
+
+            // Try to match by dimensions (e.g., width and length)
+            var matches = _footingTypes.Where(kvp =>
+                kvp.Key.Contains("RECTANGULAR") || kvp.Key.Contains("SQUARE")).ToList();
+
+            if (matches.Any())
+            {
+                return matches.First().Value;
             }
 
             return defaultType;
         }
+
 
         public int Import(List<CE.IsolatedFooting> footings, Dictionary<string, DB.ElementId> levelIdMap, BaseModel model)
         {
@@ -89,21 +99,20 @@ namespace Revit.Import.Elements
             {
                 try
                 {
-                    // Skip if required data is missing
+                    // Validate input data
                     if (jsonFooting.Point == null || string.IsNullOrEmpty(jsonFooting.LevelId))
                     {
                         Debug.WriteLine($"Skipping footing {jsonFooting.Id} due to missing data.");
                         continue;
                     }
 
-                    // Get the ElementId for the level
                     if (!levelIdMap.TryGetValue(jsonFooting.LevelId, out DB.ElementId levelId))
                     {
                         Debug.WriteLine($"Skipping footing {jsonFooting.Id} due to missing level mapping.");
                         continue;
                     }
 
-                    // Get Level
+                    // Get the level
                     DB.Level level = _doc.GetElement(levelId) as DB.Level;
                     if (level == null)
                     {
@@ -111,32 +120,29 @@ namespace Revit.Import.Elements
                         continue;
                     }
 
-                    // Get appropriate footing type
+                    // Find the appropriate footing type
                     DB.FamilySymbol familySymbol = FindFootingType(jsonFooting);
-
                     if (familySymbol == null)
                     {
                         Debug.WriteLine($"Skipping footing {jsonFooting.Id} because no suitable family symbol could be found.");
                         continue;
                     }
 
-                    // Make sure the family symbol is active
+                    // Ensure the family symbol is active
                     if (!familySymbol.IsActive)
                     {
                         familySymbol.Activate();
                     }
 
-                    // Create insertion point for footing
+                    // Create the footing
                     DB.XYZ footingPoint = Helpers.ConvertToRevitCoordinates(jsonFooting.Point);
-
-                    // Create the structural isolated footing
                     DB.FamilyInstance footing = _doc.Create.NewFamilyInstance(
                         footingPoint,
                         familySymbol,
                         level,
                         DB.Structure.StructuralType.Footing);
 
-                    // Set dimensions if parameters exist
+                    // Set parameters
                     SetFootingParameters(footing, jsonFooting);
 
                     count++;
@@ -156,28 +162,10 @@ namespace Revit.Import.Elements
         {
             try
             {
-                // Try to parse dimension strings to get values
-                if (double.TryParse(jsonFooting.Width, out double width))
-                {
-                    // Width parameter might have different names in different families
-                    SetParameterByName(footing, "Width", width / 12.0); // Convert to feet
-                    SetParameterByName(footing, "b", width / 12.0);
-                }
-
-                if (double.TryParse(jsonFooting.Length, out double length))
-                {
-                    // Length parameter might have different names in different families
-                    SetParameterByName(footing, "Length", length / 12.0); // Convert to feet
-                    SetParameterByName(footing, "a", length / 12.0);
-                }
-
-                if (double.TryParse(jsonFooting.Thickness, out double thickness))
-                {
-                    // Thickness parameter might have different names in different families
-                    SetParameterByName(footing, "Thickness", thickness / 12.0); // Convert to feet
-                    SetParameterByName(footing, "h", thickness / 12.0);
-                    SetParameterByName(footing, "Height", thickness / 12.0);
-                }
+                // Set width, length, and thickness
+                SetParameterByName(footing, "Width", jsonFooting.Width / 12.0); // Convert to feet
+                SetParameterByName(footing, "Length", jsonFooting.Length / 12.0); // Convert to feet
+                SetParameterByName(footing, "Thickness", jsonFooting.Thickness / 12.0); // Convert to feet
             }
             catch (Exception ex)
             {
@@ -204,3 +192,4 @@ namespace Revit.Import.Elements
         }
     }
 }
+

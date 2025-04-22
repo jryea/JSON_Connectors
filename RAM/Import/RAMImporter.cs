@@ -156,6 +156,7 @@ namespace RAM
                     int columnCount = 0;
                     int braceCount = 0;
                     int wallCount = 0;
+                    int isolatedFootingCount = 0;
 
                     if (model.Elements != null)
                     {
@@ -203,6 +204,15 @@ namespace RAM
                                 validLevels,
                                 levelToFloorTypeMapping,
                                 model.Properties.WallProperties);
+                        }
+
+                        // Import isolated footings
+                        if (model.Elements.IsolatedFootings != null && model.Elements.IsolatedFootings.Count > 0)
+                        {
+                            var isolatedFootingImporter = new IsolatedFootingImport(modelManager.Model, lengthUnit);
+                            isolatedFootingCount = isolatedFootingImporter.Import(
+                                model.Elements.IsolatedFootings,
+                                validLevels);
                         }
                     }
 

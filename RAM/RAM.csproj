@@ -51,6 +51,7 @@
     <Compile Include="Import\Elements\BeamImport.cs" />
     <Compile Include="Import\Elements\BraceImport.cs" />
     <Compile Include="Import\Elements\ColumnImport.cs" />
+    <Compile Include="Import\Elements\IsolatedFootingImport.cs" />
     <Compile Include="Import\Elements\WallImport.cs" />
     <Compile Include="Import\Loads\SurfaceLoadImport.cs" />
     <Compile Include="Import\ModelLayout\FloorTypeImport.cs" />

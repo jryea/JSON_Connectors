@@ -44,6 +44,7 @@
     <Compile Include="Export\Elements\BeamExport.cs" />
     <Compile Include="Export\Elements\ColumnExport.cs" />
     <Compile Include="Export\Elements\FloorExport.cs" />
+    <Compile Include="Export\Elements\IsolatedFootingExport.cs" />
     <Compile Include="Export\Elements\WallExport.cs" />
     <Compile Include="Export\ModelLayout\FloorTypeExport.cs" />
     <Compile Include="Export\ModelLayout\GridExport.cs" />

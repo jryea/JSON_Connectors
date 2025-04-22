@@ -66,30 +66,30 @@ namespace RAM
                         model.ModelLayout.Levels = levelExporter.Export();
 
                         // Create a mapping from level IDs to RAM story UIDs
-                        //Dictionary<string, int> levelMapping = levelExporter.CreateLevelMapping(model.ModelLayout.Levels);
+                        Dictionary<string, int> levelMapping = levelExporter.CreateLevelMapping(model.ModelLayout.Levels);
 
                         // Extract grids
                         GridExport gridExporter = new GridExport(modelManager.Model, lengthUnit);
                         model.ModelLayout.Grids = gridExporter.Export();
 
                         // Extract materials
-                        //model.Properties.Materials = ExtractMaterials();
+                        model.Properties.Materials = ExtractMaterials();
 
                         // Create material mappings
-                        //Dictionary<string, string> steelMaterialMapping = new Dictionary<string, string>();
-                        //Dictionary<string, string> concreteMaterialMapping = new Dictionary<string, string>();
+                        Dictionary<string, string> steelMaterialMapping = new Dictionary<string, string>();
+                        Dictionary<string, string> concreteMaterialMapping = new Dictionary<string, string>();
 
-                        //foreach (var material in model.Properties.Materials)
-                        //{
-                        //    if (material.Type.ToLower() == "steel")
-                        //    {
-                        //        steelMaterialMapping[material.Name] = material.Id;
-                        //    }
-                        //    else if (material.Type.ToLower() == "concrete")
-                        //    {
-                        //        concreteMaterialMapping[material.Name] = material.Id;
-                        //    }
-                        //}
+                        foreach (var material in model.Properties.Materials)
+                        {
+                            if (material.Type.ToLower() == "steel")
+                            {
+                                steelMaterialMapping[material.Name] = material.Id;
+                            }
+                            else if (material.Type.ToLower() == "concrete")
+                            {
+                                concreteMaterialMapping[material.Name] = material.Id;
+                            }
+                        }
 
                         // Extract floor properties
                         //FloorPropertiesExport floorPropertiesExporter = new FloorPropertiesExport(modelManager.Model, lengthUnit);
@@ -132,6 +132,11 @@ namespace RAM
                         wallExporter.SetLevelMappings(CreateLevelIdMapping(model.ModelLayout.Levels));
                         wallExporter.SetWallPropertyMappings(wallPropertyMapping);
                         model.Elements.Walls = wallExporter.Export();
+
+                        // Extract isolated footings
+                        IsolatedFootingExport isolatedFootingExporter = new IsolatedFootingExport(modelManager.Model, lengthUnit);
+                        isolatedFootingExporter.SetLevelMappings(CreateLevelIdMapping(model.ModelLayout.Levels));
+                        model.Elements.IsolatedFootings = isolatedFootingExporter.Export();
 
                         // Extract loads
                         //ExtractLoads(modelManager.Model, model);

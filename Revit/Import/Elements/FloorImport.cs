@@ -297,7 +297,6 @@ namespace Revit.Import.Elements
                 return baseFloorType;
             }
         }
-
         private int FindLayerToModify(DB.CompoundStructure cs)
         {
             // Try to get the core layer first

@@ -264,8 +264,8 @@ namespace Revit.Import.Elements
                     }
 
                     // Create curve for brace
-                    double startPointZ = topLevel.ProjectElevation;
-                    double endPointZ = baseLevel.ProjectElevation;
+                    double startPointZ = baseLevel.ProjectElevation;
+                    double endPointZ = topLevel.ProjectElevation;
                     DB.XYZ startPoint = Helpers.ConvertToRevitCoordinates(jsonBrace.StartPoint, startPointZ);
                     DB.XYZ endPoint = Helpers.ConvertToRevitCoordinates(jsonBrace.EndPoint, endPointZ);
                     DB.Line braceLine = DB.Line.CreateBound(startPoint, endPoint);

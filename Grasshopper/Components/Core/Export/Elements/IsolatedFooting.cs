@@ -119,13 +119,15 @@ namespace Grasshopper.Components.Core.Export.Elements
                 }
 
                 // Create a new isolated footing
-                IsolatedFooting footing = new IsolatedFooting(
-                    new Point3D(points[i].X * 12, points[i].Y * 12, points[i].Z * 12),
-                    level.Id,
-                    widths[i],
-                    depths[i],
-                    thicknesses[i])
-                ;
+                IsolatedFooting footing = new IsolatedFooting()
+                {
+                    Point = new Point3D(points[i].X * 12, points[i].Y * 12, points[i].Z * 12),
+                    LevelId = level.Id,
+                    Width = widths[i],
+                    Length = depths[i],
+                    Thickness = thicknesses[i]
+                };
+                
 
                 footings.Add(new GH_IsolatedFooting(footing));
             }

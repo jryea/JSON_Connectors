@@ -9,7 +9,8 @@ using System.Diagnostics;
 using System.Runtime.Versioning;
 using System.Windows.Markup;
 using Revit.Import;
-using RU = Revit.Utilities;  
+using RU = Revit.Utilities;
+
 
 #endregion
 
@@ -19,8 +20,8 @@ namespace Revit
     {
         public Result OnStartup(UIControlledApplication app)
         {
-            // 1. Create ribbon tab
-            string tabName = "JSON Connectors";
+            // Create ribbon tab
+            string tabName = "IMEG Connectors";
             try
             {
                 app.CreateRibbonTab(tabName);
@@ -30,16 +31,34 @@ namespace Revit
                 Debug.Print("Tab already exists.");
             }
 
-            // In App.cs, add the new button:
-            RibbonPanel panel = RU.Utils.CreateRibbonPanel(app, tabName, "Import");
-
-            // Create button data instances
+            // Create software export/import panels
+            RibbonPanel modelPanel = RU.Utils.CreateRibbonPanel(app, tabName,"Model");
+            RibbonPanel ETABSPanel = RU.Utils.CreateRibbonPanel(app, tabName, "ETABS");
+            RibbonPanel RAMPanel = RU.Utils.CreateRibbonPanel(app, tabName, "RAM");
+          
+            // Create model button data
             PushButtonData btnModelImport = ModelImportCommand.GetButtonData();
             PushButtonData btnModelExport = Export.ModelExportCommand.GetButtonData();
 
-            // Create buttons
-            PushButton buttonModelImport = panel.AddItem(btnModelImport) as PushButton;
-            PushButton buttonModelExport = panel.AddItem(btnModelExport) as PushButton;
+            // Create RAM button data
+            PushButtonData btnRAMImport = RAMImportCommand.GetButtonData();
+            PushButtonData btnRAMExport = Export.RAMExportCommand.GetButtonData();
+
+            // Create ETABS button data
+            PushButtonData btnETABSImport = ETABSImportCommand.GetButtonData();
+            PushButtonData btnETABSExport = Export.ETABSExportCommand.GetButtonData();
+
+            // Add buttons to model panel
+            PushButton buttonModelImport = modelPanel.AddItem(btnModelImport) as PushButton;
+            PushButton buttonModelExport = modelPanel.AddItem(btnModelExport) as PushButton;
+
+            // Add buttons to RAM panel
+            PushButton buttonRAMImport = RAMPanel.AddItem(btnRAMImport) as PushButton;
+            PushButton buttonRAMExport = RAMPanel.AddItem(btnRAMExport) as PushButton;
+
+            // Add buttons to ETABS panel
+            PushButton buttonETABSImport = ETABSPanel.AddItem(btnETABSImport) as PushButton;
+            PushButton buttonETABSExport = ETABSPanel.AddItem(btnETABSExport) as PushButton;
 
             return Result.Succeeded;
         }

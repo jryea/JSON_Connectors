@@ -1,5 +1,4 @@
-﻿// IsolatedFootingImport.cs
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Core.Models.Elements;
@@ -135,6 +134,8 @@ namespace RAM.Import.Elements
                         if (ramFooting != null)
                         {
                             ramFooting.dTop = footing.Width/2;
+                            ramFooting.dBottom = footing.Width / 2; 
+                            ramFooting.dRight = footing.Length / 2;
                             ramFooting.dLeft = footing.Length/2;
                             ramFooting.dThickness = footing.Thickness;  
 

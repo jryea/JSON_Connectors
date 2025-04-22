@@ -186,7 +186,10 @@ namespace Revit.Export
 
             // Export spread footings
             IsolatedFootingExport isolatedFootingExport = new IsolatedFootingExport(_doc);
-            count += isolatedFootingExport.Export(_model.Elements.IsolatedFootings, _model);
+            Debug.WriteLine($"Starting isolated footing export, collection initialized: {_model.Elements.IsolatedFootings != null}");
+            int footingsExported = isolatedFootingExport.Export(_model.Elements.IsolatedFootings, _model);
+            Debug.WriteLine($"Finished isolated footing export: {footingsExported} footings exported");
+            count += footingsExported;
 
             return count;
         }

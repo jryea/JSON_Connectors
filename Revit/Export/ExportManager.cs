@@ -9,12 +9,9 @@ using Core.Models.Elements;
 using Core.Models.Properties;
 using Core.Models.ModelLayout;
 using Core.Models.Metadata;
-using Revit.Export;
 using Revit.Export.ModelLayout;
 using Revit.Export.Elements;
 using Revit.Export.Properties;
-using Revit.Import.Elements;
-using Revit.Import.ModelLayout;
 
 namespace Revit.Export
 {
@@ -46,7 +43,10 @@ namespace Revit.Export
                 // Create unique FloorTypes from Levels specifically for Revit
                 CreateFloorTypesFromLevels();
 
-                // Export property definitions
+                // Export materials first so we have their IDs for referencing
+                totalExported += ExportMaterials();
+
+                // Then export other property definitions that reference materials
                 totalExported += ExportProperties();
 
                 // Export structural elements
@@ -107,9 +107,9 @@ namespace Revit.Export
             // Initialize units
             Units units = new Units
             {
-                Length = _doc.GetUnits().GetFormatOptions(DB.SpecTypeId.Length).GetSymbolTypeId().ToString(),
-                Force = _doc.GetUnits().GetFormatOptions(DB.SpecTypeId.Force).GetSymbolTypeId().ToString(),
-                Temperature = _doc.GetUnits().GetFormatOptions(DB.SpecTypeId.HvacTemperature).GetSymbolTypeId().ToString()
+                Length = "inches",
+                Force = "pounds",
+                Temperature = "fahrenheit"
             };
 
             _model.Metadata.ProjectInfo = projectInfo;
@@ -131,13 +131,19 @@ namespace Revit.Export
             return count;
         }
 
+        private int ExportMaterials()
+        {
+            // Export materials first so we can reference them
+            MaterialExport materialExport = new MaterialExport(_doc);
+            int materialCount = materialExport.Export(_model.Properties.Materials);
+
+            Debug.WriteLine($"Exported {materialCount} materials");
+            return materialCount;
+        }
+
         private int ExportProperties()
         {
             int count = 0;
-
-            // Export materials
-            MaterialExport materialExport = new MaterialExport(_doc);
-            count += materialExport.Export(_model.Properties.Materials);
 
             // Export wall properties
             WallPropertiesExport wallPropertiesExport = new WallPropertiesExport(_doc);
@@ -147,9 +153,9 @@ namespace Revit.Export
             FloorPropertiesExport floorPropertiesExport = new FloorPropertiesExport(_doc);
             count += floorPropertiesExport.Export(_model.Properties.FloorProperties);
 
-            // Export frame properties
+            // Export frame properties - pass the exported materials for correct ID mapping
             FramePropertiesExport framePropertiesExport = new FramePropertiesExport(_doc);
-            count += framePropertiesExport.Export(_model.Properties.FrameProperties);
+            count += framePropertiesExport.Export(_model.Properties.FrameProperties, _model.Properties.Materials);
 
             return count;
         }
@@ -177,6 +183,10 @@ namespace Revit.Export
             // Export braces
             BraceExport braceExport = new BraceExport(_doc);
             count += braceExport.Export(_model.Elements.Braces, _model);
+
+            // Export spread footings
+            IsolatedFootingExport isolatedFootingExport = new IsolatedFootingExport(_doc);
+            count += isolatedFootingExport.Export(_model.Elements.IsolatedFootings, _model);
 
             return count;
         }

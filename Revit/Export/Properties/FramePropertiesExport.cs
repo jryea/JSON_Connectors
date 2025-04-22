@@ -10,30 +10,46 @@ namespace Revit.Export.Properties
     public class FramePropertiesExport
     {
         private readonly DB.Document _doc;
-        private Dictionary<DB.ElementId, string> _materialIdMap = new Dictionary<DB.ElementId, string>();
+        private Dictionary<string, string> _materialTypeToIdMap;
 
         public FramePropertiesExport(DB.Document doc)
         {
             _doc = doc;
-            CreateMaterialIdMapping();
+            _materialTypeToIdMap = new Dictionary<string, string>();
         }
 
-        private void CreateMaterialIdMapping()
+        // This method should be called after materials have been exported
+        // to set up the mapping between material types and their IDs
+        public void SetupMaterialMapping(List<Material> exportedMaterials)
         {
-            foreach (DB.Material material in new DB.FilteredElementCollector(_doc)
-                .OfClass(typeof(DB.Material))
-                .Cast<DB.Material>())
+            _materialTypeToIdMap.Clear();
+
+            foreach (var material in exportedMaterials)
             {
-                if (!string.IsNullOrEmpty(material.Name))
+                if (material.Type == "Steel" || material.Type == "Concrete")
                 {
-                    string materialId = $"MAT-{material.Name.Replace(" ", "")}";
-                    _materialIdMap[material.Id] = materialId;
+                    _materialTypeToIdMap[material.Type] = material.Id;
                 }
             }
+
+            // Ensure we have defaults even if they weren't in the exported materials
+            if (!_materialTypeToIdMap.ContainsKey("Steel"))
+            {
+                _materialTypeToIdMap["Steel"] = "MAT-Steel";
+            }
+            if (!_materialTypeToIdMap.ContainsKey("Concrete"))
+            {
+                _materialTypeToIdMap["Concrete"] = "MAT-Concrete";
+            }
+
+            Debug.WriteLine($"Material mapping set up: Steel ID = {_materialTypeToIdMap["Steel"]}, Concrete ID = {_materialTypeToIdMap["Concrete"]}");
         }
 
-        public int Export(List<FrameProperties> frameProperties)
+        public int Export(List<FrameProperties> frameProperties, List<Material> exportedMaterials)
         {
+            // Set up material ID mapping
+            SetupMaterialMapping(exportedMaterials);
+
             int count = 0;
             HashSet<DB.ElementId> structuralFrameTypeIds = new HashSet<DB.ElementId>();
 
@@ -58,10 +74,9 @@ namespace Revit.Export.Properties
                             continue;
                     }
 
-                    // Get material ID
-                    string materialId = GetMaterialId(famSymbol);
-                    if (string.IsNullOrEmpty(materialId))
-                        materialId = "MAT-default";
+                    // Determine material type and get corresponding material ID
+                    string materialType = DetermineMaterialType(famSymbol);
+                    string materialId = _materialTypeToIdMap[materialType];
 
                     // Determine shape type
                     string shape = DetermineShapeType(famSymbol);
@@ -79,7 +94,7 @@ namespace Revit.Export.Properties
                     frameProperties.Add(frameProperty);
                     count++;
 
-                    Debug.WriteLine($"Exported frame type: {famSymbol.Name}, Material: {materialId}, Shape: {shape}");
+                    Debug.WriteLine($"Exported frame type: {famSymbol.Name}, Material: {materialType}, MaterialID: {materialId}, Shape: {shape}");
                 }
                 catch (Exception ex)
                 {
@@ -114,7 +129,7 @@ namespace Revit.Export.Properties
             }
         }
 
-        private string GetMaterialId(DB.FamilySymbol famSymbol)
+        private string DetermineMaterialType(DB.FamilySymbol famSymbol)
         {
             // Try to get material from structural material parameter
             DB.Parameter structMatParam = famSymbol.get_Parameter(DB.BuiltInParameter.STRUCTURAL_MATERIAL_PARAM);
@@ -122,39 +137,78 @@ namespace Revit.Export.Properties
                 structMatParam.StorageType == DB.StorageType.ElementId)
             {
                 DB.ElementId materialId = structMatParam.AsElementId();
-                if (materialId != DB.ElementId.InvalidElementId && _materialIdMap.ContainsKey(materialId))
+                if (materialId != DB.ElementId.InvalidElementId)
                 {
-                    return _materialIdMap[materialId];
+                    DB.Material material = _doc.GetElement(materialId) as DB.Material;
+                    if (material != null)
+                    {
+                        return DetermineMaterialTypeFromMaterial(material);
+                    }
                 }
             }
 
-            // Try to determine material from name
+            // If no material parameter, determine material from shape and name
             string symbolName = famSymbol.Name.ToUpper();
-            if (symbolName.Contains("STEEL") || symbolName.Contains("METAL") ||
-                symbolName.Contains("W") || symbolName.Contains("HSS"))
+            string familyName = famSymbol.FamilyName.ToUpper();
+
+            // For steel shapes
+            if (symbolName.StartsWith("W") || symbolName.Contains("HSS") ||
+                symbolName.Contains("STEEL") || symbolName.Contains("METAL") ||
+                familyName.Contains("STEEL") || familyName.Contains("METAL") ||
+                symbolName.StartsWith("L") || symbolName.StartsWith("C"))
             {
-                // Find a steel material
-                var steelMaterial = _materialIdMap.Values
-                    .FirstOrDefault(id => id.Contains("Steel") || id.Contains("Metal"));
-
-                if (!string.IsNullOrEmpty(steelMaterial))
-                    return steelMaterial;
-
-                return "MAT-Steel";
-            }
-            else if (symbolName.Contains("CONCRETE") || symbolName.Contains("CONC"))
-            {
-                // Find a concrete material
-                var concreteMaterial = _materialIdMap.Values
-                    .FirstOrDefault(id => id.Contains("Concrete"));
-
-                if (!string.IsNullOrEmpty(concreteMaterial))
-                    return concreteMaterial;
-
-                return "MAT-Concrete";
+                return "Steel";
             }
 
-            return null;
+            // For concrete shapes
+            if (symbolName.Contains("CONCRETE") || symbolName.Contains("CONC") ||
+                familyName.Contains("CONCRETE") || familyName.Contains("CONC"))
+            {
+                return "Concrete";
+            }
+
+            // Default to steel for most structural members if nothing else matches
+            return "Steel";
+        }
+
+        private string DetermineMaterialTypeFromMaterial(DB.Material material)
+        {
+            // Try to determine material type from name first
+            string matName = material.Name.ToUpper();
+
+            if (matName.Contains("CONCRETE") || matName.Contains("CONC") ||
+                matName.Contains("CON") || matName.Contains("CST") ||
+                matName.Contains("4000") || matName.Contains("5000") ||
+                matName.Contains("6000") || matName.Contains("PSI"))
+            {
+                return "Concrete";
+            }
+            else if (matName.Contains("STEEL") || matName.Contains("METAL") ||
+                    matName.Contains("A992") || matName.Contains("A36") ||
+                    matName.Contains("HSS") || matName.Contains("AISC") ||
+                    matName.Contains("FY50") || matName.Contains("FY36") ||
+                    (matName.StartsWith("W") && matName.Contains("X")))
+            {
+                return "Steel";
+            }
+
+            // If not found by name, try by material class
+            if (!string.IsNullOrEmpty(material.MaterialClass))
+            {
+                string matClass = material.MaterialClass.ToUpper();
+
+                if (matClass.Contains("CONCRETE"))
+                {
+                    return "Concrete";
+                }
+                else if (matClass.Contains("METAL"))
+                {
+                    return "Steel";
+                }
+            }
+
+            // Default to Steel if nothing else matches
+            return "Steel";
         }
 
         private string DetermineShapeType(DB.FamilySymbol famSymbol)

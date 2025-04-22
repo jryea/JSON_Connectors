@@ -744,13 +744,15 @@ namespace StructuralModelTester
                 Console.WriteLine($"Error: {ex.Message}");
             }
         }
-
         static void ConvertRamToJson()
         {
-            Console.Write("Input RAM file path: ");
-            string ramPath = Console.ReadLine();
-            Console.Write("Output JSON file path: ");
-            string jsonPath = Console.ReadLine();
+            // Use a dialog to select the input RAM file
+            string ramPath = BrowseForFile("Select RAM File", "RAM files (*.rss)|*.ram|All files (*.*)|*.*");
+            if (string.IsNullOrEmpty(ramPath)) return;
+
+            // Use a dialog to specify the output JSON file
+            string jsonPath = BrowseForFile("Save JSON File", "JSON files (*.json)|*.json|All files (*.*)|*.*", true);
+            if (string.IsNullOrEmpty(jsonPath)) return;
 
             if (!File.Exists(ramPath))
             {
@@ -760,9 +762,11 @@ namespace StructuralModelTester
 
             try
             {
+                // Initialize the RAM exporter
                 var converter = new RAMExporter();
                 var result = converter.ConvertRAMToJSON(ramPath);
 
+                // Save the JSON output to the specified file
                 if (result.Success && !string.IsNullOrEmpty(result.JsonOutput))
                 {
                     File.WriteAllText(jsonPath, result.JsonOutput);

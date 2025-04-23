@@ -142,9 +142,9 @@ namespace RAM.Export.ModelLayout
         }
 
         // Helper method to create a mapping from level IDs to RAM story UIDs
-        public Dictionary<string, int> CreateLevelMapping(List<Level> levels)
+        public Dictionary<string, string> CreateLevelMapping(List<Level> levels)
         {
-            var mapping = new Dictionary<string, int>();
+            var mapping = new Dictionary<string, string>();
 
             try
             {
@@ -174,7 +174,7 @@ namespace RAM.Export.ModelLayout
                     {
                         if (levelIdsByName.TryGetValue(ramStory.strLabel, out string levelId))
                         {
-                            mapping[levelId] = ramStory.lUID;
+                            mapping[levelId] = ramStory.lUID.ToString();
                         }
                     }
                 }
@@ -185,7 +185,7 @@ namespace RAM.Export.ModelLayout
                 {
                     // Use the lowest story UID as a fallback for foundation level
                     int lowestStoryUid = ramStories.GetCount() > 0 ? ramStories.GetAt(0).lUID : 1;
-                    mapping[foundationLevelId] = lowestStoryUid;
+                    mapping[foundationLevelId] = lowestStoryUid.ToString(); ;
                 }
 
                 return mapping;

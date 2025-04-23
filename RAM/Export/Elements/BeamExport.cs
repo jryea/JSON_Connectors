@@ -83,10 +83,22 @@ namespace RAM.Export.Elements
                         SCoordinate pt2 = new SCoordinate();
                         ramBeam.GetCoordinates(EBeamCoordLoc.eBeamEnds, ref pt1, ref pt2);
 
+                        // Find the corresponding frame properties ID for this beam section
+                        string framePropertiesId = null;
+                        if (!string.IsNullOrEmpty(ramBeam.strSectionLabel) &&
+                            _framePropMappings.TryGetValue(ramBeam.strSectionLabel, out framePropertiesId))
+                        {
+                            // Use the mapped frame properties ID
+                        }
+                        else
+                        {
+                            // If no mapping found, use the first available frame property ID
+                            framePropertiesId = _framePropMappings.Values.FirstOrDefault();
+                        }
+
                         // Create beam from RAM data
                         Beam beam = new Beam
                         {
-                            Id = IdGenerator.Generate(IdGenerator.Elements.BEAM),
                             StartPoint = new Point2D(
                                 ConvertFromInches(pt1.dXLoc),
                                 ConvertFromInches(pt1.dYLoc)

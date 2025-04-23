@@ -49,6 +49,7 @@
     <Compile Include="Export\ModelLayout\FloorTypeExport.cs" />
     <Compile Include="Export\ModelLayout\GridExport.cs" />
     <Compile Include="Export\ModelLayout\LevelExport.cs" />
+    <Compile Include="Export\Properties\FramePropertiesExport.cs" />
     <Compile Include="Import\Elements\BeamImport.cs" />
     <Compile Include="Import\Elements\BraceImport.cs" />
     <Compile Include="Import\Elements\ColumnImport.cs" />
@@ -71,7 +72,6 @@
   <ItemGroup>
     <Folder Include="Diagnostics\" />
     <Folder Include="Export\Loads\" />
-    <Folder Include="Export\Properties\" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.csproj">

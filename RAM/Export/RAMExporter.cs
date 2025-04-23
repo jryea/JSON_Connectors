@@ -15,6 +15,7 @@ using RAM.Utilities;
 using RAM.Export.ModelLayout;
 using RAM.Export.Elements;
 using RAMDATAACCESSLib;
+using RAM.Export.Properties;
 
 namespace RAM
 {
@@ -40,7 +41,7 @@ namespace RAM
                         Metadata = new MetadataContainer
                         {
                             ProjectInfo = ExtractProjectInfo(modelManager.Model),
-                            Units = new Units { Length = "inches", Force = "kips", Temperature = "fahrenheit" }
+                            Units = new Units { Length = "inches", Force = "pounds", Temperature = "fahrenheit" }
                         },
                         ModelLayout = new ModelLayoutContainer(),
                         Properties = new PropertiesContainer(),
@@ -66,7 +67,7 @@ namespace RAM
                         model.ModelLayout.Levels = levelExporter.Export();
 
                         // Create a mapping from level IDs to RAM story UIDs
-                        Dictionary<string, int> levelMapping = levelExporter.CreateLevelMapping(model.ModelLayout.Levels);
+                        Dictionary<string, string> levelMapping = levelExporter.CreateLevelMapping(model.ModelLayout.Levels);
 
                         // Extract grids
                         GridExport gridExporter = new GridExport(modelManager.Model, lengthUnit);
@@ -74,6 +75,10 @@ namespace RAM
 
                         // Extract materials
                         model.Properties.Materials = ExtractMaterials();
+
+                        // Extract floor properties
+                        //FloorPropertiesExport floorPropertiesExporter = new FloorPropertiesExport(modelManager.Model, lengthUnit);
+                        //model.Properties.FloorProperties = floorPropertiesExporter.Export();
 
                         // Create material mappings
                         Dictionary<string, string> steelMaterialMapping = new Dictionary<string, string>();
@@ -91,19 +96,11 @@ namespace RAM
                             }
                         }
 
-                        // Extract floor properties
-                        //FloorPropertiesExport floorPropertiesExporter = new FloorPropertiesExport(modelManager.Model, lengthUnit);
-                        //model.Properties.FloorProperties = floorPropertiesExporter.Export();
 
                         // Extract frame properties
-                        model.Properties.FrameProperties = ExtractFrameProperties(model.Properties.Materials);
-
-                        //Create frame property mappings
-                        Dictionary<string, string> framePropertyMapping = new Dictionary<string, string>();
-                        foreach (var frameProp in model.Properties.FrameProperties)
-                        {
-                            framePropertyMapping[frameProp.Name] = frameProp.Id;
-                        }
+                        var framePropertiesExporter = new FramePropertiesExport(modelManager.Model, lengthUnit);
+                        var (frameProps, framePropMappings) = framePropertiesExporter.Export(model.Properties.Materials);
+                        model.Properties.FrameProperties = frameProps;
 
                         // Extract wall properties
                         //model.Properties.WallProperties = ExtractWallProperties(model.Properties.Materials);
@@ -117,14 +114,14 @@ namespace RAM
 
                         // Extract beams
                         BeamExport beamExporter = new BeamExport(modelManager.Model, lengthUnit);
-                        beamExporter.SetLevelMappings(CreateLevelIdMapping(model.ModelLayout.Levels));
-                        beamExporter.SetFramePropertyMappings(framePropertyMapping);
+                        beamExporter.SetLevelMappings(levelMapping);
+                        beamExporter.SetFramePropertyMappings(framePropMappings);
                         model.Elements.Beams = beamExporter.Export();
 
                         // Extract columns
                         ColumnExport columnExporter = new ColumnExport(modelManager.Model, lengthUnit);
-                        columnExporter.SetLevelMappings(CreateLevelIdMapping(model.ModelLayout.Levels));
-                        columnExporter.SetFramePropertyMappings(framePropertyMapping);
+                        columnExporter.SetLevelMappings(levelMapping);
+                        columnExporter.SetFramePropertyMappings(framePropMappings);
                         model.Elements.Columns = columnExporter.Export();
 
                         // Extract walls
@@ -172,27 +169,6 @@ namespace RAM
                 SchemaVersion = "1.0"
             };
 
-            try
-            {
-                // Try to get project information from RAM
-                //IProjectInfo ramProjectInfo = ramModel.GetProjectInfo();
-
-                //if (ramProjectInfo != null)
-                //{
-                //    projectInfo.ProjectName = ramProjectInfo.strProjectName ?? projectInfo.ProjectName;
-
-                //    // If the project has a job number, use it as the ID
-                //    if (!string.IsNullOrEmpty(ramProjectInfo.strJobNum))
-                //    {
-                //        projectInfo.ProjectId = ramProjectInfo.strJobNum;
-                //    }
-                //}
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error extracting project info: {ex.Message}");
-            }
-
             return projectInfo;
         }
 
@@ -205,7 +181,7 @@ namespace RAM
             materials.Add(new Material
             {
                 Id = IdGenerator.Generate(IdGenerator.Properties.MATERIAL),
-                Name = "SPEED Steel",
+                Name = "Steel",
                 Type = "Steel",
                 DesignData =
                 {
@@ -221,7 +197,7 @@ namespace RAM
             materials.Add(new Material
             {
                 Id = IdGenerator.Generate(IdGenerator.Properties.MATERIAL),
-                Name = "SPEED Concrete",
+                Name = "Concrete",
                 Type = "Concrete",
                 DesignData =
                 {
@@ -233,45 +209,6 @@ namespace RAM
             });
 
             return materials;
-        }
-
-        // Extract frame properties
-        private List<FrameProperties> ExtractFrameProperties(List<Material> materials)
-        {
-            var frameProperties = new List<FrameProperties>();
-
-            // Find steel material ID
-            string steelMaterialId = materials.FirstOrDefault(m => m.Type.ToLower() == "steel")?.Id;
-            if (string.IsNullOrEmpty(steelMaterialId))
-            {
-                // If no steel material found, add a default one
-                var steelMaterial = new Material
-                {
-                    Id = IdGenerator.Generate(IdGenerator.Properties.MATERIAL),
-                    Name = "Default Steel",
-                    Type = "Steel"
-                };
-                materials.Add(steelMaterial);
-                steelMaterialId = steelMaterial.Id;
-            }
-
-            // Add default wide flange section
-            frameProperties.Add(new FrameProperties
-            {
-                Id = IdGenerator.Generate(IdGenerator.Properties.FRAME_PROPERTIES),
-                Name = "W10X12",
-                MaterialId = steelMaterialId,
-                Shape = "W",
-                Dimensions =
-                {
-                    ["depth"] = 10.0,
-                    ["width"] = 4.0,
-                    ["webThickness"] = 0.25,
-                    ["flangeThickness"] = 0.33
-                }
-            });
-
-            return frameProperties;
         }
 
         // Extract wall properties

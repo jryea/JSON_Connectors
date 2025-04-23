@@ -86,10 +86,22 @@ namespace RAM.Export.Elements
                         // Find the level below for the base level ID
                         string baseLevelId = FindBaseLevelIdForStory(ramStory);
 
+                        // Find the corresponding frame properties ID for this column section
+                        string framePropertiesId = null;
+                        if (!string.IsNullOrEmpty(ramColumn.strSectionLabel) &&
+                            _framePropMappings.TryGetValue(ramColumn.strSectionLabel, out framePropertiesId))
+                        {
+                            // Use the mapped frame properties ID
+                        }
+                        else
+                        {
+                            // If no mapping found, use the first available frame property ID
+                            framePropertiesId = _framePropMappings.Values.FirstOrDefault();
+                        }
+
                         // Create column from RAM data
                         Column column = new Column
                         {
-                            Id = IdGenerator.Generate(IdGenerator.Elements.COLUMN),
                             StartPoint = new Point2D(
                                 ConvertFromInches(pt1.dXLoc),
                                 ConvertFromInches(pt1.dYLoc)

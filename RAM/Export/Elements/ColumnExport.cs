@@ -14,7 +14,8 @@ namespace RAM.Export.Elements
     {
         private IModel _model;
         private string _lengthUnit;
-        private Dictionary<string, string> _levelMappings = new Dictionary<string, string>();
+        private Dictionary<string, string> _levelIdToNameMapping = new Dictionary<string, string>();
+        private Dictionary<string, string> _nameToLevelIdMapping = new Dictionary<string, string>();
         private Dictionary<string, string> _framePropMappings = new Dictionary<string, string>();
 
         public ColumnExport(IModel model, string lengthUnit = "inches")
@@ -25,7 +26,14 @@ namespace RAM.Export.Elements
 
         public void SetLevelMappings(Dictionary<string, string> levelMappings)
         {
-            _levelMappings = levelMappings ?? new Dictionary<string, string>();
+            _levelIdToNameMapping = new Dictionary<string, string>();
+            _nameToLevelIdMapping = new Dictionary<string, string>();
+
+            foreach (var kvp in levelMappings)
+            {
+                _levelIdToNameMapping[kvp.Key] = kvp.Value;
+                _nameToLevelIdMapping[kvp.Value] = kvp.Key;
+            }
         }
 
         public void SetFramePropertyMappings(Dictionary<string, string> framePropMappings)
@@ -52,7 +60,9 @@ namespace RAM.Export.Elements
                         continue;
 
                     // Find the corresponding level ID for this story
-                    string levelId = ImportHelpers.FindLevelIdForStory(ramStory, _levelMappings);
+                    string storyName = ramStory.strLabel;
+                    string levelId = FindLevelIdByStoryName(storyName);
+
                     if (string.IsNullOrEmpty(levelId))
                         continue;
 
@@ -74,7 +84,7 @@ namespace RAM.Export.Elements
                         ramColumn.GetEndCoordinates(ref pt1, ref pt2);
 
                         // Find the level below for the base level ID
-                        string baseLevelId = ImportHelpers.FindBaseLevelIdForStory(ramStory, _model, _levelMappings);
+                        string baseLevelId = FindBaseLevelIdForStory(ramStory);
 
                         // Create column from RAM data
                         Column column = new Column
@@ -91,7 +101,7 @@ namespace RAM.Export.Elements
                             BaseLevelId = baseLevelId,
                             TopLevelId = levelId,
                             FramePropertiesId = FindFramePropertiesId(ramColumn.strSectionLabel),
-                            IsLateral = (ramColumn.eFramingType == EFRAMETYPE.MemberIsLateral) // Assuming 1 means lateral
+                            IsLateral = (ramColumn.eFramingType == EFRAMETYPE.MemberIsLateral)
                         };
 
                         columns.Add(column);
@@ -107,7 +117,66 @@ namespace RAM.Export.Elements
             }
         }
 
-        
+        private string FindLevelIdByStoryName(string storyName)
+        {
+            string levelId = null;
+
+            // Try direct mapping first
+            if (_nameToLevelIdMapping.TryGetValue(storyName, out levelId))
+                return levelId;
+
+            // Try with "Story" prefix removed
+            string cleanName = CleanStoryName(storyName);
+            if (_nameToLevelIdMapping.TryGetValue(cleanName, out levelId))
+                return levelId;
+
+            // Try with "Story" prefix variations
+            if (_nameToLevelIdMapping.TryGetValue($"Story {cleanName}", out levelId) ||
+                _nameToLevelIdMapping.TryGetValue($"Story{cleanName}", out levelId))
+                return levelId;
+
+            // Return null if no mapping found
+            return null;
+        }
+
+        private string FindBaseLevelIdForStory(IStory story)
+        {
+            if (story == null)
+                return null;
+
+            // Try to find the level below this story
+            IStories ramStories = _model.GetStories();
+            IStory belowStory = null;
+            double maxElevation = double.MinValue;
+
+            for (int i = 0; i < ramStories.GetCount(); i++)
+            {
+                IStory checkStory = ramStories.GetAt(i);
+                if (checkStory != null && checkStory.dElevation < story.dElevation &&
+                    checkStory.dElevation > maxElevation)
+                {
+                    belowStory = checkStory;
+                    maxElevation = checkStory.dElevation;
+                }
+            }
+
+            if (belowStory != null)
+            {
+                return FindLevelIdByStoryName(belowStory.strLabel);
+            }
+
+            // If no level below found, look for level with elevation 0
+            foreach (var entry in _nameToLevelIdMapping)
+            {
+                if (entry.Key.Equals("0", StringComparison.OrdinalIgnoreCase))
+                {
+                    return entry.Value;
+                }
+            }
+
+            // If still not found, use the same level ID as top level
+            return FindLevelIdByStoryName(story.strLabel);
+        }
 
         private string FindFramePropertiesId(string sectionName)
         {
@@ -120,6 +189,20 @@ namespace RAM.Export.Elements
 
             // Return null if not found
             return null;
+        }
+
+        // Removes "Story" prefix if present to normalize names
+        private string CleanStoryName(string storyName)
+        {
+            if (storyName.StartsWith("Story ", StringComparison.OrdinalIgnoreCase))
+            {
+                return storyName.Substring(6).Trim();
+            }
+            else if (storyName.StartsWith("Story", StringComparison.OrdinalIgnoreCase))
+            {
+                return storyName.Substring(5).Trim();
+            }
+            return storyName;
         }
 
         private double ConvertFromInches(double inches)

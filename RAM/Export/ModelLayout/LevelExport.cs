@@ -39,10 +39,6 @@ namespace RAM.Export.ModelLayout
                 // Default floor type ID to use if no mapping exists
                 string defaultFloorTypeId = _floorTypeMapping.Values.FirstOrDefault();
 
-                // Store levels by elevation to ensure correct ordering
-                //double baseElevation = 0.0;
-                //Dictionary<double, Level> levelsByElevation = new Dictionary<double, Level>();
-
                 // Process each story
                 for (int i = 0; i < ramStories.GetCount(); i++)
                 {
@@ -69,10 +65,42 @@ namespace RAM.Export.ModelLayout
                         Elevation = ConvertFromInches(elevation)
                     };
 
-                    levels.Add(level);  
-
+                    levels.Add(level);
                 }
-                    return levels;
+
+                // Add a level at elevation 0 if one doesn't already exist
+                if (!levels.Any(l => Math.Abs(l.Elevation) < 0.001))
+                {
+                    // Get the Ground floor type ID
+                    string groundFloorTypeId = null;
+
+                    // Look for the Ground floor type in the mapping
+                    if (_floorTypeMapping.TryGetValue(0, out groundFloorTypeId))
+                    {
+                        Console.WriteLine($"Found Ground floor type with ID: {groundFloorTypeId}");
+                    }
+                    else if (_floorTypeMapping.Values.Any())
+                    {
+                        // Use the first available floor type if Ground is not found
+                        groundFloorTypeId = _floorTypeMapping.Values.First();
+                        Console.WriteLine($"Using default floor type for level 0: {groundFloorTypeId}");
+                    }
+
+                    // Add a level at elevation 0
+                    Level zeroLevel = new Level
+                    {
+                        Id = IdGenerator.Generate(IdGenerator.Layout.LEVEL),
+                        Name = "0",
+                        FloorTypeId = groundFloorTypeId,
+                        Elevation = 0.0
+                    };
+
+                    levels.Add(zeroLevel);
+                    Console.WriteLine("Added level 0 at elevation 0");
+                }
+
+                // Sort levels by elevation for consistent ordering
+                return levels.OrderBy(l => l.Elevation).ToList();
             }
             catch (Exception ex)
             {
@@ -149,6 +177,15 @@ namespace RAM.Export.ModelLayout
                             mapping[levelId] = ramStory.lUID;
                         }
                     }
+                }
+
+                // If we have a Foundation level at elevation 0, map it appropriately
+                string foundationLevelId = levels.FirstOrDefault(l => Math.Abs(l.Elevation) < 0.001)?.Id;
+                if (!string.IsNullOrEmpty(foundationLevelId) && !mapping.ContainsKey(foundationLevelId))
+                {
+                    // Use the lowest story UID as a fallback for foundation level
+                    int lowestStoryUid = ramStories.GetCount() > 0 ? ramStories.GetAt(0).lUID : 1;
+                    mapping[foundationLevelId] = lowestStoryUid;
                 }
 
                 return mapping;

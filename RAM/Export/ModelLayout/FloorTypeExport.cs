@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Core.Models.ModelLayout;
 using Core.Utilities;
 using RAMDATAACCESSLib;
@@ -43,6 +44,16 @@ namespace RAM.Export.ModelLayout
                     }
                 }
 
+                // Add a "Ground" floor type for foundation level
+                FloorType groundFloorType = new FloorType
+                {
+                    Id = IdGenerator.Generate(IdGenerator.Layout.FLOOR_TYPE),
+                    Name = "Ground",
+                    Description = "Foundation level floor type"
+                };
+                floorTypes.Add(groundFloorType);
+                Console.WriteLine($"Added Ground floor type with ID: {groundFloorType.Id}");
+
                 return floorTypes;
             }
             catch (Exception ex)
@@ -66,11 +77,19 @@ namespace RAM.Export.ModelLayout
 
                 // Create a lookup by name for quick access
                 Dictionary<string, string> floorTypeIdsByName = new Dictionary<string, string>();
+                string groundFloorTypeId = null;
+
                 foreach (var floorType in floorTypes)
                 {
                     if (!string.IsNullOrEmpty(floorType.Name))
                     {
                         floorTypeIdsByName[floorType.Name] = floorType.Id;
+
+                        // Remember Ground floor type ID
+                        if (floorType.Name.Equals("Ground", StringComparison.OrdinalIgnoreCase))
+                        {
+                            groundFloorTypeId = floorType.Id;
+                        }
                     }
                 }
 
@@ -87,6 +106,12 @@ namespace RAM.Export.ModelLayout
                     }
                 }
 
+                // Add a special mapping for the foundation level (using floor type UID 0 as a convention)
+                if (!string.IsNullOrEmpty(groundFloorTypeId))
+                {
+                    mapping[0] = groundFloorTypeId;
+                }
+
                 return mapping;
             }
             catch (Exception ex)
@@ -94,6 +119,13 @@ namespace RAM.Export.ModelLayout
                 Console.WriteLine($"Error creating floor type mapping: {ex.Message}");
                 return mapping;
             }
+        }
+
+        // Helper method to get the Ground floor type ID
+        public string GetGroundFloorTypeId(List<FloorType> floorTypes)
+        {
+            return floorTypes?.FirstOrDefault(ft =>
+                    ft.Name.Equals("Ground", StringComparison.OrdinalIgnoreCase))?.Id;
         }
     }
 }

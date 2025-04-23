@@ -14,7 +14,8 @@ namespace RAM.Export.Elements
     {
         private IModel _model;
         private string _lengthUnit;
-        private Dictionary<string, string> _levelMappings = new Dictionary<string, string>();
+        private Dictionary<string, string> _levelIdToNameMapping = new Dictionary<string, string>();
+        private Dictionary<string, string> _nameToLevelIdMapping = new Dictionary<string, string>();
         private Dictionary<string, string> _wallPropMappings = new Dictionary<string, string>();
 
         public WallExport(IModel model, string lengthUnit = "inches")
@@ -25,7 +26,14 @@ namespace RAM.Export.Elements
 
         public void SetLevelMappings(Dictionary<string, string> levelMappings)
         {
-            _levelMappings = levelMappings ?? new Dictionary<string, string>();
+            _levelIdToNameMapping = new Dictionary<string, string>();
+            _nameToLevelIdMapping = new Dictionary<string, string>();
+
+            foreach (var kvp in levelMappings)
+            {
+                _levelIdToNameMapping[kvp.Key] = kvp.Value;
+                _nameToLevelIdMapping[kvp.Value] = kvp.Key;
+            }
         }
 
         public void SetWallPropertyMappings(Dictionary<string, string> wallPropMappings)
@@ -52,7 +60,9 @@ namespace RAM.Export.Elements
                         continue;
 
                     // Find the corresponding level ID for this story
-                    string levelId = ImportHelpers.FindLevelIdForStory(ramStory, _levelMappings);
+                    string storyName = ramStory.strLabel;
+                    string levelId = FindLevelIdByStoryName(storyName);
+
                     if (string.IsNullOrEmpty(levelId))
                         continue;
 
@@ -77,20 +87,20 @@ namespace RAM.Export.Elements
 
                         // Create points list for the wall
                         List<Point2D> points = new List<Point2D>
-                {
-                    new Point2D(
-                        ConvertFromInches(topStartPt.dXLoc),
-                        ConvertFromInches(topStartPt.dYLoc)
-                    ),
-                    new Point2D(
-                        ConvertFromInches(topEndPt.dXLoc),
-                        ConvertFromInches(topEndPt.dYLoc)
-                    )
-                };
+                        {
+                            new Point2D(
+                                ConvertFromInches(topStartPt.dXLoc),
+                                ConvertFromInches(topStartPt.dYLoc)
+                            ),
+                            new Point2D(
+                                ConvertFromInches(topEndPt.dXLoc),
+                                ConvertFromInches(topEndPt.dYLoc)
+                            )
+                        };
 
                         // Find base and top level IDs
-                        string baseLevelId = ImportHelpers.FindBaseLevelIdForStory(ramStory, _model, _levelMappings);
-                        string topLevelId = FindTopLevelIdForWall(ramWall, ramStory);
+                        string baseLevelId = FindBaseLevelIdForStory(ramStory);
+                        string topLevelId = levelId;
 
                         // Create wall from RAM data
                         Wall wall = new Wall
@@ -115,19 +125,65 @@ namespace RAM.Export.Elements
             }
         }
 
-        private string FindTopLevelIdForWall(IWall wall, IStory currentStory)
+        private string FindLevelIdByStoryName(string storyName)
         {
-            string currentStoryName = currentStory.strLabel;
-            if (_levelMappings.TryGetValue(currentStoryName, out string levelId))
+            string levelId = null;
+
+            // Try direct mapping first
+            if (_nameToLevelIdMapping.TryGetValue(storyName, out levelId))
+                return levelId;
+
+            // Try with "Story" prefix removed
+            string cleanName = CleanStoryName(storyName);
+            if (_nameToLevelIdMapping.TryGetValue(cleanName, out levelId))
                 return levelId;
 
             // Try with "Story" prefix variations
-            if (_levelMappings.TryGetValue($"Story {currentStoryName}", out levelId) ||
-                _levelMappings.TryGetValue($"Story{currentStoryName}", out levelId))
+            if (_nameToLevelIdMapping.TryGetValue($"Story {cleanName}", out levelId) ||
+                _nameToLevelIdMapping.TryGetValue($"Story{cleanName}", out levelId))
                 return levelId;
 
-            // Return first level ID as fallback
-            return _levelMappings.Values.FirstOrDefault();
+            // Return null if no mapping found
+            return null;
+        }
+
+        private string FindBaseLevelIdForStory(IStory story)
+        {
+            if (story == null)
+                return null;
+
+            // Try to find the level below this story
+            IStories ramStories = _model.GetStories();
+            IStory belowStory = null;
+            double maxElevation = double.MinValue;
+
+            for (int i = 0; i < ramStories.GetCount(); i++)
+            {
+                IStory checkStory = ramStories.GetAt(i);
+                if (checkStory != null && checkStory.dElevation < story.dElevation &&
+                    checkStory.dElevation > maxElevation)
+                {
+                    belowStory = checkStory;
+                    maxElevation = checkStory.dElevation;
+                }
+            }
+
+            if (belowStory != null)
+            {
+                return FindLevelIdByStoryName(belowStory.strLabel);
+            }
+
+            // If no level below found, look for level with elevation 0
+            foreach (var entry in _nameToLevelIdMapping)
+            {
+                if (entry.Key.Equals("0", StringComparison.OrdinalIgnoreCase))
+                {
+                    return entry.Value;
+                }
+            }
+
+            // If still not found, use the same level ID as top level
+            return FindLevelIdByStoryName(story.strLabel);
         }
 
         private string FindWallPropertiesId(IWall wall)
@@ -149,6 +205,20 @@ namespace RAM.Export.Elements
 
             // Return first wall property ID as fallback
             return _wallPropMappings.Values.FirstOrDefault();
+        }
+
+        // Removes "Story" prefix if present to normalize names
+        private string CleanStoryName(string storyName)
+        {
+            if (storyName.StartsWith("Story ", StringComparison.OrdinalIgnoreCase))
+            {
+                return storyName.Substring(6).Trim();
+            }
+            else if (storyName.StartsWith("Story", StringComparison.OrdinalIgnoreCase))
+            {
+                return storyName.Substring(5).Trim();
+            }
+            return storyName;
         }
 
         private double ConvertFromInches(double inches)

@@ -14,7 +14,8 @@ namespace RAM.Export.Elements
     {
         private IModel _model;
         private string _lengthUnit;
-        private Dictionary<string, string> _levelMappings = new Dictionary<string, string>();
+        private Dictionary<string, string> _levelIdToNameMapping = new Dictionary<string, string>();
+        private Dictionary<string, string> _nameToLevelIdMapping = new Dictionary<string, string>();
         private Dictionary<string, string> _framePropMappings = new Dictionary<string, string>();
 
         public BeamExport(IModel model, string lengthUnit = "inches")
@@ -25,7 +26,14 @@ namespace RAM.Export.Elements
 
         public void SetLevelMappings(Dictionary<string, string> levelMappings)
         {
-            _levelMappings = levelMappings ?? new Dictionary<string, string>();
+            _levelIdToNameMapping = new Dictionary<string, string>();
+            _nameToLevelIdMapping = new Dictionary<string, string>();
+
+            foreach (var kvp in levelMappings)
+            {
+                _levelIdToNameMapping[kvp.Key] = kvp.Value;
+                _nameToLevelIdMapping[kvp.Value] = kvp.Key;
+            }
         }
 
         public void SetFramePropertyMappings(Dictionary<string, string> framePropMappings)
@@ -51,8 +59,10 @@ namespace RAM.Export.Elements
                     if (ramStory == null)
                         continue;
 
-                    // Find the corresponding level ID for this story
-                    string levelId = ImportHelpers.FindLevelIdForStory(ramStory, _levelMappings);
+                    // Find the corresponding level ID for this story (using name to ID mapping)
+                    string storyName = ramStory.strLabel;
+                    string levelId = FindLevelIdByStoryName(storyName);
+
                     if (string.IsNullOrEmpty(levelId))
                         continue;
 
@@ -85,9 +95,9 @@ namespace RAM.Export.Elements
                                 ConvertFromInches(pt2.dXLoc),
                                 ConvertFromInches(pt2.dYLoc)
                             ),
-                            LevelId = levelId,
+                            LevelId = levelId, // Using the level ID not name
                             FramePropertiesId = ImportHelpers.FindFramePropertiesId(ramBeam.strSectionLabel, _framePropMappings),
-                            IsLateral = (ramBeam.eFramingType == EFRAMETYPE.MemberIsLateral), // Assuming 1 means lateral
+                            IsLateral = (ramBeam.eFramingType == EFRAMETYPE.MemberIsLateral),
                             IsJoist = (ramBeam.eMaterial == EMATERIALTYPES.ESteelJoistMat)
                         };
 
@@ -102,6 +112,55 @@ namespace RAM.Export.Elements
                 Console.WriteLine($"Error exporting beams from RAM: {ex.Message}");
                 return beams;
             }
+        }
+
+        private string FindLevelIdByStoryName(string storyName)
+        {
+            string levelId = null;
+
+            // Try direct mapping first
+            if (_nameToLevelIdMapping.TryGetValue(storyName, out levelId))
+                return levelId;
+
+            // Try with "Story" prefix removed
+            string cleanName = CleanStoryName(storyName);
+            if (_nameToLevelIdMapping.TryGetValue(cleanName, out levelId))
+                return levelId;
+
+            // Try with "Story" prefix variations
+            if (_nameToLevelIdMapping.TryGetValue($"Story {cleanName}", out levelId) ||
+                _nameToLevelIdMapping.TryGetValue($"Story{cleanName}", out levelId))
+                return levelId;
+
+            // If level ID still not found, look for level with elevation 0 for ground level
+            if (cleanName.Equals("1", StringComparison.OrdinalIgnoreCase) ||
+                cleanName.Equals("Ground", StringComparison.OrdinalIgnoreCase))
+            {
+                foreach (var entry in _nameToLevelIdMapping)
+                {
+                    if (entry.Key.Equals("0", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return entry.Value;
+                    }
+                }
+            }
+
+            // Return null if no mapping found
+            return null;
+        }
+
+        // Removes "Story" prefix if present to normalize names
+        private string CleanStoryName(string storyName)
+        {
+            if (storyName.StartsWith("Story ", StringComparison.OrdinalIgnoreCase))
+            {
+                return storyName.Substring(6).Trim();
+            }
+            else if (storyName.StartsWith("Story", StringComparison.OrdinalIgnoreCase))
+            {
+                return storyName.Substring(5).Trim();
+            }
+            return storyName;
         }
 
         private double ConvertFromInches(double inches)

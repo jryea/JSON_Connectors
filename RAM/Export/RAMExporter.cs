@@ -373,6 +373,7 @@ namespace RAM
         //}
 
         // Helper method to create a mapping from level IDs to their names
+        // Helper method to create a mapping from level IDs to their names
         private Dictionary<string, string> CreateLevelIdMapping(List<Level> levels)
         {
             var mapping = new Dictionary<string, string>();
@@ -381,9 +382,15 @@ namespace RAM
             {
                 if (!string.IsNullOrEmpty(level.Id) && !string.IsNullOrEmpty(level.Name))
                 {
+                    // Map ID to name (for export classes to reference)
                     mapping[level.Id] = level.Name;
-                    mapping[$"Story{level.Name}"] = level.Id;
+
+                    // Also map name to ID (for finding level by name)
                     mapping[level.Name] = level.Id;
+
+                    // Map with "Story" prefix variations for flexibility
+                    mapping[$"Story {level.Name}"] = level.Id;
+                    mapping[$"Story{level.Name}"] = level.Id;
                 }
             }
 

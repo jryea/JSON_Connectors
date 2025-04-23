@@ -255,17 +255,35 @@ namespace RAM.Utilities
         }
 
         // Find frame properties ID by section label
-        public static string FindFramePropertiesId(string sectionName, Dictionary<string, string> framePropMappings)
+        public static string FindFramePropertiesId(string sectionName, Dictionary<string, string> _framePropMappings)
         {
-            if (string.IsNullOrEmpty(sectionName) || framePropMappings == null || framePropMappings.Count == 0)
-                return null;
+            if (string.IsNullOrEmpty(sectionName))
+            {
+                Console.WriteLine("BeamExport: Section name is empty, using first available mapping");
+                return _framePropMappings.Values.FirstOrDefault();
+            }
 
             // Try to find direct mapping by section name
-            if (framePropMappings.TryGetValue(sectionName, out string framePropsId))
+            if (_framePropMappings.TryGetValue(sectionName, out string framePropsId))
+            {
+                Console.WriteLine($"BeamExport: Found mapping for section {sectionName} -> {framePropsId}");
                 return framePropsId;
+            }
 
-            // Return null if not found
-            return null;
+            // Try case-insensitive matching
+            foreach (var mapping in _framePropMappings)
+            {
+                if (string.Equals(mapping.Key, sectionName, StringComparison.OrdinalIgnoreCase))
+                {
+                    Console.WriteLine($"BeamExport: Found case-insensitive mapping for section {sectionName} -> {mapping.Value}");
+                    return mapping.Value;
+                }
+            }
+
+            // If still not found, return first available mapping as fallback
+            string fallbackId = _framePropMappings.Values.FirstOrDefault();
+            Console.WriteLine($"BeamExport: No mapping found for section {sectionName}, using fallback {fallbackId}");
+            return fallbackId;
         }
 
         // Find wall properties ID by wall

@@ -13,17 +13,19 @@ namespace RAM.Export.Properties
     {
         private IModel _model;
         private string _lengthUnit;
+        // This is the key addition - maintain the mappings as a class field
+        private Dictionary<string, string> _framePropMappings;
 
         public FramePropertiesExport(IModel model, string lengthUnit = "inches")
         {
             _model = model;
             _lengthUnit = lengthUnit;
+            _framePropMappings = new Dictionary<string, string>();
         }
 
         public (List<FrameProperties> Properties, Dictionary<string, string> Mapping) Export(List<Material> materials)
         {
             var frameProperties = new List<FrameProperties>();
-            var sectionMapping = new Dictionary<string, string>(); // Maps section labels to FrameProperties IDs
             var processedSections = new HashSet<string>(); // Avoid duplicate sections
 
             try
@@ -61,7 +63,7 @@ namespace RAM.Export.Properties
                 // Get all stories from RAM
                 IStories ramStories = _model.GetStories();
                 if (ramStories == null || ramStories.GetCount() == 0)
-                    return (frameProperties, sectionMapping);
+                    return (frameProperties, _framePropMappings);
 
                 // Process each story
                 for (int i = 0; i < ramStories.GetCount(); i++)
@@ -74,14 +76,14 @@ namespace RAM.Export.Properties
                     IBeams storyBeams = ramStory.GetBeams();
                     if (storyBeams != null && storyBeams.GetCount() > 0)
                     {
-                        ExtractSectionsFromBeams(storyBeams, processedSections, frameProperties, sectionMapping, steelMaterialId);
+                        ExtractSectionsFromBeams(storyBeams, processedSections, frameProperties, steelMaterialId);
                     }
 
                     // Extract column sections
                     IColumns storyColumns = ramStory.GetColumns();
                     if (storyColumns != null && storyColumns.GetCount() > 0)
                     {
-                        ExtractSectionsFromColumns(storyColumns, processedSections, frameProperties, sectionMapping, steelMaterialId);
+                        ExtractSectionsFromColumns(storyColumns, processedSections, frameProperties, steelMaterialId);
                     }
 
                     // Add code for braces if needed
@@ -92,10 +94,10 @@ namespace RAM.Export.Properties
                 {
                     var defaultProp = CreateDefaultFrameProperties(steelMaterialId);
                     frameProperties.Add(defaultProp);
-                    sectionMapping["W10X12"] = defaultProp.Id;
+                    _framePropMappings["W10X12"] = defaultProp.Id;
                 }
 
-                return (frameProperties, sectionMapping);
+                return (frameProperties, _framePropMappings);
             }
             catch (Exception ex)
             {
@@ -109,16 +111,15 @@ namespace RAM.Export.Properties
 
                     var defaultProp = CreateDefaultFrameProperties(defaultMaterialId);
                     frameProperties.Add(defaultProp);
-                    sectionMapping["W10X12"] = defaultProp.Id;
+                    _framePropMappings["W10X12"] = defaultProp.Id;
                 }
 
-                return (frameProperties, sectionMapping);
+                return (frameProperties, _framePropMappings);
             }
         }
 
         private void ExtractSectionsFromBeams(IBeams beams, HashSet<string> processedSections,
                                              List<FrameProperties> frameProperties,
-                                             Dictionary<string, string> sectionMapping,
                                              string materialId)
         {
             for (int j = 0; j < beams.GetCount(); j++)
@@ -141,19 +142,19 @@ namespace RAM.Export.Properties
                 // Create a frame properties object for this section
                 var frameProp = new FrameProperties
                 {
+                    Id = IdGenerator.Generate(IdGenerator.Properties.FRAME_PROPERTIES),
                     Name = sectionLabel,
                     MaterialId = materialId,
                     Shape = shape
                 };
 
                 frameProperties.Add(frameProp);
-                sectionMapping[sectionLabel] = frameProp.Id;
+                _framePropMappings[sectionLabel] = frameProp.Id;
             }
         }
 
         private void ExtractSectionsFromColumns(IColumns columns, HashSet<string> processedSections,
                                                List<FrameProperties> frameProperties,
-                                               Dictionary<string, string> sectionMapping,
                                                string materialId)
         {
             for (int j = 0; j < columns.GetCount(); j++)
@@ -176,13 +177,14 @@ namespace RAM.Export.Properties
                 // Create a frame properties object for this section
                 var frameProp = new FrameProperties
                 {
+                    Id = IdGenerator.Generate(IdGenerator.Properties.FRAME_PROPERTIES),
                     Name = sectionLabel,
                     MaterialId = materialId,
-                    Shape = sectionLabel
+                    Shape = shape
                 };
 
                 frameProperties.Add(frameProp);
-                sectionMapping[sectionLabel] = frameProp.Id;
+                _framePropMappings[sectionLabel] = frameProp.Id;
             }
         }
 
@@ -204,9 +206,10 @@ namespace RAM.Export.Properties
         {
             return new FrameProperties
             {
+                Id = IdGenerator.Generate(IdGenerator.Properties.FRAME_PROPERTIES),
                 Name = "W10X12",
                 MaterialId = materialId,
-                Shape = "W10X12"
+                Shape = "W"
             };
         }
     }

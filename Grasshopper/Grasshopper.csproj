@@ -46,6 +46,10 @@
     <EmbeddedResource Include="Resources\IMEG_Logo_Grasshopper.png" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Grasshopper" Version="8.18.25100.11001" />
+    <PackageReference Include="RhinoCommon" Version="8.18.25100.11001" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\Core\Core.csproj" />
     <ProjectReference Include="..\ETABS\ETABS.csproj" />
     <ProjectReference Include="..\RAM\RAM.csproj" />

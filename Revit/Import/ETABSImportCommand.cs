@@ -31,8 +31,12 @@ namespace Revit.Import
                     ModelPath etabsModelPath = fileDialog.GetSelectedModelPath();
                     string etabsFilePath = ModelPathUtils.ConvertModelPathToUserVisiblePath(etabsModelPath);
 
+                    // Get the directory part of the e2k file path
+                    string importDirectory = Path.GetDirectoryName(etabsFilePath);
+                    string importFileName = Path.GetFileNameWithoutExtension(etabsFilePath);
+
                     // Create a temporary JSON file path
-                    string tempJsonPath = Path.Combine(Path.GetTempPath(), $"ETABS_Import_{Guid.NewGuid()}.json");
+                    string tempJsonPath = Path.Combine(importDirectory, $"{importFileName}.json");
 
                     try
                     {
@@ -58,11 +62,7 @@ namespace Revit.Import
                         TaskDialog.Show("ETABS Import Error", $"Failed to import ETABS model: {ex.Message}");
                         return Result.Failed;
                     }
-                    finally
-                    {
-                        // Clean up the temporary file
-                        try { File.Delete(tempJsonPath); } catch { }
-                    }
+                  
                 }
 
                 return Result.Cancelled;

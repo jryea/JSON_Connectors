@@ -33,8 +33,11 @@ namespace Revit.Export
 
                 string e2kFilePath = saveDialog.FileName;
 
+                // Get the directory part of the e2k file path
+                string exportDirectory = Path.GetDirectoryName(e2kFilePath);
+
                 // Create a temporary JSON file path
-                string tempJsonPath = Path.Combine(Path.GetTempPath(), $"Revit_Export_{Guid.NewGuid()}.json");
+                string tempJsonPath = Path.Combine(e2kFilePath, $"Revit_Export_{Guid.NewGuid()}.json");
 
                 // Export the model to JSON
                 ExportManager exportManager = new ExportManager(doc, uiApp);
@@ -63,11 +66,6 @@ namespace Revit.Export
                 {
                     TaskDialog.Show("ETABS Export Error", $"Failed to convert to ETABS format: {ex.Message}");
                     return Result.Failed;
-                }
-                finally
-                {
-                    // Delete the temporary file
-                    try { File.Delete(tempJsonPath); } catch { }
                 }
 
                 TaskDialog.Show("Export Complete", $"Successfully exported model with {exportedCount} elements to ETABS format.");

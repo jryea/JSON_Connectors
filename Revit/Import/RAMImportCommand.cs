@@ -30,8 +30,12 @@ namespace Revit.Import
                     ModelPath ramModelPath = fileDialog.GetSelectedModelPath();
                     string ramFilePath = ModelPathUtils.ConvertModelPathToUserVisiblePath(ramModelPath);
 
+                    // Get the directory part of the RAM file path
+                    string importDirectory = Path.GetDirectoryName(ramFilePath);
+                    string importFileName = Path.GetFileNameWithoutExtension(ramFilePath);
+
                     // Create a temporary JSON file path
-                    string tempJsonPath = Path.Combine(Path.GetTempPath(), $"RAM_Import_{Guid.NewGuid()}.json");
+                    string tempJsonPath = Path.Combine(importDirectory, $"{importFileName}.json");
 
                     // Convert RAM to JSON using RAMExporter
                     RAMExporter ramExporter = new RAMExporter();
@@ -49,9 +53,6 @@ namespace Revit.Import
                     // Import the JSON model
                     ImportManager importManager = new ImportManager(doc, uiApp);
                     int importedCount = importManager.ImportFromJson(tempJsonPath);
-
-                    // Delete the temporary file
-                    try { File.Delete(tempJsonPath); } catch { }
 
                     TaskDialog.Show("Import Complete", $"Successfully imported RAM model with {importedCount} elements.");
                     return Result.Succeeded;

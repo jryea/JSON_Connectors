@@ -34,7 +34,7 @@ namespace Revit.Export
                 string ramFilePath = saveDialog.FileName;
 
                 // Create a temporary JSON file path
-                string tempJsonPath = Path.Combine(Path.GetTempPath(), $"Revit_Export_{Guid.NewGuid()}.json");
+                string tempJsonPath = Path.Combine(ramFilePath, $"Revit_Export_{Guid.NewGuid()}.json");
 
                 // Export the model to JSON
                 ExportManager exportManager = new ExportManager(doc, uiApp);
@@ -50,8 +50,6 @@ namespace Revit.Export
                 RAMImporter ramImporter = new RAMImporter();
                 var conversionResult = ramImporter.ConvertJSONFileToRAM(tempJsonPath, ramFilePath);
 
-                // Delete the temporary file
-                try { File.Delete(tempJsonPath); } catch { }
 
                 if (!conversionResult.Success)
                 {

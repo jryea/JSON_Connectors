@@ -101,7 +101,7 @@ namespace RAM.Import.Elements
                     processedColumns.Add(columnKey);
 
                     // Get material type
-                    EMATERIALTYPES columnMaterial = ImportHelpers.GetRAMMaterialType(
+                    EMATERIALTYPES columnMaterial = RAMHelpers.GetRAMMaterialType(
                         column.FramePropertiesId,
                         frameProperties,
                         materials);

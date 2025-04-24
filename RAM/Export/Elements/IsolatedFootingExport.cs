@@ -13,17 +13,11 @@ namespace RAM.Export.Elements
     {
         private IModel _model;
         private string _lengthUnit;
-        private Dictionary<string, string> _levelMappings = new Dictionary<string, string>();
 
         public IsolatedFootingExport(IModel model, string lengthUnit = "inches")
         {
             _model = model;
             _lengthUnit = lengthUnit;
-        }
-
-        public void SetLevelMappings(Dictionary<string, string> levelMappings)
-        {
-            _levelMappings = levelMappings ?? new Dictionary<string, string>();
         }
 
         public List<IsolatedFooting> Export()
@@ -55,9 +49,18 @@ namespace RAM.Export.Elements
                     return isolatedFootings;
 
                 // Find the corresponding level ID for the foundation story
-                string foundationLevelId = ImportHelpers.FindLevelIdForStory(foundationStory, _levelMappings);
+                string foundationLevelId = ModelMappingUtility.GetLevelIdForStoryUid(foundationStory.lUID.ToString());
+
+                // If no level mapping found, use the ground level
                 if (string.IsNullOrEmpty(foundationLevelId))
-                    return isolatedFootings;
+                {
+                    foundationLevelId = ModelMappingUtility.GetGroundLevelId();
+                    if (string.IsNullOrEmpty(foundationLevelId))
+                    {
+                        Console.WriteLine("No foundation level found for isolated footings");
+                        return isolatedFootings;
+                    }
+                }
 
                 // Get isolated footings for the foundation story
                 IIsolatedFnds foundations = foundationStory.GetIsolatedFnds();
@@ -106,23 +109,5 @@ namespace RAM.Export.Elements
                 return isolatedFootings;
             }
         }
-
-        //private double ConvertFromInches(double inches)
-        //{
-        //    switch (_lengthUnit.ToLower())
-        //    {
-        //        case "feet":
-        //            return inches / 12.0;
-        //        case "millimeters":
-        //            return inches * 25.4;
-        //        case "centimeters":
-        //            return inches * 2.54;
-        //        case "meters":
-        //            return inches * 0.0254;
-        //        case "inches":
-        //        default:
-        //            return inches;
-        //    }
-        //}
-    } 
+    }
 }

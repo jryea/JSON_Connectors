@@ -39,39 +39,6 @@ namespace RAM.Import.Elements
                 return 0;
             }
 
-            // Create a mapping of Level.Id to RAM Story.lUID
-            var levelToStoryMapping = ImportHelpers.CreateLevelToStoryMapping(levels, ramStories);
-
-            // Log the mapping for debugging
-            Console.WriteLine("Level to Story Mapping:");
-            foreach (var kvp in levelToStoryMapping)
-            {
-                Console.WriteLine($"Level ID: {kvp.Key}, Story ID: {kvp.Value}");
-            }
-
-            // Create a lookup for RAM stories by Level.Id
-            var ramStoryByLevelId = new Dictionary<string, IStory>();
-            for (int i = 0; i < ramStories.GetCount(); i++)
-            {
-                IStory ramStory = ramStories.GetAt(i);
-                string storyId = ramStory.lUID.ToString();
-
-                if (levelToStoryMapping.ContainsValue(storyId))
-                {
-                    string levelId = levelToStoryMapping.First(kvp => kvp.Value == storyId).Key;
-                    ramStoryByLevelId[levelId] = ramStory;
-                    Console.WriteLine($"Mapped Core Level {levelId} to RAM Story {ramStory.strLabel}");
-                }
-            }
-
-            // Get vertical braces interface from the model
-            IVerticalBraces verticalBraces = _model.GetVerticalBraces();
-            if (verticalBraces == null)
-            {
-                Console.WriteLine("Could not get vertical braces interface from RAM model.");
-                return 0;
-            }
-
             // Import braces
             int count = 0;
             var processedBraces = new HashSet<string>();
@@ -83,18 +50,35 @@ namespace RAM.Import.Elements
                     continue;
                 }
 
-                // Map the brace's TopLevelId and BaseLevelId to the corresponding IStory.lUID
-                if (!levelToStoryMapping.TryGetValue(brace.TopLevelId, out string topStoryId) ||
-                    !TryGetStoryByLUID(ramStories, topStoryId, out IStory topStory))
+                // Map the brace's TopLevelId and BaseLevelId to the corresponding story UIDs
+                string topStoryUid = ModelMappingUtility.GetStoryUidForLevelId(brace.TopLevelId);
+                string baseStoryUid = ModelMappingUtility.GetStoryUidForLevelId(brace.BaseLevelId);
+
+                if (string.IsNullOrEmpty(topStoryUid))
                 {
                     Console.WriteLine($"No RAM story found for top level {brace.TopLevelId}. Skipping brace.");
                     continue;
                 }
 
-                if (!levelToStoryMapping.TryGetValue(brace.BaseLevelId, out string baseStoryId) ||
-                    !TryGetStoryByLUID(ramStories, baseStoryId, out IStory baseStory))
+                if (string.IsNullOrEmpty(baseStoryUid))
                 {
                     Console.WriteLine($"No RAM story found for base level {brace.BaseLevelId}. Skipping brace.");
+                    continue;
+                }
+
+                // Get the actual RAM stories by UID
+                IStory topStory = RAMHelpers.GetStoryByUid(_model, topStoryUid);
+                IStory baseStory = RAMHelpers.GetStoryByUid(_model, baseStoryUid);
+
+                if (topStory == null)
+                {
+                    Console.WriteLine($"Could not find top story with UID {topStoryUid}. Skipping brace.");
+                    continue;
+                }
+
+                if (baseStory == null)
+                {
+                    Console.WriteLine($"Could not find base story with UID {baseStoryUid}. Skipping brace.");
                     continue;
                 }
 
@@ -116,13 +100,21 @@ namespace RAM.Import.Elements
                 processedBraces.Add(braceKey);
 
                 // Get material type
-                EMATERIALTYPES braceMaterial = ImportHelpers.GetRAMMaterialType(
+                EMATERIALTYPES braceMaterial = RAMHelpers.GetRAMMaterialType(
                     brace.FramePropertiesId,
                     frameProperties,
                     materials);
 
                 try
                 {
+                    // Get vertical braces interface from the model
+                    IVerticalBraces verticalBraces = _model.GetVerticalBraces();
+                    if (verticalBraces == null)
+                    {
+                        Console.WriteLine("Could not get vertical braces interface from RAM model.");
+                        continue;
+                    }
+
                     // Add the brace to the RAM model
                     IVerticalBrace ramBrace = verticalBraces.Add(
                         braceMaterial,
@@ -152,23 +144,7 @@ namespace RAM.Import.Elements
                 }
             }
 
-
             return count;
-        }
-
-        private bool TryGetStoryByLUID(IStories ramStories, string storyId, out IStory story)
-        {
-            story = null;
-            for (int i = 0; i < ramStories.GetCount(); i++)
-            {
-                IStory currentStory = ramStories.GetAt(i);
-                if (currentStory.lUID.ToString() == storyId)
-                {
-                    story = currentStory;
-                    return true;
-                }
-            }
-            return false;
         }
 
         private bool IsValidBrace(Brace brace)

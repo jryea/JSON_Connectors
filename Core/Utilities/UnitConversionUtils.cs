@@ -1,4 +1,6 @@
-﻿namespace Core.Utilities
+﻿using System;
+
+namespace Core.Utilities
 {
     public static class UnitConversionUtils
     {
@@ -39,6 +41,12 @@
                 default:
                     return inches;
             }
+        }
+
+        // Round coordinates to prevent floating point comparison issues
+        public static double RoundCoordinate(double value, int decimals = 6)
+        {
+            return Math.Round(value, decimals);
         }
     }
 }

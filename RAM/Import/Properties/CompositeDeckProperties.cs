@@ -88,7 +88,7 @@ namespace RAM.Import.Properties
 
                     // Get deck self weight based on deck type and gage
                     double selfWeight;
-                    ImportHelpers.GetDeckProperties(deckType, deckGage, out selfWeight);
+                    RAMHelpers.GetDeckProperties(deckType, deckGage, out selfWeight);
 
                     // Create the composite deck property in RAM
                     ICompDeckProp compDeckProp = compDeckProps.Add2(

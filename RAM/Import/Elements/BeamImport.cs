@@ -109,7 +109,7 @@ namespace RAM.Import.Elements
                     }
 
                     // Get material type
-                    EMATERIALTYPES beamMaterial = ImportHelpers.GetRAMMaterialType(
+                    EMATERIALTYPES beamMaterial = RAMHelpers.GetRAMMaterialType(
                         beam.FramePropertiesId,
                         frameProperties,
                         materials,

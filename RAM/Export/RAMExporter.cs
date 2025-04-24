@@ -58,16 +58,9 @@ namespace RAM
                         FloorTypeExport floorTypeExporter = new FloorTypeExport(modelManager.Model);
                         model.ModelLayout.FloorTypes = floorTypeExporter.Export();
 
-                        // Create a mapping from RAM floor type UIDs to Core model IDs
-                        Dictionary<int, string> floorTypeMapping = floorTypeExporter.CreateFloorTypeMapping(model.ModelLayout.FloorTypes);
-
                         // Extract levels
                         LevelExport levelExporter = new LevelExport(modelManager.Model, lengthUnit);
-                        levelExporter.SetFloorTypeMapping(floorTypeMapping);
                         model.ModelLayout.Levels = levelExporter.Export();
-
-                        // Create a mapping from level IDs to RAM story UIDs
-                        Dictionary<string, string> levelMapping = levelExporter.CreateLevelMapping(model.ModelLayout.Levels);
 
                         // Extract grids
                         GridExport gridExporter = new GridExport(modelManager.Model, lengthUnit);
@@ -76,67 +69,38 @@ namespace RAM
                         // Extract materials
                         model.Properties.Materials = ExtractMaterials();
 
-                        // Extract floor properties
-                        //FloorPropertiesExport floorPropertiesExporter = new FloorPropertiesExport(modelManager.Model, lengthUnit);
-                        //model.Properties.FloorProperties = floorPropertiesExporter.Export();
+                        // Initialize mappings using the ModelMappingUtility
+                        ModelMappingUtility.InitializeMappings(modelManager.Model, model);
 
-                        // Create material mappings
-                        Dictionary<string, string> steelMaterialMapping = new Dictionary<string, string>();
-                        Dictionary<string, string> concreteMaterialMapping = new Dictionary<string, string>();
-
-                        foreach (var material in model.Properties.Materials)
-                        {
-                            if (material.Type.ToLower() == "steel")
-                            {
-                                steelMaterialMapping[material.Name] = material.Id;
-                            }
-                            else if (material.Type.ToLower() == "concrete")
-                            {
-                                concreteMaterialMapping[material.Name] = material.Id;
-                            }
-                        }
-
+                        model.Properties.Materials = ExtractMaterials();
 
                         // Extract frame properties
                         var framePropertiesExporter = new FramePropertiesExport(modelManager.Model, lengthUnit);
                         var (frameProps, framePropMappings) = framePropertiesExporter.Export(model.Properties.Materials);
                         model.Properties.FrameProperties = frameProps;
 
-                        // Extract wall properties
-                        //model.Properties.WallProperties = ExtractWallProperties(model.Properties.Materials);
+                        // Extract wall properties before walls
+                        var wallPropertiesExporter = new WallPropertiesExport(modelManager.Model, lengthUnit);
+                        model.Properties.WallProperties = wallPropertiesExporter.Export(model.Properties.Materials);
 
-                        // Create wall property mappings
-                        Dictionary<string, string> wallPropertyMapping = new Dictionary<string, string>();
-                        foreach (var wallProp in model.Properties.WallProperties)
-                        {
-                            wallPropertyMapping[wallProp.Name] = wallProp.Id;
-                        }
-
-                        // Extract beams
+                        // Now extract structural elements
                         BeamExport beamExporter = new BeamExport(modelManager.Model, lengthUnit);
-                        beamExporter.SetLevelMappings(levelMapping);
-                        beamExporter.SetFramePropertyMappings(framePropMappings);
                         model.Elements.Beams = beamExporter.Export();
 
-                        // Extract columns
-                        ColumnExport columnExporter = new ColumnExport(modelManager.Model, lengthUnit);
-                        columnExporter.SetLevelMappings(levelMapping);
-                        columnExporter.SetFramePropertyMappings(framePropMappings);
-                        model.Elements.Columns = columnExporter.Export();
-
-                        // Extract walls
+                        // Extract walls after wall properties
                         WallExport wallExporter = new WallExport(modelManager.Model, lengthUnit);
-                        wallExporter.SetLevelMappings(CreateLevelIdMapping(model.ModelLayout.Levels));
-                        wallExporter.SetWallPropertyMappings(wallPropertyMapping);
                         model.Elements.Walls = wallExporter.Export();
 
-                        // Extract isolated footings
-                        IsolatedFootingExport isolatedFootingExporter = new IsolatedFootingExport(modelManager.Model, lengthUnit);
-                        isolatedFootingExporter.SetLevelMappings(CreateLevelIdMapping(model.ModelLayout.Levels));
-                        model.Elements.IsolatedFootings = isolatedFootingExporter.Export();
+                        //// Make sure the frame property mappings are registered
+                        //ModelMappingUtility.SetFramePropertyMappings(framePropMappings);
 
-                        // Extract loads
-                        //ExtractLoads(modelManager.Model, model);
+                        // Extract columns using the mapping utility
+                        ColumnExport columnExporter = new ColumnExport(modelManager.Model, lengthUnit);
+                        model.Elements.Columns = columnExporter.Export();
+
+                        // Extract isolated footings using the mapping utility
+                        IsolatedFootingExport isolatedFootingExporter = new IsolatedFootingExport(modelManager.Model, lengthUnit);
+                        model.Elements.IsolatedFootings = isolatedFootingExporter.Export();
                     }
                     catch (Exception ex)
                     {
@@ -209,129 +173,6 @@ namespace RAM
             });
 
             return materials;
-        }
-
-        // Extract wall properties
-        private List<WallProperties> ExtractWallProperties(List<Material> materials)
-        {
-            var wallProperties = new List<WallProperties>();
-
-            // Find concrete material ID
-            string concreteMaterialId = materials.FirstOrDefault(m => m.Type.ToLower() == "concrete")?.Id;
-            if (string.IsNullOrEmpty(concreteMaterialId))
-            {
-                // If no concrete material found, add a default one
-                var concreteMaterial = new Material
-                {
-                    Id = IdGenerator.Generate(IdGenerator.Properties.MATERIAL),
-                    Name = "Default Concrete",
-                    Type = "Concrete"
-                };
-                materials.Add(concreteMaterial);
-                concreteMaterialId = concreteMaterial.Id;
-            }
-
-            // Add default wall property
-            wallProperties.Add(new WallProperties
-            {
-                Id = IdGenerator.Generate(IdGenerator.Properties.WALL_PROPERTIES),
-                Name = "SPEED Wall",
-                MaterialId = concreteMaterialId,
-                Thickness = 10.0
-            });
-
-            return wallProperties;
-        }
-
-        // Extract loads
-        //private void ExtractLoads(IModel ramModel, BaseModel model)
-        //{
-        //    try
-        //    {
-        //        // Extract load definitions
-        //        var deadLoad = new LoadDefinition
-        //        {
-        //            Id = IdGenerator.Generate(IdGenerator.Loads.LOAD_DEFINITION),
-        //            Name = "SW",
-        //            Type = "Dead",
-        //            SelfWeight = 1.0
-        //        };
-
-        //        var liveLoad = new LoadDefinition
-        //        {
-        //            Id = IdGenerator.Generate(IdGenerator.Loads.LOAD_DEFINITION),
-        //            Name = "Live",
-        //            Type = "Live",
-        //            SelfWeight = 0.0
-        //        };
-
-        //        model.Loads.LoadDefinitions.Add(deadLoad);
-        //        model.Loads.LoadDefinitions.Add(liveLoad);
-
-        //        // Extract surface loads
-        //        SurfaceLoadExport surfaceLoadExporter = new SurfaceLoadExport(ramModel);
-
-        //        // Create load definition mappings
-        //        Dictionary<string, string> deadLoadMappings = new Dictionary<string, string>
-        //        {
-        //            ["default"] = deadLoad.Id
-        //        };
-
-        //        Dictionary<string, string> liveLoadMappings = new Dictionary<string, string>
-        //        {
-        //            ["default"] = liveLoad.Id
-        //        };
-
-        //        // Create floor type mappings
-        //        Dictionary<string, string> floorTypeMappings = new Dictionary<string, string>();
-        //        if (model.ModelLayout.FloorTypes.Count > 0)
-        //        {
-        //            floorTypeMappings["default"] = model.ModelLayout.FloorTypes[0].Id;
-        //        }
-
-        //        surfaceLoadExporter.SetLoadMappings(deadLoadMappings, liveLoadMappings);
-        //        surfaceLoadExporter.SetFloorTypeMappings(floorTypeMappings);
-
-        //        model.Loads.SurfaceLoads = surfaceLoadExporter.Export();
-
-        //        // Create a default load combination
-        //        var loadCombo = new LoadCombination
-        //        {
-        //            Id = IdGenerator.Generate(IdGenerator.Loads.LOAD_COMBINATION),
-        //            LoadDefinitionIds = new List<string> { deadLoad.Id, liveLoad.Id }
-        //        };
-
-        //        model.Loads.LoadCombinations.Add(loadCombo);
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        Console.WriteLine($"Error extracting loads: {ex.Message}");
-        //    }
-        //}
-
-        // Helper method to create a mapping from level IDs to their names
-        // Helper method to create a mapping from level IDs to their names
-        private Dictionary<string, string> CreateLevelIdMapping(List<Level> levels)
-        {
-            var mapping = new Dictionary<string, string>();
-
-            foreach (var level in levels)
-            {
-                if (!string.IsNullOrEmpty(level.Id) && !string.IsNullOrEmpty(level.Name))
-                {
-                    // Map ID to name (for export classes to reference)
-                    mapping[level.Id] = level.Name;
-
-                    // Also map name to ID (for finding level by name)
-                    mapping[level.Name] = level.Id;
-
-                    // Map with "Story" prefix variations for flexibility
-                    mapping[$"Story {level.Name}"] = level.Id;
-                    mapping[$"Story{level.Name}"] = level.Id;
-                }
-            }
-
-            return mapping;
         }
 
         #endregion

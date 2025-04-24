@@ -98,7 +98,7 @@ namespace RAM
                     var validLevels = ModelLayoutFilter.GetValidLevels(model.ModelLayout.Levels);
 
                     // Create the level-to-floor-type mapping using valid levels
-                    var levelToFloorTypeMapping = ImportHelpers.CreateLevelToFloorTypeMapping(validLevels);
+                    var levelToFloorTypeMapping = ModelMappingUtility.CreateLevelToFloorTypeMapping(validLevels);
 
                     // Import floor types
                     var floorTypeImporter = new FloorTypeImport(modelManager.Model);

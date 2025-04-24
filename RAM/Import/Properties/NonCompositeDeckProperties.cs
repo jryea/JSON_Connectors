@@ -68,7 +68,7 @@ namespace RAM.Import.Properties
                             }
 
                             // Calculate self weight
-                            ImportHelpers.GetDeckProperties(deckType, deckGage, out selfWeight);
+                            RAMHelpers.GetDeckProperties(deckType, deckGage, out selfWeight);
 
                             // Set effective thickness if available
                             if (floorProp.DeckProperties.ContainsKey("effectiveThickness") &&

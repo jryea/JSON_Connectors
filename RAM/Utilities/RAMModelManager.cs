@@ -1,5 +1,7 @@
 ﻿// RAMModelManager.cs
 using System;
+using Core.Models;
+
 using RAMDATAACCESSLib;
 
 namespace RAM.Utilities

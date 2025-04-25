@@ -6,39 +6,25 @@ namespace Core.Models.Elements
 {
     public class IsolatedFooting : IIdentifiable
     {
-        /// <summary>
-        /// Unique identifier for the isolated footing
-        /// </summary>
+        // Unique identifier for the isolated footing
         public string Id { get; set; }
 
-        /// <summary>
-        /// Width of the footing
-        /// </summary>
+        // Width of the footing
         public double Width { get; set; }
 
-        /// <summary>
-        /// Length of the footing
-        /// </summary>
+        // Length of the footing
         public double Length { get; set; }
 
-        /// <summary>
-        /// Thickness of the footing
-        /// </summary>
+        // Thickness of the footing
         public double Thickness { get; set; }
 
-        /// <summary>
-        /// Location of the footing
-        /// </summary>
+        // Location of the footing
         public Point3D Point { get; set; }
 
-        /// <summary>
-        /// ID of the level this footing belongs to
-        /// </summary>
+        // ID of the level this footing belongs to
         public string LevelId { get; set; }
 
-        /// <summary>
-        /// Creates a new IsolatedFooting with a generated ID
-        /// </summary>
+        // Creates a new IsolatedFooting with a generated ID
         public IsolatedFooting()
         {
             Id = IdGenerator.Generate(IdGenerator.Elements.ISOLATED_FOOTING);

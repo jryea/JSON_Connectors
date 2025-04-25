@@ -7,28 +7,18 @@ using RAMDATAACCESSLib;
 
 namespace RAM.Import.Loads
 {
-    /// <summary>
-    /// Imports surface load properties to RAM from the Core model
-    /// </summary>
+    // Imports surface load properties to RAM from the Core model
     public class SurfaceLoadPropertiesImport
     {
         private IModel _model;
 
-        /// <summary>
-        /// Initializes a new instance of the SurfaceLoadPropertiesImport class
-        /// </summary>
-        /// <param name="model">The RAM model</param>
+        // Initializes a new instance of the SurfaceLoadPropertiesImport class
         public SurfaceLoadPropertiesImport(IModel model)
         {
             _model = model;
         }
 
-        /// <summary>
-        /// Imports surface load properties to RAM
-        /// </summary>
-        /// <param name="surfaceLoads">The collection of surface loads to import</param>
-        /// <param name="loadDefinitions">The collection of load definitions in the model</param>
-        /// <returns>The number of surface loads successfully imported</returns>
+        // Imports surface load properties to RAM
         public int Import(IEnumerable<SurfaceLoad> surfaceLoads, IEnumerable<LoadDefinition> loadDefinitions)
         {
             try

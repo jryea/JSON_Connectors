@@ -2,29 +2,19 @@
 
 namespace Core.Models.ModelLayout
 {
-    /// <summary>
-    /// Container for model layout components (grids, levels, floor types)
-    /// </summary>
+    // Container for model layout components (grids, levels, floor types)
     public class ModelLayoutContainer
     {
-        /// <summary>
-        /// Collection of grids
-        /// </summary>
+        // Collection of grids
         public List<Grid> Grids { get; set; } = new List<Grid>();
 
-        /// <summary>
-        /// Collection of levels
-        /// </summary>
+        // Collection of levels
         public List<Level> Levels { get; set; } = new List<Level>();
 
-        /// <summary>
-        /// Collection of floor types
-        /// </summary>
+        // Collection of floor types
         public List<FloorType> FloorTypes { get; set; } = new List<FloorType>();
 
-        /// <summary>
-        /// Creates a new ModelLayoutContainer with empty collections
-        /// </summary>
+        // Creates a new ModelLayoutContainer with empty collections
         public ModelLayoutContainer()
         {
             Grids = new List<Grid>();

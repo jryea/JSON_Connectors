@@ -2,13 +2,16 @@
 using System.IO;
 using System.Text;
 using Core.Models;
-using Core.Converters;
+using CC =Core.Converters;
 using RAM.Import.ModelLayout;
 using RAM.Import.Elements;
 using RAM.Import.Loads;
 using RAM.Utilities;
 using RAMDATAACCESSLib;
 using RAM.Import.Properties;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Linq;
 
 namespace RAM
 {
@@ -39,6 +42,8 @@ namespace RAM
         {
             try
             {
+                Console.WriteLine("Starting JSON to RAM conversion");
+
                 // Validate JSON string before attempting to deserialize
                 if (string.IsNullOrWhiteSpace(jsonString))
                 {
@@ -54,8 +59,21 @@ namespace RAM
                     return (false, "Invalid JSON format. JSON must start with '{' or '['.");
                 }
 
-                // Parse JSON to base model
-                BaseModel model = JsonConverter.Deserialize(jsonString);
+                Console.WriteLine("JSON validation passed, attempting deserialization");
+
+                BaseModel model = null;
+
+                try
+                {
+                    // Use existing deserializer
+                    model = CC.JsonConverter.Deserialize(jsonString);
+                    Console.WriteLine("Deserialization successful");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Deserialization failed: {ex.Message}");
+                    return (false, $"Failed to deserialize JSON model: {ex.Message}");
+                }
 
                 if (model == null)
                 {
@@ -67,9 +85,13 @@ namespace RAM
                     return (false, "No model layout found in the model.");
                 }
 
+                Console.WriteLine("Model deserialized successfully");
+
                 // Create a new RAM model
                 using (var modelManager = new RAMModelManager())
                 {
+                    Console.WriteLine("Creating RAM model manager");
+
                     // Determine the appropriate units from the model
                     EUnits ramUnits = EUnits.eUnitsEnglish;  // Default to English units
                     string lengthUnit = "inches";
@@ -87,145 +109,209 @@ namespace RAM
                         }
                     }
 
+                    Console.WriteLine($"Using length unit: {lengthUnit}, RAM units: {ramUnits}");
+
                     // Create new model with appropriate units
+                    Console.WriteLine($"Creating new RAM model at: {ramFilePath}");
                     bool result = modelManager.CreateNewModel(ramFilePath, ramUnits);
                     if (!result)
                     {
                         return (false, "Failed to create RAM model file.");
                     }
 
-                    // Filter valid levels first
-                    var validLevels = ModelLayoutFilter.GetValidLevels(model.ModelLayout.Levels);
+                    Console.WriteLine("RAM model created successfully");
 
-                    // Create the level-to-floor-type mapping using valid levels
-                    var levelToFloorTypeMapping = ModelMappingUtility.CreateLevelToFloorTypeMapping(validLevels);
-
-                    // Import floor types
-                    var floorTypeImporter = new FloorTypeImport(modelManager.Model);
-                    int floorTypeCount = 0;
-                    if (model.ModelLayout.FloorTypes != null && model.ModelLayout.FloorTypes.Count > 0)
+                    try
                     {
-                        floorTypeCount = floorTypeImporter.Import(model.ModelLayout.FloorTypes, validLevels);
-                    }
+                        // Filter valid levels first
+                        Console.WriteLine("Filtering valid levels");
+                        var validLevels = ModelLayoutFilter.GetValidLevels(model.ModelLayout.Levels);
+                        Console.WriteLine($"Found {validLevels.Count()} valid levels");
 
-                    // Import stories
-                    var storyImporter = new StoryImport(modelManager.Model, lengthUnit);
-                    int storyCount = 0;
-                    if (model.ModelLayout.Levels != null && model.ModelLayout.Levels.Count > 0)
-                    {
-                        storyImporter.SetFloorTypeMapping(model.ModelLayout.FloorTypes);
-                        storyCount = storyImporter.Import(validLevels);
-                    }
+                        // Create the level-to-floor-type mapping using valid levels
+                        Console.WriteLine("Creating level-to-floor-type mapping");
+                        var levelToFloorTypeMapping = ModelMappingUtility.CreateLevelToFloorTypeMapping(validLevels);
+                        Console.WriteLine($"Created {levelToFloorTypeMapping.Count} level-to-floor-type mappings");
 
-                    // Import grid lines
-                    string gridSystemName = "StandardGrids";
-                    if (model.Metadata != null && model.Metadata.ProjectInfo != null &&
-                        !string.IsNullOrEmpty(model.Metadata.ProjectInfo.ProjectName))
-                    {
-                        gridSystemName = $"{model.Metadata.ProjectInfo.ProjectName}Grids";
-                    }
-
-                    var gridImporter = new GridImport(modelManager.Model, lengthUnit, gridSystemName);
-                    int gridCount = 0;
-                    if (model.ModelLayout.Grids != null && model.ModelLayout.Grids.Count > 0)
-                    {
-                        gridCount = gridImporter.Import(model.ModelLayout.Grids);
-                    }
-
-                    // Import surface load properties
-                    int surfaceLoadCount = 0;
-                    if (model.Loads != null && model.Loads.SurfaceLoads != null && model.Loads.SurfaceLoads.Count > 0)
-                    {
-                        var surfaceLoadImporter = new SurfaceLoadPropertiesImport(modelManager.Model);
-                        surfaceLoadCount = surfaceLoadImporter.Import(
-                            model.Loads.SurfaceLoads,
-                            model.Loads.LoadDefinitions);
-                    }
-
-                    // Import properties
-                    if (model.Properties.FloorProperties != null && model.Properties.FloorProperties.Count > 0)
-                    {
-                        var slabImporter = new SlabPropertiesImport(modelManager.Model, lengthUnit);
-                        var slabMappings = slabImporter.Import(
-                            model.Properties.FloorProperties,
-                            levelToFloorTypeMapping);
-                    }
-
-                    // Import structural elements
-                    int beamCount = 0;
-                    int columnCount = 0;
-                    int braceCount = 0;
-                    int wallCount = 0;
-                    int isolatedFootingCount = 0;
-
-                    if (model.Elements != null)
-                    {
-                        // Import beams
-                        if (model.Elements.Beams != null && model.Elements.Beams.Count > 0)
+                        // Import floor types
+                        Console.WriteLine("Importing floor types");
+                        var floorTypeImporter = new FloorTypeImport(modelManager.Model);
+                        int floorTypeCount = 0;
+                        if (model.ModelLayout.FloorTypes != null && model.ModelLayout.FloorTypes.Count > 0)
                         {
-                            var beamImporter = new BeamImport(modelManager.Model, lengthUnit);
-                            beamCount = beamImporter.Import(
-                                model.Elements.Beams,
-                                validLevels,
-                                model.Properties.FrameProperties,
-                                model.Properties.Materials,
+                            floorTypeCount = floorTypeImporter.Import(model.ModelLayout.FloorTypes, validLevels);
+                            Console.WriteLine($"Imported {floorTypeCount} floor types");
+                        }
+
+                        // Import stories
+                        Console.WriteLine("Importing stories");
+                        var storyImporter = new StoryImport(modelManager.Model, lengthUnit);
+                        int storyCount = 0;
+                        if (model.ModelLayout.Levels != null && model.ModelLayout.Levels.Count > 0)
+                        {
+                            storyImporter.SetFloorTypeMapping(model.ModelLayout.FloorTypes);
+                            storyCount = storyImporter.Import(validLevels);
+                            Console.WriteLine($"Imported {storyCount} stories");
+                        }
+
+                        // Import grid lines
+                        string gridSystemName = "StandardGrids";
+                        if (model.Metadata != null && model.Metadata.ProjectInfo != null &&
+                            !string.IsNullOrEmpty(model.Metadata.ProjectInfo.ProjectName))
+                        {
+                            gridSystemName = $"{model.Metadata.ProjectInfo.ProjectName}Grids";
+                        }
+
+                        Console.WriteLine($"Importing grids with system name: {gridSystemName}");
+                        var gridImporter = new GridImport(modelManager.Model, lengthUnit, gridSystemName);
+                        int gridCount = 0;
+                        if (model.ModelLayout.Grids != null && model.ModelLayout.Grids.Count > 0)
+                        {
+                            gridCount = gridImporter.Import(model.ModelLayout.Grids);
+                            Console.WriteLine($"Imported {gridCount} grids");
+                        }
+
+                        // Import surface load properties
+                        Console.WriteLine("Importing surface load properties");
+                        int surfaceLoadCount = 0;
+                        if (model.Loads != null && model.Loads.SurfaceLoads != null && model.Loads.SurfaceLoads.Count > 0)
+                        {
+                            var surfaceLoadImporter = new SurfaceLoadPropertiesImport(modelManager.Model);
+                            surfaceLoadCount = surfaceLoadImporter.Import(
+                                model.Loads.SurfaceLoads,
+                                model.Loads.LoadDefinitions);
+                            Console.WriteLine($"Imported {surfaceLoadCount} surface loads");
+                        }
+
+                        // Import properties
+                        Console.WriteLine("Importing floor properties");
+                        if (model.Properties.FloorProperties != null && model.Properties.FloorProperties.Count > 0)
+                        {
+                            var slabImporter = new SlabPropertiesImport(modelManager.Model, lengthUnit);
+                            var slabMappings = slabImporter.Import(
+                                model.Properties.FloorProperties,
                                 levelToFloorTypeMapping);
-                            Console.WriteLine($"Imported {beamCount} beams.");
+                            Console.WriteLine($"Imported {slabMappings.Count} slab property mappings");
                         }
 
-                        // Import columns
-                        if (model.Elements.Columns != null && model.Elements.Columns.Count > 0)
+                        // Import structural elements
+                        int beamCount = 0;
+                        int columnCount = 0;
+                        int braceCount = 0;
+                        int wallCount = 0;
+                        int isolatedFootingCount = 0;
+
+                        if (model.Elements != null)
                         {
-                            var columnImporter = new ColumnImport(modelManager.Model, lengthUnit);
-                            columnCount = columnImporter.Import(
-                                model.Elements.Columns,
-                                validLevels,
-                                model.Properties.FrameProperties,
-                                model.Properties.Materials,
-                                levelToFloorTypeMapping);
+                            // Import beams
+                            Console.WriteLine("Importing beams");
+                            if (model.Elements.Beams != null && model.Elements.Beams.Count > 0)
+                            {
+                                var beamImporter = new BeamImport(modelManager.Model, lengthUnit);
+                                beamCount = beamImporter.Import(
+                                    model.Elements.Beams,
+                                    validLevels,
+                                    model.Properties.FrameProperties,
+                                    model.Properties.Materials,
+                                    levelToFloorTypeMapping);
+                                Console.WriteLine($"Imported {beamCount} beams");
+                            }
+
+                            // Import columns
+                            Console.WriteLine("Importing columns");
+                            if (model.Elements.Columns != null && model.Elements.Columns.Count > 0)
+                            {
+                                var columnImporter = new ColumnImport(modelManager.Model, lengthUnit);
+                                columnCount = columnImporter.Import(
+                                    model.Elements.Columns,
+                                    validLevels,
+                                    model.Properties.FrameProperties,
+                                    model.Properties.Materials,
+                                    levelToFloorTypeMapping);
+                                Console.WriteLine($"Imported {columnCount} columns");
+                            }
+
+                            // Import braces
+                            Console.WriteLine("Importing braces");
+                            if (model.Elements.Braces != null && model.Elements.Braces.Count > 0)
+                            {
+                                var braceImporter = new BraceImport(modelManager.Model, lengthUnit);
+                                braceCount = braceImporter.Import(
+                                    model.Elements.Braces,
+                                    validLevels,
+                                    model.Properties.FrameProperties,
+                                    model.Properties.Materials);
+                                Console.WriteLine($"Imported {braceCount} braces");
+                            }
+
+                            // Import walls
+                            Console.WriteLine("Importing walls");
+                            if (model.Elements.Walls != null && model.Elements.Walls.Count > 0)
+                            {
+                                var wallImporter = new WallImport(modelManager.Model, lengthUnit);
+                                wallCount = wallImporter.Import(
+                                    model.Elements.Walls,
+                                    validLevels,
+                                    levelToFloorTypeMapping,
+                                    model.Properties.WallProperties);
+                                Console.WriteLine($"Imported {wallCount} walls");
+                            }
+
+                            // Import isolated footings
+                            Console.WriteLine("Importing isolated footings");
+                            if (model.Elements.IsolatedFootings != null && model.Elements.IsolatedFootings.Count > 0)
+                            {
+                                var isolatedFootingImporter = new IsolatedFootingImport(modelManager.Model, lengthUnit);
+                                try
+                                {
+                                    isolatedFootingCount = isolatedFootingImporter.Import(
+                                        model.Elements.IsolatedFootings,
+                                        validLevels);
+                                    Console.WriteLine($"Imported {isolatedFootingCount} isolated footings");
+                                }
+                                catch (Exception ex)
+                                {
+                                    Console.WriteLine($"Error importing isolated footings: {ex.Message}");
+                                    Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                                    // Continue without returning, we'll still try to save the model
+                                }
+                            }
                         }
 
-                        if (model.Elements.Braces != null && model.Elements.Braces.Count > 0)
-                        {
-                            var braceImporter = new BraceImport(modelManager.Model, lengthUnit);
-                            braceCount = braceImporter.Import(
-                                model.Elements.Braces,
-                                validLevels,
-                                model.Properties.FrameProperties,
-                                model.Properties.Materials);
-                        }   
+                        // Save model
+                        Console.WriteLine("Saving RAM model");
+                        modelManager.SaveModel();
+                        Console.WriteLine("RAM model saved successfully");
 
-                        // Import walls
-                        if (model.Elements.Walls != null && model.Elements.Walls.Count > 0)
-                        {
-                            var wallImporter = new WallImport(modelManager.Model, lengthUnit);
-                            wallCount = wallImporter.Import(
-                                model.Elements.Walls,
-                                validLevels,
-                                levelToFloorTypeMapping,
-                                model.Properties.WallProperties);
-                        }
-
-                        // Import isolated footings
-                        if (model.Elements.IsolatedFootings != null && model.Elements.IsolatedFootings.Count > 0)
-                        {
-                            var isolatedFootingImporter = new IsolatedFootingImport(modelManager.Model, lengthUnit);
-                            isolatedFootingCount = isolatedFootingImporter.Import(
-                                model.Elements.IsolatedFootings,
-                                validLevels);
-                        }
+                        return (true, $"Successfully created RAM model with {floorTypeCount} floor types, {gridCount} grids, {storyCount} stories, {surfaceLoadCount} surface loads, {beamCount} beams, {columnCount} columns, and {wallCount} walls.");
                     }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error during import process: {ex.Message}");
+                        Console.WriteLine($"Exception type: {ex.GetType().FullName}");
+                        Console.WriteLine($"Stack trace: {ex.StackTrace}");
 
-                    // Save model
-                    modelManager.SaveModel();
+                        // Try to save the model anyway
+                        try
+                        {
+                            modelManager.SaveModel();
+                            Console.WriteLine("Attempted to save partial model despite error");
+                        }
+                        catch (Exception saveEx)
+                        {
+                            Console.WriteLine($"Failed to save partial model: {saveEx.Message}");
+                        }
 
-                    return (true, $"Successfully created RAM model with {floorTypeCount} floor types, {gridCount} grids, {storyCount} stories, {surfaceLoadCount} surface loads, {beamCount} beams, {columnCount} columns, and {wallCount} walls.");
+                        return (false, $"Error during import: {ex.Message}");
+                    }
                 }
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"Unhandled exception in ConvertJSONStringToRAM: {ex.Message}");
+                Console.WriteLine($"Exception type: {ex.GetType().FullName}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
                 return (false, $"Error converting JSON to RAM: {ex.Message}");
-
             }
         }
     }

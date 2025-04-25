@@ -49,6 +49,40 @@ namespace Core.Converters
             return Deserialize(json);
         }
 
+        public static BaseModel DeserializeWithDebugging(string json)
+        {
+            try
+            {
+                Console.WriteLine("Attempting standard deserialization");
+                return Deserialize(json);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Standard deserialization failed: {ex.Message}");
+                Console.WriteLine($"Exception type: {ex.GetType().FullName}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+
+                // Try again with IncludeFields
+                try
+                {
+                    Console.WriteLine("Attempting deserialization with IncludeFields=true");
+                    var optionsWithFields = new JsonSerializerOptions(_options)
+                    {
+                        IncludeFields = true
+                    };
+
+                    return JsonSerializer.Deserialize<BaseModel>(json, optionsWithFields);
+                }
+                catch (Exception ex2)
+                {
+                    Console.WriteLine($"Deserialization with IncludeFields=true failed: {ex2.Message}");
+                    Console.WriteLine($"Exception type: {ex2.GetType().FullName}");
+                    Console.WriteLine($"Stack trace: {ex2.StackTrace}");
+                    throw; // Re-throw the original exception
+                }
+            }
+        }
+
         public static BaseModel Deserialize(string json, bool removeDuplicates = true)
         {
             try

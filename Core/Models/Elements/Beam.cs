@@ -4,49 +4,31 @@ using Core.Utilities;
 
 namespace Core.Models.Elements
 {
-    /// <summary>
-    /// Represents a beam element in the structural model
-    /// </summary>
+    // Represents a beam element in the structural model
     public class Beam : IIdentifiable
     {
-        /// <summary>
-        /// Unique identifier for the beam
-        /// </summary>
+        // Unique identifier for the beam
         public string Id { get; set; }
 
-        /// <summary>
-        /// Starting point of the beam in 2D plan view
-        /// </summary>
+        // Starting point of the beam in 2D plan view
         public Point2D StartPoint { get; set; }
 
-        /// <summary>
-        /// Ending point of the beam in 2D plan view
-        /// </summary>
+        // Ending point of the beam in 2D plan view
         public Point2D EndPoint { get; set; }
 
-        /// <summary>
-        /// ID of the level this beam belongs to
-        /// </summary>
+        // ID of the level this beam belongs to
         public string LevelId { get; set; }
 
-        /// <summary>
-        /// ID of the properties for this beam
-        /// </summary>
+        // ID of the properties for this beam
         public string FramePropertiesId { get; set; }
 
-        /// <summary>
-        /// Indicates if this beam is part of the lateral system
-        /// </summary>
+        // Indicates if this beam is part of the lateral system
         public bool IsLateral { get; set; }
 
-        /// <summary>
         /// Indicates if this beam is a joist
-        /// </summary>
         public bool IsJoist { get; set; }
 
-        /// <summary>
-        /// Creates a new Beam with a generated ID
-        /// </summary>
+        // Creates a new Beam with a generated ID
         public Beam()
         {
             Id = IdGenerator.Generate(IdGenerator.Elements.BEAM);

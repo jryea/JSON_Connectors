@@ -25,7 +25,7 @@ namespace Revit.Export.ModelLayout
             DB.FilteredElementCollector collector = new DB.FilteredElementCollector(_doc);
             IList<DB.Level> revitLevels = collector.OfClass(typeof(DB.Level))
                 .Cast<DB.Level>()
-                .OrderBy(l => l.Elevation)
+                .OrderBy(l => l.ProjectElevation)
                 .ToList();
 
             foreach (var revitLevel in revitLevels)
@@ -36,7 +36,7 @@ namespace Revit.Export.ModelLayout
                     Level level = new Level
                     {
                         Name = revitLevel.Name,
-                        Elevation = revitLevel.Elevation * 12.0, // Convert feet to inches
+                        Elevation = revitLevel.ProjectElevation * 12.0, // Convert feet to inches
                         // FloorTypeId will be assigned later in the CreateFloorTypesFromLevels method
                     };
 

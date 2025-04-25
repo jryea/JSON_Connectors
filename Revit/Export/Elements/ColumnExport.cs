@@ -11,7 +11,7 @@ using Core.Models;
 
 namespace Revit.Export.Elements
 {
-    // Imports column elements from JSON into Revit
+    // Exports column elements from JSON into Revit
     public class ColumnExport
     {
         private readonly DB.Document _doc;
@@ -33,6 +33,13 @@ namespace Revit.Export.Elements
                 .Cast<DB.FamilyInstance>()
                 .ToList();
 
+            // Get all levels sorted by elevation for easier lookup
+            List<DB.Level> revitLevels = new DB.FilteredElementCollector(_doc)
+                .OfClass(typeof(DB.Level))
+                .Cast<DB.Level>()
+                .OrderBy(l => l.ProjectElevation)
+                .ToList();
+
             // Create mappings
             Dictionary<DB.ElementId, string> levelIdMap = CreateLevelMapping(model);
             Dictionary<DB.ElementId, string> framePropertiesMap = CreateFramePropertiesMapping(model);
@@ -51,10 +58,63 @@ namespace Revit.Export.Elements
                     // Create column object
                     CE.Column column = new CE.Column();
 
-                    // Set base and top levels
+                    // Get base and top level IDs 
                     DB.ElementId baseLevelId = revitColumn.get_Parameter(DB.BuiltInParameter.FAMILY_BASE_LEVEL_PARAM).AsElementId();
                     DB.ElementId topLevelId = revitColumn.get_Parameter(DB.BuiltInParameter.FAMILY_TOP_LEVEL_PARAM).AsElementId();
 
+                    // Get base and top levels
+                    DB.Level baseLevel = _doc.GetElement(baseLevelId) as DB.Level;
+                    DB.Level topLevel = _doc.GetElement(topLevelId) as DB.Level;
+
+                    if (baseLevel == null || topLevel == null)
+                        continue;
+
+                    // Get offset parameters
+                    double baseOffset = 0;
+                    double topOffset = 0;
+
+                    // Get base level offset
+                    DB.Parameter baseOffsetParam = revitColumn.get_Parameter(DB.BuiltInParameter.FAMILY_BASE_LEVEL_OFFSET_PARAM);
+                    if (baseOffsetParam != null && baseOffsetParam.HasValue)
+                    {
+                        baseOffset = baseOffsetParam.AsDouble();
+                    }
+
+                    // Get top level offset
+                    DB.Parameter topOffsetParam = revitColumn.get_Parameter(DB.BuiltInParameter.FAMILY_TOP_LEVEL_OFFSET_PARAM);
+                    if (topOffsetParam != null && topOffsetParam.HasValue)
+                    {
+                        topOffset = topOffsetParam.AsDouble();
+                    }
+
+                    // Calculate actual elevations with offsets
+                    double actualBaseElevation = baseLevel.ProjectElevation + baseOffset;
+                    double actualTopElevation = topLevel.ProjectElevation + topOffset;
+
+                    Debug.WriteLine($"Column at ({point.X}, {point.Y}): Base elevation = {baseLevel.ProjectElevation}, offset = {baseOffset}, actual = {actualBaseElevation}");
+                    Debug.WriteLine($"Column at ({point.X}, {point.Y}): Top elevation = {topLevel.ProjectElevation}, offset = {topOffset}, actual = {actualTopElevation}");
+
+                    // Find the best matching levels by actual elevation
+                    DB.Level matchedBaseLevel = FindClosestLevelByElevation(revitLevels, actualBaseElevation);
+                    DB.Level matchedTopLevel = FindClosestLevelByElevation(revitLevels, actualTopElevation);
+
+                    // Use the matched levels instead if they're different from the original levels
+                    // Only replace if the difference is significant (> 1 inch in feet = 1/12)
+                    if (matchedBaseLevel != null && matchedBaseLevel.Id != baseLevelId &&
+                        Math.Abs(matchedBaseLevel.ProjectElevation - actualBaseElevation) < 1.0 / 12.0)
+                    {
+                        Debug.WriteLine($"Column at ({point.X}, {point.Y}): Adjusted base level from {baseLevel.Name} to {matchedBaseLevel.Name}");
+                        baseLevelId = matchedBaseLevel.Id;
+                    }
+
+                    if (matchedTopLevel != null && matchedTopLevel.Id != topLevelId &&
+                        Math.Abs(matchedTopLevel.ProjectElevation - actualTopElevation) < 1.0 / 12.0)
+                    {
+                        Debug.WriteLine($"Column at ({point.X}, {point.Y}): Adjusted top level from {topLevel.Name} to {matchedTopLevel.Name}");
+                        topLevelId = matchedTopLevel.Id;
+                    }
+
+                    // Map levels to model level IDs 
                     if (levelIdMap.ContainsKey(baseLevelId))
                         column.BaseLevelId = levelIdMap[baseLevelId];
 
@@ -93,6 +153,27 @@ namespace Revit.Export.Elements
             }
 
             return count;
+        }
+
+        private DB.Level FindClosestLevelByElevation(List<DB.Level> levels, double targetElevation)
+        {
+            if (levels == null || levels.Count == 0)
+                return null;
+
+            DB.Level closestLevel = null;
+            double closestDistance = double.MaxValue;
+
+            foreach (var level in levels)
+            {
+                double distance = Math.Abs(level.ProjectElevation - targetElevation);
+                if (distance < closestDistance)
+                {
+                    closestDistance = distance;
+                    closestLevel = level;
+                }
+            }
+
+            return closestLevel;
         }
 
         private bool IsColumnLateral(DB.FamilyInstance column)
@@ -165,7 +246,7 @@ namespace Revit.Export.Elements
             {
                 var modelLevel = model.ModelLayout.Levels.FirstOrDefault(l =>
                     l.Name == revitLevel.Name ||
-                    Math.Abs(l.Elevation - (revitLevel.Elevation * 12.0)) < 0.1);
+                    Math.Abs(l.Elevation - (revitLevel.ProjectElevation * 12.0)) < 0.1);
 
                 if (modelLevel != null)
                 {

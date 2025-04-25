@@ -32,9 +32,11 @@ namespace Revit.Export
                     return Result.Cancelled;
 
                 string ramFilePath = saveDialog.FileName;
+                string directoryPath = Path.GetDirectoryName(ramFilePath);
+                string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(ramFilePath);
 
                 // Create a temporary JSON file path
-                string tempJsonPath = Path.Combine(ramFilePath, $"Revit_Export_{Guid.NewGuid()}.json");
+                string tempJsonPath = Path.Combine(directoryPath, $"{fileNameWithoutExtension}.json");
 
                 // Export the model to JSON
                 ExportManager exportManager = new ExportManager(doc, uiApp);

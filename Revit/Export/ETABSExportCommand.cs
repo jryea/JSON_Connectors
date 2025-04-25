@@ -35,9 +35,10 @@ namespace Revit.Export
 
                 // Get the directory part of the e2k file path
                 string exportDirectory = Path.GetDirectoryName(e2kFilePath);
+                string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(e2kFilePath);    
 
                 // Create a temporary JSON file path
-                string tempJsonPath = Path.Combine(e2kFilePath, $"Revit_Export_{Guid.NewGuid()}.json");
+                string tempJsonPath = Path.Combine(exportDirectory, $"{fileNameWithoutExtension}.json");
 
                 // Export the model to JSON
                 ExportManager exportManager = new ExportManager(doc, uiApp);

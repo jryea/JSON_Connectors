@@ -83,6 +83,8 @@ namespace RAM.Export.Elements
                     double length = foundation.dTop + foundation.dBottom;
                     double thickness = foundation.dThickness;
 
+                    Console.WriteLine($"Isolated Footing: {foundation.lLabel}, Width: {width}, Length: {length}, Thickness: {thickness}");
+
                     // Create isolated footing from RAM data
                     IsolatedFooting isolatedFooting = new IsolatedFooting
                     {

@@ -83,7 +83,6 @@ namespace StructuralModelTester
             }
         }
         
-
         // Helper method to calculate polygon area
         static double CalculatePolygonArea(List<Core.Models.Geometry.Point3D> points)
         {

@@ -98,38 +98,13 @@ namespace Revit.Export.Elements
                     DB.Level matchedBaseLevel = FindClosestLevelByElevation(revitLevels, actualBaseElevation);
                     DB.Level matchedTopLevel = FindClosestLevelByElevation(revitLevels, actualTopElevation);
 
-                    // Use the matched levels instead if they're different from the original levels
-                    // Only replace if the difference is significant (> 1 inch in feet = 1/12)
-                    if (matchedBaseLevel != null && matchedBaseLevel.Id != baseLevelId &&
-                        Math.Abs(matchedBaseLevel.ProjectElevation - actualBaseElevation) < 1.0 / 12.0)
-                    {
-                        Debug.WriteLine($"Column at ({point.X}, {point.Y}): Adjusted base level from {baseLevel.Name} to {matchedBaseLevel.Name}");
-                        baseLevelId = matchedBaseLevel.Id;
-                    }
-
-                    if (matchedTopLevel != null && matchedTopLevel.Id != topLevelId &&
-                        Math.Abs(matchedTopLevel.ProjectElevation - actualTopElevation) < 1.0 / 12.0)
-                    {
-                        Debug.WriteLine($"Column at ({point.X}, {point.Y}): Adjusted top level from {topLevel.Name} to {matchedTopLevel.Name}");
-                        topLevelId = matchedTopLevel.Id;
-                    }
-
                     // Map levels to model level IDs 
-                    if (levelIdMap.ContainsKey(baseLevelId))
-                        column.BaseLevelId = levelIdMap[baseLevelId];
+                    if (levelIdMap.ContainsKey(matchedBaseLevel.Id))
+                        column.BaseLevelId = levelIdMap[matchedBaseLevel.Id];
 
-                    if (levelIdMap.ContainsKey(topLevelId))
-                        column.TopLevelId = levelIdMap[topLevelId];
-                    else
-                        column.TopLevelId = column.BaseLevelId; // Default to base level if top level not found
-
-                    // Verify that top and base levels are different to avoid zero-height columns
-                    if (column.BaseLevelId == column.TopLevelId)
-                    {
-                        Debug.WriteLine($"Skipping column with same base and top level: {column.BaseLevelId}");
-                        continue;
-                    }
-
+                    if (levelIdMap.ContainsKey(matchedTopLevel.Id))
+                        column.TopLevelId = levelIdMap[matchedTopLevel.Id];
+                  
                     // Set column type
                     DB.ElementId typeId = revitColumn.GetTypeId();
                     if (framePropertiesMap.ContainsKey(typeId))
@@ -139,8 +114,8 @@ namespace Revit.Export.Elements
                     column.StartPoint = new CG.Point2D(point.X * 12.0, point.Y * 12.0); // Convert to inches
                     column.EndPoint = column.StartPoint; // Same as start point for simple representation
 
-                    // Determine if column is part of lateral system (approximation)
-                    column.IsLateral = IsColumnLateral(revitColumn);
+                    // Set column properties for lateral
+                    column.IsLateral = false;
 
                     columns.Add(column);
                     count++;
@@ -174,61 +149,6 @@ namespace Revit.Export.Elements
             }
 
             return closestLevel;
-        }
-
-        private bool IsColumnLateral(DB.FamilyInstance column)
-        {
-            // Try to determine if column is part of lateral system
-            try
-            {
-                // Look for lateral parameter
-                DB.Parameter lateralParam = column.LookupParameter("Lateral");
-                if (lateralParam != null && lateralParam.HasValue)
-                {
-                    if (lateralParam.StorageType == DB.StorageType.Integer)
-                        return lateralParam.AsInteger() != 0;
-                    else if (lateralParam.StorageType == DB.StorageType.String)
-                        return lateralParam.AsString().ToUpper() == "YES" || lateralParam.AsString() == "1";
-                }
-
-                // Check if column is part of a braced bay or moment frame (approximation)
-                // Get column bounding box
-                DB.BoundingBoxXYZ bbox = column.get_BoundingBox(null);
-                if (bbox != null)
-                {
-                    DB.XYZ center = (bbox.Min + bbox.Max) / 2.0;
-
-                    // Find braces near this column
-                    DB.FilteredElementCollector braceCollector = new DB.FilteredElementCollector(_doc);
-                    IList<DB.FamilyInstance> braces = braceCollector.OfClass(typeof(DB.FamilyInstance))
-                        .OfCategory(DB.BuiltInCategory.OST_StructuralFraming)
-                        .Cast<DB.FamilyInstance>()
-                        .Where(f => {
-                            DB.Structure.StructuralType structuralType = f.StructuralType;
-                            return structuralType == DB.Structure.StructuralType.Brace;
-                        })
-                        .ToList();
-
-                    // Check if any brace is near this column
-                    foreach (var brace in braces)
-                    {
-                        DB.BoundingBoxXYZ braceBbox = brace.get_BoundingBox(null);
-                        if (braceBbox != null)
-                        {
-                            DB.XYZ braceCenter = (braceBbox.Min + braceBbox.Max) / 2.0;
-                            double distance = braceCenter.DistanceTo(center);
-                            if (distance < 10.0) // 10 feet threshold
-                                return true;
-                        }
-                    }
-                }
-            }
-            catch
-            {
-                // Default to false if any error occurs
-            }
-
-            return false;
         }
 
         private Dictionary<DB.ElementId, string> CreateLevelMapping(BaseModel model)

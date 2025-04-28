@@ -58,11 +58,15 @@ namespace ETABS.ToETABS.Elements.Assignment
                 // Replace Unicode representation of double quote (\u0022) with "inch" in the section name
                 sectionName = sectionName.Replace("\u0022", "inch");
 
-                // Create assignments for each story the column spans through
+                // Create assignments for each story the column spans through, except the base level
                 foreach (var level in sortedLevels)
                 {
                     // Skip levels below the base level or above the top level
                     if (level.Elevation < baseLevel.Elevation || level.Elevation > topLevel.Elevation)
+                        continue;
+
+                    // Skip the base level itself - columns in ETABS are defined by their top story
+                    if (level.Id == baseLevel.Id)
                         continue;
 
                     // Create an assignment for this level

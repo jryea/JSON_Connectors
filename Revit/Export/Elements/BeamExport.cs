@@ -191,7 +191,7 @@ namespace Revit.Export.Elements
             foreach (var symbol in famSymbols)
             {
                 var frameProperty = model.Properties.FrameProperties.FirstOrDefault(fp =>
-                    fp.Name == symbol.Name);
+                    fp.Name.ToUpper() == symbol.Name.ToUpper());
 
                 if (frameProperty != null)
                 {

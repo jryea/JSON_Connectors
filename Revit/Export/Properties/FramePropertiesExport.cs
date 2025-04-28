@@ -61,6 +61,9 @@ namespace Revit.Export.Properties
 
             Debug.WriteLine($"Found {structuralFrameTypeIds.Count} frame types used by structural elements");
 
+            // Keep track of processed section names to avoid duplicates
+            HashSet<string> processedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
             // Export only the family symbols that are used by structural elements
             foreach (var typeId in structuralFrameTypeIds)
             {
@@ -81,11 +84,24 @@ namespace Revit.Export.Properties
                     // Determine shape type
                     string shape = DetermineShapeType(famSymbol);
 
-                    // Create frame property
+                    // Capitalize any lowercase 'x' between numbers in the name
+                    string capitalizedName = CapitalizeXBetweenNumbers(famSymbol.Name);
+
+                    // Skip if we've already processed this section name
+                    if (processedNames.Contains(capitalizedName))
+                    {
+                        Debug.WriteLine($"Skipping duplicate frame section: {capitalizedName}");
+                        continue;
+                    }
+
+                    processedNames.Add(capitalizedName);
+
+                    // Create frame property with full name as shape for ETABS compatibility
                     FrameProperties frameProperty = new FrameProperties(
-                        famSymbol.Name,
+                        capitalizedName,
                         materialId,
-                        shape
+                        // For steel shapes, use the full capitalized name as the shape
+                        materialType == "Steel" ? capitalizedName : shape
                     );
 
                     // Get dimensions
@@ -94,7 +110,7 @@ namespace Revit.Export.Properties
                     frameProperties.Add(frameProperty);
                     count++;
 
-                    Debug.WriteLine($"Exported frame type: {famSymbol.Name}, Material: {materialType}, MaterialID: {materialId}, Shape: {shape}");
+                    Debug.WriteLine($"Exported frame type: {frameProperty.Name}, Material: {materialType}, MaterialID: {materialId}, Shape: {frameProperty.Shape}");
                 }
                 catch (Exception ex)
                 {
@@ -121,10 +137,43 @@ namespace Revit.Export.Properties
                 {
                     // Add the type ID to our collection
                     typeIds.Add(typeId);
+
+                    // Log the element and type for debugging
+                    if (category == DB.BuiltInCategory.OST_StructuralColumns)
+                    {
+                        DB.Element typeElement = _doc.GetElement(typeId);
+                        if (typeElement != null)
+                        {
+                            Debug.WriteLine($"Found structural column of type: {typeElement.Name}");
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"Error processing element {element.Id}: {ex.Message}");
+                }
+            }
+
+            // If no elements were found, try to collect family symbols directly
+            if (typeIds.Count == 0)
+            {
+                Debug.WriteLine($"No elements found for category {category}. Collecting family symbols directly.");
+
+                DB.FilteredElementCollector symbolCollector = new DB.FilteredElementCollector(_doc);
+                symbolCollector.OfClass(typeof(DB.FamilySymbol))
+                    .OfCategory(category);
+
+                foreach (DB.FamilySymbol symbol in symbolCollector)
+                {
+                    try
+                    {
+                        typeIds.Add(symbol.Id);
+                        Debug.WriteLine($"Added family symbol: {symbol.Name} from family: {symbol.FamilyName}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Error adding family symbol: {ex.Message}");
+                    }
                 }
             }
         }
@@ -213,9 +262,27 @@ namespace Revit.Export.Properties
 
         private string DetermineShapeType(DB.FamilySymbol famSymbol)
         {
+            // Capitalize any lowercase 'x' between numbers in the family symbol name
+            string typeName = CapitalizeXBetweenNumbers(famSymbol.Name).ToUpper();
             string famName = famSymbol.FamilyName.ToUpper();
-            string typeName = famSymbol.Name.ToUpper();
             string combinedName = $"{famName} {typeName}";
+
+            // For columns, check the category to ensure proper handling
+            if (famSymbol.Category.Id.IntegerValue == (int)DB.BuiltInCategory.OST_StructuralColumns)
+            {
+                // For columns, check well-known steel shapes first
+                if (typeName.StartsWith("W") && typeName.Contains("X"))
+                    return "W";
+                if (combinedName.Contains("HSS") || combinedName.Contains("TUBE"))
+                    return "HSS";
+                if (typeName.StartsWith("HP") && typeName.Contains("X"))
+                    return "HP";
+
+                // For rectangular/square columns that don't match standard steel shapes
+                return "RECT";
+            }
+
+            // For other structural framing elements (beams, braces)
 
             // Check for W shapes (wide flange)
             if (typeName.StartsWith("W") && typeName.Contains("X"))
@@ -241,6 +308,31 @@ namespace Revit.Export.Properties
 
             // Default to rectangular shape
             return "RECT";
+        }
+
+        // Helper method to capitalize any lowercase 'x' between numbers
+        private string CapitalizeXBetweenNumbers(string input)
+        {
+            if (string.IsNullOrEmpty(input))
+                return input;
+
+            string result = input;
+
+            // Keep replacing until no more changes occur
+            bool changed;
+            do
+            {
+                string newResult = System.Text.RegularExpressions.Regex.Replace(
+                    result,
+                    @"(\d+)x(\d+)",
+                    m => $"{m.Groups[1].Value}X{m.Groups[2].Value}"
+                );
+
+                changed = newResult != result;
+                result = newResult;
+            } while (changed);
+
+            return result;
         }
 
         private void PopulateDimensions(FrameProperties frameProperty, DB.FamilySymbol famSymbol)
@@ -295,7 +387,7 @@ namespace Revit.Export.Properties
             if ((depth == 0 || width == 0) && frameProperty.Shape == "W")
             {
                 // Parse W-shape name (e.g., W14X90 means 14 inches deep)
-                string name = famSymbol.Name;
+                string name = frameProperty.Name;
                 if (name.StartsWith("W") && name.Contains("X"))
                 {
                     try

@@ -6,7 +6,7 @@ using Core.Models.Properties;
 namespace ETABS.ToETABS.Properties
 {
     /// <summary>
-    /// Converts Core FloorProperties objects to ETABS E2K format text for slab properties
+    /// Converts Core FloorProperties objects to ETABS E2K format text for slab and deck properties
     /// </summary>
     public class FloorPropertiesToETABS
     {
@@ -17,7 +17,7 @@ namespace ETABS.ToETABS.Properties
         /// </summary>
         /// <param name="floorProperties">Collection of FloorProperties objects</param>
         /// <param name="materials">Collection of Material objects for reference</param>
-        /// <returns>E2K format text for slab properties</returns>
+        /// <returns>E2K format text for slab and deck properties</returns>
         public string ConvertToE2K(IEnumerable<FloorProperties> floorProperties, IEnumerable<Material> materials)
         {
             _materials = materials;
@@ -33,19 +33,28 @@ namespace ETABS.ToETABS.Properties
                 return sb.ToString();
             }
 
-            // Process each floor property as a slab
+            // Process each floor property
             foreach (var floorProp in floorProperties)
             {
-                // Format and append each slab property
-                string slabPropertyLine = FormatSlabProperty(floorProp);
-                sb.AppendLine(slabPropertyLine);
+                if (IsDeckProperty(floorProp))
+                {
+                    // Format and append deck property
+                    string deckPropertyLine = FormatDeckProperty(floorProp);
+                    sb.AppendLine(deckPropertyLine);
+                }
+                else
+                {
+                    // Format and append slab property
+                    string slabPropertyLine = FormatSlabProperty(floorProp);
+                    sb.AppendLine(slabPropertyLine);
+                }
             }
 
             return sb.ToString();
         }
 
         /// <summary>
-        /// Formats a single FloorProperties object as E2K shell property
+        /// Formats a single FloorProperties object as E2K shell property for a standard slab
         /// </summary>
         private string FormatSlabProperty(FloorProperties floorProp)
         {
@@ -86,7 +95,60 @@ namespace ETABS.ToETABS.Properties
         }
 
         /// <summary>
-        /// Checks if floor properties include deck-specific information
+        /// Formats a single FloorProperties object as E2K shell property for a deck
+        /// </summary>
+        private string FormatDeckProperty(FloorProperties floorProp)
+        {
+            // Check for null or empty name
+            if (string.IsNullOrEmpty(floorProp.Name))
+            {
+                floorProp.Name = $"{floorProp.Type} Deck {floorProp.Thickness} inch";
+            }
+
+            // Replace Unicode representation of double quote (\u0022) with "inch" in the floor property name
+            floorProp.Name = floorProp.Name.Replace("\u0022", " inch");
+
+            // Get Concrete Material (main material for the deck)
+            string concMaterial = _materials.FirstOrDefault(m => m.Id == floorProp.MaterialId)?.Name ?? "4000 psi";
+            concMaterial = concMaterial.Replace("\u0022", " inch");
+
+            // Get Deck Material (default to steel)
+            string deckMaterial = _materials.FirstOrDefault(m => m.Type?.ToLower() == "steel")?.Name ?? "A992Fy50";
+            deckMaterial = deckMaterial.Replace("\u0022", " inch");
+
+            // Get deck properties with defaults
+            double deckSlabDepth = floorProp.Thickness;
+            double deckRibDepth = 3.0;
+            double deckRibWidthTop = 7.0;
+            double deckRibWidthBottom = 5.0;
+            double deckRibSpacing = 12.0;
+            double deckShearThickness = 0.035;
+            double deckUnitWeight = 0.01597222;
+
+            // Override with values from DeckProperties if available
+            if (floorProp.DeckProperties != null)
+            {
+                if (floorProp.DeckProperties.ContainsKey("deckDepth") && floorProp.DeckProperties["deckDepth"] is double depth)
+                    deckRibDepth = depth;
+
+                if (floorProp.DeckProperties.ContainsKey("toppingThickness") && floorProp.DeckProperties["toppingThickness"] is double topping)
+                    deckSlabDepth = topping;
+            }
+
+            // Determine deck type based on floor type
+            string deckType = floorProp.Type?.ToLower() == "composite" ? "Filled" : "Unfilled";
+
+            // Format: SHELLPROP "Deck1" PROPTYPE "Deck" DECKTYPE "Filled" CONCMATERIAL "4000Psi" DECKMATERIAL "A992Fy50" ...
+            return $"  SHELLPROP  \"{floorProp.Name}\"  PROPTYPE  \"Deck\"  DECKTYPE \"{deckType}\"  " +
+                   $"CONCMATERIAL \"{concMaterial}\"  DECKMATERIAL \"{deckMaterial}\"  " +
+                   $"DECKSLABDEPTH {deckSlabDepth} DECKRIBDEPTH {deckRibDepth} " +
+                   $"DECKRIBWIDTHTOP {deckRibWidthTop} DECKRIBWIDTHBOTTOM {deckRibWidthBottom} " +
+                   $"DECKRIBSPACING {deckRibSpacing} DECKSHEARTHICKNESS {deckShearThickness} " +
+                   $"DECKUNITWEIGHT {deckUnitWeight} SHEARSTUDDIAM 0.75 SHEARSTUDHEIGHT 6 SHEARSTUDFU 65000";
+        }
+
+        /// <summary>
+        /// Checks if floor properties represent a deck type
         /// </summary>
         private bool IsDeckProperty(FloorProperties floorProp)
         {
@@ -94,8 +156,7 @@ namespace ETABS.ToETABS.Properties
                 return false;
 
             return floorProp.Type.ToLower() == "composite" ||
-                   floorProp.Type.ToLower() == "noncomposite" ||
-                   floorProp.Type.ToLower() == "deck";
+                   floorProp.Type.ToLower() == "noncomposite";
         }
 
         /// <summary>
@@ -108,9 +169,17 @@ namespace ETABS.ToETABS.Properties
             // E2K Slab Properties Section Header
             sb.AppendLine("$ SLAB PROPERTIES");
 
-            // Format and append the slab property
-            string slabPropertyLine = FormatSlabProperty(floorProp);
-            sb.AppendLine(slabPropertyLine);
+            // Format and append the appropriate property based on type
+            if (IsDeckProperty(floorProp))
+            {
+                string deckPropertyLine = FormatDeckProperty(floorProp);
+                sb.AppendLine(deckPropertyLine);
+            }
+            else
+            {
+                string slabPropertyLine = FormatSlabProperty(floorProp);
+                sb.AppendLine(slabPropertyLine);
+            }
 
             return sb.ToString();
         }

@@ -31,10 +31,6 @@ namespace RAM.Import.Elements
                 if (columns == null || !columns.Any() || levels == null || !levels.Any())
                     return 0;
 
-                // Debug: How many columns do we have?
-                int columnCount = columns.Count();
-                Console.WriteLine($"Processing {columnCount} columns");
-
                 // Get RAM floor types
                 IFloorTypes ramFloorTypes = _model.GetFloorTypes();
                 if (ramFloorTypes.GetCount() == 0)
@@ -67,48 +63,76 @@ namespace RAM.Import.Elements
                 foreach (var column in columns)
                 {
                     if (column.StartPoint == null || string.IsNullOrEmpty(column.TopLevelId))
-                    {
-                        Console.WriteLine("Skipping column with incomplete data");
                         continue;
-                    }
 
                     Console.WriteLine($"Processing column: Id={column.Id}, TopLevelId={column.TopLevelId}");
 
                     // Convert coordinates
                     double x = Math.Round(UnitConversionUtils.ConvertToInches(column.StartPoint.X, _lengthUnit), 6);
                     double y = Math.Round(UnitConversionUtils.ConvertToInches(column.StartPoint.Y, _lengthUnit), 6);
-                    Console.WriteLine($"Column coordinates: x={x}, y={y}");
 
-                    // Get base and top levels (for determining span)
+                    // Get the top level
+                    if (!levelsById.TryGetValue(column.TopLevelId, out Level topLevel))
+                    {
+                        Console.WriteLine($"Could not find top level with ID {column.TopLevelId}");
+                        continue;
+                    }
+
+                    // Get base level (if specified)
                     Level baseLevel = null;
                     if (!string.IsNullOrEmpty(column.BaseLevelId) && levelsById.TryGetValue(column.BaseLevelId, out baseLevel))
                     {
                         Console.WriteLine($"Found base level: {baseLevel.Name}, Elevation: {baseLevel.Elevation}");
                     }
+
+                    // Get all levels that need columns
+                    List<Level> levelsForColumns = new List<Level>();
+
+                    // Start with the top level (always create a column there if it has positive elevation)
+                    if (topLevel.Elevation > 0)
+                    {
+                        levelsForColumns.Add(topLevel);
+                        Console.WriteLine($"Will create column at top level: {topLevel.Name}");
+                    }
+
+                    // Add intermediate levels only if baseLevel exists and isn't at elevation 0
+                    if (baseLevel != null && baseLevel.Elevation > 0)
+                    {
+                        foreach (var level in sortedLevels)
+                        {
+                            if (level.Id != topLevel.Id &&
+                                level.Id != baseLevel.Id &&
+                                level.Elevation > baseLevel.Elevation &&
+                                level.Elevation < topLevel.Elevation)
+                            {
+                                levelsForColumns.Add(level);
+                                Console.WriteLine($"Will create column at intermediate level: {level.Name}");
+                            }
+                        }
+                    }
+                    // If baseLevel is at elevation 0 or doesn't exist, add intermediate levels below top level
                     else
                     {
-                        // If no base level specified, assume the lowest level
-                        baseLevel = sortedLevels.FirstOrDefault();
-                        Console.WriteLine($"Using lowest level as base: {baseLevel?.Name}, Elevation: {baseLevel?.Elevation}");
+                        foreach (var level in sortedLevels)
+                        {
+                            if (level.Id != topLevel.Id &&
+                                level.Elevation > 0 &&
+                                level.Elevation < topLevel.Elevation)
+                            {
+                                levelsForColumns.Add(level);
+                                Console.WriteLine($"Will create column at intermediate level: {level.Name}");
+                            }
+                        }
                     }
 
-                    if (!levelsById.TryGetValue(column.TopLevelId, out var topLevel))
+                    // Special log for the "Level 2" top level case
+                    if (topLevel.Name == "2" || topLevel.Name == "Level 2")
                     {
-                        Console.WriteLine("Could not find top level for column");
-                        continue;
-                    }
-                    Console.WriteLine($"Found top level: {topLevel.Name}, Elevation: {topLevel.Elevation}");
-
-                    // Get all levels that need columns (level 0 is ignored, we're only creating columns at levels > 0)
-                    var relevantLevels = sortedLevels.Where(l =>
-                        l.Elevation > 0 && // Skip level at elevation 0
-                        l.Elevation >= (baseLevel?.Elevation ?? 0) &&
-                        l.Elevation <= topLevel.Elevation).ToList();
-
-                    Console.WriteLine($"Found {relevantLevels.Count} relevant levels for this column");
-                    foreach (var level in relevantLevels)
-                    {
-                        Console.WriteLine($"  Relevant level: {level.Id}, Name: {level.Name}, Elevation: {level.Elevation}");
+                        Console.WriteLine($"SPECIAL CASE: Column with top level 'Level 2' will be created on {levelsForColumns.Count} levels");
+                        foreach (var lvl in levelsForColumns)
+                        {
+                            Console.WriteLine($" - {lvl.Name}");
+                        }
                     }
 
                     // Get material type
@@ -116,10 +140,9 @@ namespace RAM.Import.Elements
                         column.FramePropertiesId,
                         frameProperties,
                         materials);
-                    Console.WriteLine($"Column material type: {columnMaterial}");
 
-                    // Process each relevant level
-                    foreach (var level in relevantLevels)
+                    // Process each level that needs a column
+                    foreach (var level in levelsForColumns)
                     {
                         // Get the floor type ID for this level
                         if (!levelToFloorTypeMapping.TryGetValue(level.Id, out string floorTypeId) ||
@@ -129,16 +152,12 @@ namespace RAM.Import.Elements
                             continue;
                         }
 
-                        Console.WriteLine($"Found floor type ID {floorTypeId} for level {level.Id}");
-
                         // Get RAM floor type for this floor type
                         if (!ramFloorTypeByFloorTypeId.TryGetValue(floorTypeId, out IFloorType ramFloorType))
                         {
                             Console.WriteLine($"No RAM floor type found for floor type {floorTypeId}");
                             continue;
                         }
-
-                        Console.WriteLine($"Found RAM floor type {ramFloorType.strLabel} for floor type ID {floorTypeId}");
 
                         // Create a unique key for this column
                         string columnKey = $"{x:F2}_{y:F2}_{floorTypeId}";
@@ -161,14 +180,10 @@ namespace RAM.Import.Elements
 
                         try
                         {
-                            Console.WriteLine($"Attempting to add column to RAM floor type {ramFloorType.strLabel}");
                             ILayoutColumns layoutColumns = ramFloorType.GetLayoutColumns();
-
                             if (layoutColumns != null)
                             {
-                                Console.WriteLine($"Got layoutColumns interface, now adding column at ({x}, {y})");
                                 ILayoutColumn ramColumn = layoutColumns.Add(columnMaterial, x, y, 0, 0);
-
                                 if (ramColumn != null)
                                 {
                                     count++;

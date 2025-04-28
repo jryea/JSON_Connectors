@@ -27,20 +27,23 @@ namespace ETABS.ToETABS.Elements.Assignment
         }
 
         // Converts column assignments to E2K format
-        // Converts column assignments to E2K format
         public string ExportAssignments(Dictionary<string, string> idMapping)
         {
             StringBuilder sb = new StringBuilder();
+
+            // Get all levels sorted by elevation (highest to lowest)
+            var sortedLevels = _levels.OrderByDescending(l => l.Elevation).ToList();
 
             foreach (var column in _columns)
             {
                 if (!idMapping.TryGetValue(column.Id, out string e2kId))
                     continue;
 
-                // Find the top level
+                // Find base and top levels
+                var baseLevel = _levels.FirstOrDefault(l => l.Id == column.BaseLevelId);
                 var topLevel = _levels.FirstOrDefault(l => l.Id == column.TopLevelId);
 
-                if (topLevel == null)
+                if (baseLevel == null || topLevel == null)
                     continue;
 
                 // Find section from frame properties
@@ -55,16 +58,31 @@ namespace ETABS.ToETABS.Elements.Assignment
                 // Replace Unicode representation of double quote (\u0022) with "inch" in the section name
                 sectionName = sectionName.Replace("\u0022", "inch");
 
-                // Create an assignment for the top story only
-                string storyName = $"Story{topLevel.Name}";
+                // Create assignments for each story the column spans through
+                foreach (var level in sortedLevels)
+                {
+                    // Skip levels below the base level or above the top level
+                    if (level.Elevation < baseLevel.Elevation || level.Elevation > topLevel.Elevation)
+                        continue;
 
-                // Format: LINEASSIGN "C1" "Story1" SECTION "W12X26" MINNUMSTA 3 AUTOMESH "YES" MESHATINTERSECTIONS "YES"
-                sb.AppendLine($"  LINEASSIGN \"{e2kId}\" \"{storyName}\" SECTION \"{sectionName}\" MINNUMSTA 3 AUTOMESH \"YES\" MESHATINTERSECTIONS \"YES\"");
+                    // Create an assignment for this level
+                    string storyName = GetStoryName(level);
 
-                Console.WriteLine($"Created column assignment for {e2kId} at top story {storyName} with section {sectionName}");
+                    // Format: LINEASSIGN "C1" "Story1" SECTION "W12X26" MINNUMSTA 3 AUTOMESH "YES" MESHATINTERSECTIONS "YES"
+                    sb.AppendLine($"  LINEASSIGN \"{e2kId}\" \"{storyName}\" SECTION \"{sectionName}\" MINNUMSTA 3 AUTOMESH \"YES\" MESHATINTERSECTIONS \"YES\"");
+
+                    Console.WriteLine($"Created column assignment for {e2kId} at story {storyName} with section {sectionName}");
+                }
             }
 
             return sb.ToString();
+        }
+
+        // Gets a formatted story name from a level
+        private string GetStoryName(Level level)
+        {
+            // Format story name
+            return level.Name.ToLower() == "base" ? "Base" : $"Story{level.Name}";
         }
 
         // Formats a column assignment line for E2K format

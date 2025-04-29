@@ -10,7 +10,6 @@ using Revit.Utilities;
 
 namespace Revit.Export.Elements
 {
-    // Exports column elements from Revit into JSON format
     public class ColumnExport
     {
         private readonly DB.Document _doc;
@@ -43,6 +42,7 @@ namespace Revit.Export.Elements
             Dictionary<DB.ElementId, string> framePropertiesMap = CreateFramePropertiesMapping(model);
 
             Debug.WriteLine($"Processing {revitColumns.Count} columns...");
+            Debug.WriteLine($"Found {framePropertiesMap.Count} frame property mappings for columns");
 
             foreach (var revitColumn in revitColumns)
             {
@@ -97,8 +97,8 @@ namespace Revit.Export.Elements
                     double actualBaseElevation = baseLevel.ProjectElevation + baseOffset;
                     double actualTopElevation = topLevel.ProjectElevation + topOffset;
 
-                    Debug.WriteLine($"Column at ({point.X:F2}, {point.Y:F2}): Base level = {baseLevel.Name} ({baseLevel.ProjectElevation:F2}), offset = {baseOffset:F2}, actual = {actualBaseElevation:F2}");
-                    Debug.WriteLine($"Column at ({point.X:F2}, {point.Y:F2}): Top level = {topLevel.Name} ({topLevel.ProjectElevation:F2}), offset = {topOffset:F2}, actual = {actualTopElevation:F2}");
+                    Debug.WriteLine($"Column at ({point.X:F2}, {point.Y:F2}): Base level = {baseLevel.Name} ({baseLevel.ProjectElevation:F2} ft), offset = {baseOffset:F2}, actual = {actualBaseElevation:F2}");
+                    Debug.WriteLine($"Column at ({point.X:F2}, {point.Y:F2}): Top level = {topLevel.Name} ({topLevel.ProjectElevation:F2} ft), offset = {topOffset:F2}, actual = {actualTopElevation:F2}");
 
                     // Find the best matching levels by *actual* elevation
                     DB.Level matchedBaseLevel = FindClosestLevelByElevation(revitLevels, actualBaseElevation);
@@ -127,15 +127,63 @@ namespace Revit.Export.Elements
                         continue; // Skip column if we can't find a valid top level
                     }
 
-                    // Set column type
+                    // Set column type - get the type ID and look it up in the mapping
                     DB.ElementId typeId = revitColumn.GetTypeId();
+
+                    // Debug the type
+                    DB.FamilySymbol symbol = _doc.GetElement(typeId) as DB.FamilySymbol;
+                    Debug.WriteLine($"Column type: ID {typeId}, Name: {symbol?.Name}");
+
                     if (framePropertiesMap.ContainsKey(typeId))
                     {
                         column.FramePropertiesId = framePropertiesMap[typeId];
+                        Debug.WriteLine($"Found frame properties ID in mapping: {column.FramePropertiesId}");
                     }
                     else
                     {
-                        Debug.WriteLine($"Could not find matching frame properties for column at ({point.X:F2}, {point.Y:F2})");
+                        // Try to find a matching frame property by name
+                        if (symbol != null)
+                        {
+                            // Capitalize any 'x' between numbers in the name (for consistent matching)
+                            string capitalizedName = CapitalizeXBetweenNumbers(symbol.Name);
+
+                            var frameProperty = model.Properties.FrameProperties.FirstOrDefault(fp =>
+                                string.Equals(fp.Name, capitalizedName, StringComparison.OrdinalIgnoreCase));
+
+                            if (frameProperty != null)
+                            {
+                                column.FramePropertiesId = frameProperty.Id;
+                                Debug.WriteLine($"Found frame properties by name match: {column.FramePropertiesId}");
+                            }
+                            else
+                            {
+                                Debug.WriteLine($"Could not find frame properties for column type: {capitalizedName}");
+
+                                // Try partial name matching
+                                frameProperty = model.Properties.FrameProperties.FirstOrDefault(fp =>
+                                    fp.Name.IndexOf(capitalizedName, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                    capitalizedName.IndexOf(fp.Name, StringComparison.OrdinalIgnoreCase) >= 0);
+
+                                if (frameProperty != null)
+                                {
+                                    column.FramePropertiesId = frameProperty.Id;
+                                    Debug.WriteLine($"Found frame properties by partial name match: {column.FramePropertiesId}");
+                                }
+                                else
+                                {
+                                    // Last resort: try to match by shape type
+                                    string shape = DetermineShapeType(symbol);
+                                    frameProperty = model.Properties.FrameProperties.FirstOrDefault(fp =>
+                                        fp.Shape == shape);
+
+                                    if (frameProperty != null)
+                                    {
+                                        column.FramePropertiesId = frameProperty.Id;
+                                        Debug.WriteLine($"Found frame properties by shape match: {column.FramePropertiesId}");
+                                    }
+                                }
+                            }
+                        }
                     }
 
                     // Set column location
@@ -145,13 +193,11 @@ namespace Revit.Export.Elements
                     // Determine if column is part of lateral system
                     column.IsLateral = IsColumnLateral(revitColumn);
 
-                    // Add the column to the model
+                    // Log the column information
+                    Debug.WriteLine($"Exporting column at ({point.X:F2}, {point.Y:F2}) with FramePropertiesId: {column.FramePropertiesId ?? "MISSING"}");
+
                     columns.Add(column);
                     count++;
-
-                    Debug.WriteLine($"Successfully exported column at ({point.X:F2}, {point.Y:F2}) " +
-                        $"with base level '{matchedBaseLevel?.Name}' ({column.BaseLevelId}) and " +
-                        $"top level '{matchedTopLevel?.Name}' ({column.TopLevelId})");
                 }
                 catch (Exception ex)
                 {
@@ -184,6 +230,51 @@ namespace Revit.Export.Elements
             }
 
             return closestLevel;
+        }
+
+        // Helper method to capitalize any lowercase 'x' between numbers for consistent matching
+        private string CapitalizeXBetweenNumbers(string input)
+        {
+            if (string.IsNullOrEmpty(input))
+                return input;
+
+            string result = input;
+
+            // Keep replacing until no more changes occur
+            bool changed;
+            do
+            {
+                string newResult = System.Text.RegularExpressions.Regex.Replace(
+                    result,
+                    @"(\d+)x(\d+)",
+                    m => $"{m.Groups[1].Value}X{m.Groups[2].Value}"
+                );
+
+                changed = newResult != result;
+                result = newResult;
+            } while (changed);
+
+            return result;
+        }
+
+        // Determine the shape type from a family symbol
+        private string DetermineShapeType(DB.FamilySymbol famSymbol)
+        {
+            // Capitalize any lowercase 'x' between numbers in the family symbol name
+            string typeName = CapitalizeXBetweenNumbers(famSymbol.Name).ToUpper();
+            string famName = famSymbol.FamilyName.ToUpper();
+            string combinedName = $"{famName} {typeName}";
+
+            // For columns, check well-known steel shapes first
+            if (typeName.StartsWith("W") && typeName.Contains("X"))
+                return typeName; // Return full name for steel shapes
+            if (combinedName.Contains("HSS") || combinedName.Contains("TUBE"))
+                return typeName;
+            if (typeName.StartsWith("HP") && typeName.Contains("X"))
+                return typeName;
+
+            // For rectangular/square columns that don't match standard steel shapes
+            return "RECT";
         }
 
         // Determine if a column is part of the lateral system
@@ -255,22 +346,66 @@ namespace Revit.Export.Elements
         {
             Dictionary<DB.ElementId, string> propsMap = new Dictionary<DB.ElementId, string>();
 
-            // Get all family symbols
+            // Get all family symbols with a focus on structural columns
             DB.FilteredElementCollector collector = new DB.FilteredElementCollector(_doc);
             IList<DB.FamilySymbol> famSymbols = collector.OfClass(typeof(DB.FamilySymbol))
+                .OfCategory(DB.BuiltInCategory.OST_StructuralColumns)
                 .Cast<DB.FamilySymbol>()
                 .ToList();
+
+            // Debug available symbols
+            Debug.WriteLine($"Found {famSymbols.Count} structural column family symbols");
+
+            // Also get all frame properties for debugging
+            Debug.WriteLine($"Model has {model.Properties.FrameProperties.Count} frame properties");
+            foreach (var fp in model.Properties.FrameProperties)
+            {
+                Debug.WriteLine($"Frame property: {fp.Name}, ID: {fp.Id}, Shape: {fp.Shape}");
+            }
+
+            // Create a set to track processed types
+            HashSet<string> processedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             // Map each family symbol to the corresponding frame property in the model
             foreach (var symbol in famSymbols)
             {
+                // Capitalize any 'x' between numbers in the name (for consistent matching)
+                string capitalizedName = CapitalizeXBetweenNumbers(symbol.Name);
+
+                // Skip if we've already processed this name
+                if (processedNames.Contains(capitalizedName))
+                {
+                    Debug.WriteLine($"Skipping duplicate column type: {capitalizedName}");
+                    continue;
+                }
+
+                processedNames.Add(capitalizedName);
+
+                // Try direct name match first
                 var frameProperty = model.Properties.FrameProperties.FirstOrDefault(fp =>
-                    fp.Name == symbol.Name);
+                    string.Equals(fp.Name, capitalizedName, StringComparison.OrdinalIgnoreCase));
 
                 if (frameProperty != null)
                 {
                     propsMap[symbol.Id] = frameProperty.Id;
-                    Debug.WriteLine($"Mapped Revit family symbol '{symbol.Name}' to model frame property ID {frameProperty.Id}");
+                    Debug.WriteLine($"Mapped column {symbol.Name} to {frameProperty.Name} ({frameProperty.Id})");
+                }
+                else
+                {
+                    // Try partial name match
+                    frameProperty = model.Properties.FrameProperties.FirstOrDefault(fp =>
+                        fp.Name.IndexOf(capitalizedName, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        capitalizedName.IndexOf(fp.Name, StringComparison.OrdinalIgnoreCase) >= 0);
+
+                    if (frameProperty != null)
+                    {
+                        propsMap[symbol.Id] = frameProperty.Id;
+                        Debug.WriteLine($"Mapped column {symbol.Name} to {frameProperty.Name} ({frameProperty.Id}) by partial match");
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"Could not find frame property for column type: {capitalizedName}");
+                    }
                 }
             }
 

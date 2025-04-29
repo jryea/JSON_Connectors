@@ -6,7 +6,7 @@ using Core.Models.Elements;
 using Core.Models.ModelLayout;
 using Core.Models.Properties;
 
-namespace ETABS.ToETABS.Elements.Assignment
+namespace ETABS.ToETABS.Elements.LineAssignment
 {
     /// <summary>
     /// Converts brace assignment information to ETABS E2K format

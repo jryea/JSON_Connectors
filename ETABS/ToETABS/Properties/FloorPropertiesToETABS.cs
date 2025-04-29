@@ -5,19 +5,12 @@ using Core.Models.Properties;
 
 namespace ETABS.ToETABS.Properties
 {
-    /// <summary>
-    /// Converts Core FloorProperties objects to ETABS E2K format text for slab and deck properties
-    /// </summary>
+    // Converts Core FloorProperties objects to ETABS E2K format text for slab and deck properties
     public class FloorPropertiesToETABS
     {
         private IEnumerable<Material> _materials;
 
-        /// <summary>
-        /// Converts a collection of FloorProperties objects to E2K format text
-        /// </summary>
-        /// <param name="floorProperties">Collection of FloorProperties objects</param>
-        /// <param name="materials">Collection of Material objects for reference</param>
-        /// <returns>E2K format text for slab and deck properties</returns>
+        // Converts a collection of FloorProperties objects to E2K format text
         public string ConvertToE2K(IEnumerable<FloorProperties> floorProperties, IEnumerable<Material> materials)
         {
             _materials = materials;
@@ -53,9 +46,7 @@ namespace ETABS.ToETABS.Properties
             return sb.ToString();
         }
 
-        /// <summary>
-        /// Formats a single FloorProperties object as E2K shell property for a standard slab
-        /// </summary>
+        // Formats a single FloorProperties object as E2K shell property for a standard slab
         private string FormatSlabProperty(FloorProperties floorProp)
         {
             // Check for null or empty name
@@ -94,9 +85,7 @@ namespace ETABS.ToETABS.Properties
                    $"MODELINGTYPE \"{modelingType}\"  SLABTYPE \"{slabType}\"  SLABTHICKNESS {floorProp.Thickness}";
         }
 
-        /// <summary>
-        /// Formats a single FloorProperties object as E2K shell property for a deck
-        /// </summary>
+        // Formats a single FloorProperties object as E2K shell property for a deck
         private string FormatDeckProperty(FloorProperties floorProp)
         {
             // Check for null or empty name
@@ -147,9 +136,7 @@ namespace ETABS.ToETABS.Properties
                    $"DECKUNITWEIGHT {deckUnitWeight} SHEARSTUDDIAM 0.75 SHEARSTUDHEIGHT 6 SHEARSTUDFU 65000";
         }
 
-        /// <summary>
-        /// Checks if floor properties represent a deck type
-        /// </summary>
+        // Checks if floor properties represent a deck type
         private bool IsDeckProperty(FloorProperties floorProp)
         {
             if (string.IsNullOrEmpty(floorProp.Type))
@@ -159,9 +146,7 @@ namespace ETABS.ToETABS.Properties
                    floorProp.Type.ToLower() == "noncomposite";
         }
 
-        /// <summary>
-        /// Converts a single FloorProperties object to E2K format text
-        /// </summary>
+        // Converts a single FloorProperties object to E2K format text
         public string ConvertToE2K(FloorProperties floorProp)
         {
             StringBuilder sb = new StringBuilder();

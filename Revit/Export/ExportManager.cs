@@ -145,15 +145,21 @@ namespace Revit.Export
         {
             int count = 0;
 
+            // Export materials first so we can reference them in other property exports
+            MaterialExport materialExport = new MaterialExport(_doc);
+            int materialCount = materialExport.Export(_model.Properties.Materials);
+            count += materialCount;
+            Debug.WriteLine($"Exported {materialCount} materials");
+
             // Export wall properties
             WallPropertiesExport wallPropertiesExport = new WallPropertiesExport(_doc);
-            count += wallPropertiesExport.Export(_model.Properties.WallProperties);
+            count += wallPropertiesExport.Export(_model.Properties.WallProperties, _model.Properties.Materials);
 
             // Export floor properties
             FloorPropertiesExport floorPropertiesExport = new FloorPropertiesExport(_doc);
             count += floorPropertiesExport.Export(_model.Properties.FloorProperties);
 
-            // Export frame properties - pass the exported materials for correct ID mapping
+            // Export frame properties with reference to the exported materials
             FramePropertiesExport framePropertiesExport = new FramePropertiesExport(_doc);
             count += framePropertiesExport.Export(_model.Properties.FrameProperties, _model.Properties.Materials);
 

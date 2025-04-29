@@ -2,7 +2,6 @@
 using System.Linq;
 using System.Text;
 using Core.Models.Properties;
-using Utils = Core.Utilities.ModelUtils;
 
 namespace ETABS.ToETABS.Properties
 {
@@ -11,7 +10,6 @@ namespace ETABS.ToETABS.Properties
     {
         private IEnumerable<Material> _materials;
 
-       
         // Converts a collection of WallProperties objects to E2K format text
         public string ConvertToE2K(IEnumerable<WallProperties> wallProperties, IEnumerable<Material> materials)
         {
@@ -26,10 +24,6 @@ namespace ETABS.ToETABS.Properties
                 // Format and append each wall property
                 string shellProp = FormatWallProperty(wallProp);
                 sb.AppendLine(shellProp);
-
-                // Add modifiers on a new line (standard values for stiffness modifiers)
-                string modifiers = FormatWallModifiers(wallProp);
-                sb.AppendLine(modifiers);
             }
 
             return sb.ToString();
@@ -45,20 +39,11 @@ namespace ETABS.ToETABS.Properties
             }
 
             // Get Wall Material
-            string materialName = _materials.FirstOrDefault(m => m.Id == wallProp.MaterialId)?.Name ?? "Unknown";
+            string materialName = _materials.FirstOrDefault(m => m.Id == wallProp.MaterialId)?.Name ?? "Concrete";
 
-            // Format: SHELLPROP "name" PROPTYPE "Wall" MATERIAL "material" MODELINGTYPE "ShellThin" WALLTHICKNESS thickness
+            // Format according to exact required pattern, no modifiers:
+            // SHELLPROP  "IMEG_Concrete 14 3/4""  PROPTYPE  "Wall"  MATERIAL "Concrete"  MODELINGTYPE "ShellThin"  WALLTHICKNESS 14.75
             return $"  SHELLPROP  \"{wallProp.Name}\"  PROPTYPE  \"Wall\"  MATERIAL \"{materialName}\"  MODELINGTYPE \"ShellThin\"  WALLTHICKNESS {wallProp.Thickness}";
-        }
-
-        // Formats wall stiffness modifiers (standard values used in practice)
-        private string FormatWallModifiers(WallProperties wallProp)
-        {
-            // Standard wall modifiers used in practice:
-            // F11MOD and F22MOD: 0.5 (in-plane stiffness)
-            // M11MOD and M22MOD: 0.01 (out-of-plane bending)
-
-            return $"\tSHELLPROP  \"{wallProp.Name}\"  F11MOD 0.5 F22MOD 0.5 M11MOD 0.01 M22MOD 0.01";
         }
 
         // Converts a single WallProperties object to E2K format text
@@ -72,10 +57,6 @@ namespace ETABS.ToETABS.Properties
             // Format and append the wall property
             string shellProp = FormatWallProperty(wallProp);
             sb.AppendLine(shellProp);
-
-            // Add modifiers on a new line
-            string modifiers = FormatWallModifiers(wallProp);
-            sb.AppendLine(modifiers);
 
             return sb.ToString();
         }

@@ -4,6 +4,7 @@ using System.Linq;
 using DB = Autodesk.Revit.DB;
 using Core.Models.Properties;
 using System.Diagnostics;
+using Core.Utilities;
 
 namespace Revit.Export.Properties
 {
@@ -40,8 +41,6 @@ namespace Revit.Export.Properties
             // Track if we've already added steel and concrete materials
             bool hasSteel = false;
             bool hasConcrete = false;
-            string steelMaterialId = string.Empty;
-            string concreteMaterialId = string.Empty;
 
             // Export only the materials that are used by structural elements
             foreach (var materialId in usedMaterialIds)
@@ -61,9 +60,11 @@ namespace Revit.Export.Properties
                     if (materialType == "Concrete" && hasConcrete)
                         continue;
 
-                    // Use simplified material name that matches the type
-                    string materialName = materialType;
-                    Material material = new Material(materialName, materialType);
+                    // Create material with proper ID and name
+                    Material material = new Material(materialType, materialType);
+
+                    // Material ID is generated in the constructor - don't override it
+                    Debug.WriteLine($"Generated material ID: {material.Id}");
 
                     // Set material properties based on type
                     PopulateMaterialProperties(material, revitMaterial);
@@ -71,16 +72,14 @@ namespace Revit.Export.Properties
                     materials.Add(material);
                     count++;
 
-                    // Mark this material type as added and store its ID
+                    // Mark this material type as added
                     if (materialType == "Steel")
                     {
                         hasSteel = true;
-                        steelMaterialId = material.Id;
                     }
                     else if (materialType == "Concrete")
                     {
                         hasConcrete = true;
-                        concreteMaterialId = material.Id;
                     }
 
                     Debug.WriteLine($"Exported material: {material.Name}, Type: {material.Type}, ID: {material.Id}");
@@ -151,16 +150,12 @@ namespace Revit.Export.Properties
             {
                 try
                 {
-                    // Check if wall is structural
-                    DB.Parameter isStructuralParam = wall.get_Parameter(DB.BuiltInParameter.WALL_STRUCTURAL_USAGE_PARAM);
-                    if (isStructuralParam != null && isStructuralParam.AsInteger() > 0)
+                    // We consider all walls structural in our scenario
+                    // Get material from wall
+                    DB.ElementId materialId = GetElementMaterialId(wall);
+                    if (materialId != null && materialId != DB.ElementId.InvalidElementId)
                     {
-                        // Get material from wall
-                        DB.ElementId materialId = GetElementMaterialId(wall);
-                        if (materialId != null && materialId != DB.ElementId.InvalidElementId)
-                        {
-                            materialIds.Add(materialId);
-                        }
+                        materialIds.Add(materialId);
                     }
                 }
                 catch (Exception ex)

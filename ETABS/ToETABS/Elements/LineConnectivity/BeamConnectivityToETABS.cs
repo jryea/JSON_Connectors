@@ -6,7 +6,7 @@ using Core.Models.Elements;
 using Core.Models.Geometry;
 using Core.Utilities;
 
-namespace ETABS.ToETABS.Elements.Connectivity
+namespace ETABS.ToETABS.Elements.LineConnectivity
 {
     /// <summary>
     /// Converts beam connectivity information to ETABS E2K format

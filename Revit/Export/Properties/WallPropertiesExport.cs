@@ -10,69 +10,122 @@ namespace Revit.Export.Properties
     public class WallPropertiesExport
     {
         private readonly DB.Document _doc;
-        private Dictionary<DB.ElementId, string> _materialIdMap = new Dictionary<DB.ElementId, string>();
 
         public WallPropertiesExport(DB.Document doc)
         {
             _doc = doc;
-            CreateMaterialIdMapping();
         }
 
-        private void CreateMaterialIdMapping()
+        // Find material by type in the provided materials list
+        private string FindMaterialIdByType(string materialType, List<Material> materials)
         {
-            // Map Revit material IDs to model material IDs
-            foreach (DB.Material material in new DB.FilteredElementCollector(_doc)
-                .OfClass(typeof(DB.Material))
-                .Cast<DB.Material>())
+            if (materials == null || materials.Count == 0)
+                return null;
+
+            // Look for exact material type match first
+            var material = materials.FirstOrDefault(m =>
+                string.Equals(m.Type, materialType, StringComparison.OrdinalIgnoreCase));
+
+            // If not found, try to find concrete material as fallback for walls
+            if (material == null && materialType != "Concrete")
+                material = materials.FirstOrDefault(m =>
+                    string.Equals(m.Type, "Concrete", StringComparison.OrdinalIgnoreCase));
+
+            // If still not found, try to match by name
+            if (material == null)
             {
-                if (!string.IsNullOrEmpty(material.Name))
+                material = materials.FirstOrDefault(m =>
+                    m.Name != null && m.Name.IndexOf(materialType, StringComparison.OrdinalIgnoreCase) >= 0);
+
+                // Last resort: find any concrete material
+                if (material == null && materialType == "Concrete")
                 {
-                    string materialId = $"MAT-{material.Name.Replace(" ", "")}";
-                    _materialIdMap[material.Id] = materialId;
+                    material = materials.FirstOrDefault(m =>
+                        m.Name != null && m.Name.IndexOf("Concrete", StringComparison.OrdinalIgnoreCase) >= 0);
                 }
             }
+
+            // Return the ID of the found material
+            return material?.Id;
         }
 
-        public int Export(List<WallProperties> wallProperties)
+        public int Export(List<WallProperties> wallProperties, List<Material> materials)
         {
             int count = 0;
-            HashSet<DB.ElementId> structuralWallTypeIds = new HashSet<DB.ElementId>();
+            HashSet<string> processedWallTypeNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            HashSet<DB.ElementId> wallTypeIds = new HashSet<DB.ElementId>();
 
-            // First, collect wall types that are used by structural walls
-            DB.FilteredElementCollector collector = new DB.FilteredElementCollector(_doc);
-            IList<DB.Wall> walls = collector.OfClass(typeof(DB.Wall))
+            // First collect all wall instances from the model
+            DB.FilteredElementCollector wallCollector = new DB.FilteredElementCollector(_doc);
+            IList<DB.Wall> walls = wallCollector.OfCategory(DB.BuiltInCategory.OST_Walls)
                 .WhereElementIsNotElementType()
+                .Where(w => !(w is DB.DirectShape)) // Exclude DirectShape walls
                 .Cast<DB.Wall>()
-                .Where(w => IsStructuralWall(w))
                 .ToList();
 
+            Debug.WriteLine($"Found {walls.Count} wall instances in the model");
+
+            // Extract the wall type IDs from the wall instances
             foreach (var wall in walls)
-            {
-                structuralWallTypeIds.Add(wall.GetTypeId());
-            }
-
-            Debug.WriteLine($"Found {structuralWallTypeIds.Count} wall types used by structural walls");
-
-            // Export only wall types used by structural walls
-            foreach (var typeId in structuralWallTypeIds)
             {
                 try
                 {
+                    DB.ElementId typeId = wall.GetTypeId();
+                    if (!wallTypeIds.Contains(typeId))
+                    {
+                        wallTypeIds.Add(typeId);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error getting wall type ID: {ex.Message}");
+                }
+            }
+
+            Debug.WriteLine($"Found {wallTypeIds.Count} unique wall types used by walls in the model");
+
+            // Check that we have materials to reference
+            if (materials == null || materials.Count == 0)
+            {
+                Debug.WriteLine("Warning: No materials available for wall properties");
+                return 0;
+            }
+
+            // Process each used wall type
+            foreach (var typeId in wallTypeIds)
+            {
+                try
+                {
+                    // Get the wall type element
                     DB.WallType wallType = _doc.GetElement(typeId) as DB.WallType;
                     if (wallType == null)
+                    {
+                        Debug.WriteLine($"Warning: Could not get wall type for ID {typeId}");
                         continue;
+                    }
 
-                    DB.CompoundStructure cs = wallType.GetCompoundStructure();
-                    if (cs == null)
+                    // Skip if we've already processed a wall type with this name
+                    if (processedWallTypeNames.Contains(wallType.Name))
+                    {
+                        Debug.WriteLine($"Skipping duplicate wall type name: {wallType.Name}");
                         continue;
+                    }
 
-                    // Get material ID
-                    string materialId = GetMaterialId(cs);
-                    if (string.IsNullOrEmpty(materialId))
-                        materialId = "MAT-default";
+                    processedWallTypeNames.Add(wallType.Name);
+                    Debug.WriteLine($"Processing wall type: {wallType.Name}");
 
                     // Get thickness in inches
-                    double thickness = cs.GetWidth() * 12.0;
+                    double thickness = wallType.Width * 12.0; // Convert feet to inches
+
+                    // Determine material type (concrete, masonry, etc.)
+                    string materialType = DetermineMaterialType(wallType);
+                    string materialId = FindMaterialIdByType(materialType, materials);
+
+                    if (string.IsNullOrEmpty(materialId))
+                    {
+                        Debug.WriteLine($"Warning: No matching material found for wall type '{wallType.Name}' - skipping");
+                        continue;
+                    }
 
                     // Create wall property
                     WallProperties wallProperty = new WallProperties(
@@ -88,7 +141,7 @@ namespace Revit.Export.Properties
                     wallProperties.Add(wallProperty);
                     count++;
 
-                    Debug.WriteLine($"Exported wall type: {wallType.Name}, Material: {materialId}, Thickness: {thickness}");
+                    Debug.WriteLine($"Exported wall type: {wallType.Name}, Material: {materialType}, MaterialID: {materialId}, Thickness: {thickness}");
                 }
                 catch (Exception ex)
                 {
@@ -96,33 +149,30 @@ namespace Revit.Export.Properties
                 }
             }
 
+            Debug.WriteLine($"Successfully exported {count} wall properties");
             return count;
         }
 
-        private bool IsStructuralWall(DB.Wall wall)
+        // Determine material type based on wall type name and family
+        private string DetermineMaterialType(DB.WallType wallType)
         {
-            // Check WALL_STRUCTURAL_SIGNIFICANT parameter as specified
-            DB.Parameter isStructuralParam = wall.get_Parameter(DB.BuiltInParameter.WALL_STRUCTURAL_SIGNIFICANT);
-            if (isStructuralParam != null && isStructuralParam.AsInteger() != 0)
-                return true;
+            string typeName = wallType.Name.ToUpper();
+            string familyName = wallType.FamilyName.ToUpper();
 
-            // Also check WALL_STRUCTURAL_USAGE_PARAM as a backup
-            DB.Parameter structuralUsageParam = wall.get_Parameter(DB.BuiltInParameter.WALL_STRUCTURAL_USAGE_PARAM);
-            return structuralUsageParam != null && structuralUsageParam.AsInteger() > 0;
-        }
+            if (typeName.Contains("CONCRETE") || typeName.Contains("CONC") ||
+                familyName.Contains("CONCRETE") || familyName.Contains("CONC"))
+                return "Concrete";
 
-        private string GetMaterialId(DB.CompoundStructure cs)
-        {
-            int coreLayer = cs.GetFirstCoreLayerIndex();
-            if (coreLayer >= 0)
-            {
-                DB.ElementId materialId = cs.GetMaterialId(coreLayer);
-                if (materialId != DB.ElementId.InvalidElementId && _materialIdMap.ContainsKey(materialId))
-                {
-                    return _materialIdMap[materialId];
-                }
-            }
-            return null;
+            if (typeName.Contains("MASONRY") || typeName.Contains("CMU") || typeName.Contains("BRICK") ||
+                familyName.Contains("MASONRY") || familyName.Contains("CMU") || familyName.Contains("BRICK"))
+                return "Masonry";
+
+            if (typeName.Contains("STEEL") || typeName.Contains("METAL") ||
+                familyName.Contains("STEEL") || familyName.Contains("METAL"))
+                return "Steel";
+
+            // Default to concrete for structural walls
+            return "Concrete";
         }
     }
 }

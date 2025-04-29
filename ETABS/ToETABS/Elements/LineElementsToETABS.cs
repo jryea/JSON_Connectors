@@ -4,8 +4,8 @@ using System.Text;
 using Core.Models.Elements;
 using Core.Models.ModelLayout;
 using Core.Models.Properties;
-using ETABS.ToETABS.Elements.Connectivity;
-using ETABS.ToETABS.Elements.Assignment;
+using ETABS.ToETABS.Elements.LineConnectivity;
+using ETABS.ToETABS.Elements.LineAssignment;
 using Core.Models.Geometry;
 
 namespace ETABS.ToETABS.Elements

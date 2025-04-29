@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace ETABS.ToETABS.Elements.Connectivity
+namespace ETABS.ToETABS.Elements
 {
     // Interface for classes that convert element connectivity information to ETABS E2K format
     public interface IConnectivityToETABS

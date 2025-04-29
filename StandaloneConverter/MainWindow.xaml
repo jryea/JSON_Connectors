@@ -4,7 +4,7 @@
         xmlns:local="clr-namespace:StandaloneConverter.Converters"
         Title="Structural Model Converter" Height="600" Width="800">
     <Window.Resources>
-        <local:ByteArrayToImageConverter x:Key="ByteArrayToImageConverter" />
+        <!--<local:ByteArrayToImageConverter x:Key="ByteArrayToImageConverter" />-->
         <!-- IMEG Colors -->
         <SolidColorBrush x:Key="PrimaryBlue" Color="#005687"/>
         <SolidColorBrush x:Key="SecondaryBlue" Color="#FF256FAF"/>
@@ -130,7 +130,15 @@
         </Style>
     </Window.Resources>
     <Border Background="White">
-        <Grid Background="White">
+        <Grid Background="White" RenderTransformOrigin="0.5,0.5">
+            <Grid.RenderTransform>
+                <TransformGroup>
+                    <ScaleTransform/>
+                    <SkewTransform/>
+                    <RotateTransform Angle="0"/>
+                    <TranslateTransform/>
+                </TransformGroup>
+            </Grid.RenderTransform>
             <Grid.RowDefinitions>
                 <RowDefinition Height="60"/>
                 <!-- Blue Title Bar -->
@@ -153,10 +161,10 @@
 
                     <!-- White background with Diamond Image -->
                     <Border Background="White" Grid.Column="0">
-                        <Image Source="{Binding IMEGLogoSymbol, Converter={StaticResource ByteArrayToImageConverter}}"
-       Stretch="Uniform"
+                        <!--<Image Source="{Binding IMEGLogoSymbol, Converter={StaticResource ByteArrayToImageConverter}}"-->
+                        <!--Stretch="Uniform"
        VerticalAlignment="Center"
-       HorizontalAlignment="Center"/>
+       HorizontalAlignment="Center"/>-->
                     </Border>
 
                     <!-- Solid Blue Bar with Title Text -->
@@ -195,11 +203,11 @@
             </Grid>
 
             <!-- Green Bar -->
-            <StackPanel Grid.Row="1" 
+            <StackPanel 
                         x:Name="GridTour"
                         Height="30" 
                         VerticalAlignment="Top" 
-                        HorizontalAlignment="Stretch">
+                        HorizontalAlignment="Stretch" Orientation="Horizontal" Grid.Row="1" FlowDirection="RightToLeft">
                 <StackPanel.Background>
                     <LinearGradientBrush StartPoint="-2,0" EndPoint="1,1">
                         <GradientStop Color="White" Offset="0.7" />

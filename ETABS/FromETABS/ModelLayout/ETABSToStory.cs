@@ -7,32 +7,60 @@ using Core.Utilities;
 
 namespace ETABS.Import.ModelLayout
 {
-    // Imports stories/levels from ETABS E2K file
+    /// <summary>
+    /// Imports stories/levels from ETABS E2K file
+    /// </summary>
     public class ETABSToStory
     {
+        // The floor type importer
+        private readonly ETABSToFloorType _floorTypeImporter = new ETABSToFloorType();
+
         // Dictionary to map floor type names to IDs
         private Dictionary<string, string> _floorTypeIdsByName = new Dictionary<string, string>();
 
-        // Sets the floor type name to ID mapping for reference when creating levels
+        /// <summary>
+        /// Sets the floor type name to ID mapping for reference when creating levels
+        /// </summary>
         public void SetFloorTypes(Dictionary<string, string> floorTypeIdMapping)
         {
             _floorTypeIdsByName = new Dictionary<string, string>(floorTypeIdMapping);
         }
 
-        // Imports stories/levels from E2K STORIES section
+        /// <summary>
+        /// Imports stories/levels from E2K STORIES section
+        /// </summary>
         public List<Level> Import(string storiesSection)
+        {
+            var importResult = ImportWithFloorTypes(storiesSection);
+            return importResult.levels;
+        }
+
+        /// <summary>
+        /// Imports both levels and floor types from E2K STORIES section
+        /// </summary>
+        public (List<Level> levels, List<FloorType> floorTypes) ImportWithFloorTypes(string storiesSection)
         {
             var levels = new List<Level>();
 
             if (string.IsNullOrWhiteSpace(storiesSection))
-                return levels;
+                return (levels, new List<FloorType>());
+
+            // First, import floor types
+            var floorTypes = _floorTypeImporter.Import(storiesSection);
+
+            // Get mapping from stories to floor types
+            var storyToFloorTypeMap = _floorTypeImporter.GetFloorTypeMapping();
+
+            // Update our internal mapping for reference
+            foreach (var floorType in floorTypes)
+            {
+                _floorTypeIdsByName[floorType.Name] = floorType.Id;
+            }
 
             // Regular expressions to match story definitions
-            // Format: STORY "Story3" HEIGHT 120
             var storyHeightPattern = new Regex(@"^\s*STORY\s+""([^""]+)""\s+HEIGHT\s+([\d\.]+)",
                 RegexOptions.Multiline);
 
-            // Format: STORY "Base" ELEV 0
             var storyElevPattern = new Regex(@"^\s*STORY\s+""([^""]+)""\s+ELEV\s+([\d\.]+)",
                 RegexOptions.Multiline);
 
@@ -50,8 +78,15 @@ namespace ETABS.Import.ModelLayout
                     // Store elevation in dictionary
                     storyElevations[storyName] = elevation;
 
-                    // Create level
+                    // Create level with floor type if available
                     var level = CreateLevel(storyName, elevation);
+
+                    // Assign floor type ID from mapping
+                    if (storyToFloorTypeMap.TryGetValue(storyName, out string floorTypeId))
+                    {
+                        level.FloorTypeId = floorTypeId;
+                    }
+
                     levels.Add(level);
                 }
             }
@@ -66,26 +101,22 @@ namespace ETABS.Import.ModelLayout
                 {
                     string storyName = match.Groups[1].Value;
                     double height = Convert.ToDouble(match.Groups[2].Value);
-
-                    // Store height in dictionary
                     storyHeights[storyName] = height;
                 }
             }
 
             // Calculate elevations for stories defined by height
-            // This requires a separate pass because we need to know the elevation of the story below
-            CalculateStoriesElevation(storyHeights, storyElevations, levels);
+            CalculateStoriesElevation(storyHeights, storyElevations, levels, storyToFloorTypeMap);
 
             // Sort levels by elevation
             levels.Sort((a, b) => a.Elevation.CompareTo(b.Elevation));
 
-            return levels;
+            return (levels, floorTypes);
         }
 
         // Creates a Level object with the given name and elevation
         private Level CreateLevel(string storyName, double elevation)
         {
-            // Normalize story name
             string normalizedName = NormalizeStoryName(storyName);
 
             return new Level
@@ -101,7 +132,8 @@ namespace ETABS.Import.ModelLayout
         private void CalculateStoriesElevation(
             Dictionary<string, double> storyHeights,
             Dictionary<string, double> storyElevations,
-            List<Level> levels)
+            List<Level> levels,
+            Dictionary<string, string> storyToFloorTypeMap)
         {
             // Sort story names in ascending order (Base, Story1, Story2, etc.)
             var sortedStoryNames = new List<string>(storyHeights.Keys);
@@ -135,8 +167,7 @@ namespace ETABS.Import.ModelLayout
             // Calculate elevations for each story
             foreach (string storyName in sortedStoryNames)
             {
-                // Skip base story as it was already processed
-                if (storyName == "Base") continue;
+                if (storyName == "Base") continue; // Already processed
 
                 // If elevation is already known, use it
                 if (storyElevations.TryGetValue(storyName, out double elevation))
@@ -154,8 +185,14 @@ namespace ETABS.Import.ModelLayout
 
                     // Create level
                     var level = CreateLevel(storyName, currentElevation);
-                    levels.Add(level);
 
+                    // Assign floor type ID from mapping
+                    if (storyToFloorTypeMap.TryGetValue(storyName, out string floorTypeId))
+                    {
+                        level.FloorTypeId = floorTypeId;
+                    }
+
+                    levels.Add(level);
                     prevStoryName = storyName;
                 }
             }
@@ -164,37 +201,28 @@ namespace ETABS.Import.ModelLayout
         // Normalizes a story name by removing "Story" prefix
         private string NormalizeStoryName(string storyName)
         {
-            // Convert "Story1" to "1", "Base" stays as "Base"
             if (storyName.StartsWith("Story", StringComparison.OrdinalIgnoreCase))
-            {
                 return storyName.Substring(5);
-            }
 
             return storyName;
         }
 
-        // Extracts the numeric part from a story name
-        private string ExtractNumericPart(string storyName)
+        // Gets the floor type IDs mapped to the levels
+        public Dictionary<string, string> GetLevelFloorTypeMappings()
         {
-            // Extract numeric part from "Story1" or similar
-            var match = Regex.Match(storyName, @"\d+");
-            if (match.Success)
-            {
-                return match.Value;
-            }
-
-            return "0"; // Default value for non-numeric parts
+            return new Dictionary<string, string>(_floorTypeIdsByName);
         }
 
-        // Gets the default floor type ID
+        // Helper methods (unchanged)
+        private string ExtractNumericPart(string storyName)
+        {
+            var match = Regex.Match(storyName, @"\d+");
+            return match.Success ? match.Value : "0";
+        }
+
         private string GetDefaultFloorTypeId()
         {
-            // Return the first available floor type ID, or null if none available
-            if (_floorTypeIdsByName.Count > 0)
-            {
-                return _floorTypeIdsByName.Values.First();
-            }
-            return null;
+            return _floorTypeIdsByName.Count > 0 ? _floorTypeIdsByName.Values.First() : null;
         }
     }
 }

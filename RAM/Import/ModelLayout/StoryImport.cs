@@ -91,7 +91,19 @@ namespace RAM.Import.ModelLayout
                         }
                     }
 
+                    if (ramStories == null)
+    {
+                        Console.WriteLine("Error: ramStories is null. Skipping story creation.");
+                        continue;
+                    }
+
                     IStory story = ramStories.Add(floorTypeId, storyName, height);
+                    if (story == null)
+                    {
+                        Console.WriteLine($"Warning: Failed to create story '{storyName}'. Skipping.");
+                        continue;
+                    }
+
                     count++;
                 }
 

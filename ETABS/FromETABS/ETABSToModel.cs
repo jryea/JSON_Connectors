@@ -13,7 +13,7 @@ using ETABS.Utilities;
 using System;
 using System.Collections.Generic;
 
-namespace ETABS.Utilities
+namespace ETABS.FromETABS
 {
     // E2K to model
     public class ETABSToModel
@@ -33,6 +33,7 @@ namespace ETABS.Utilities
         private readonly ETABSToFloorProperties _floorPropertiesImport = new ETABSToFloorProperties();
         private readonly WallPropertiesImport _wallPropertiesImport = new WallPropertiesImport();
         private readonly ETABSToDiaphragm _diaphragmsImport = new ETABSToDiaphragm();
+        private readonly ETABSToFloorType _floorTypeImport = new ETABSToFloorType();
         private readonly ETABSToStory _storiesImport = new ETABSToStory();
         private readonly ETABSToGrid _gridsImport;
         private readonly ETABSToProjectInfo _projectInfoImport = new ETABSToProjectInfo();
@@ -99,20 +100,11 @@ namespace ETABS.Utilities
                     _pointsCollector.ParsePoints(pointsSection);
                 }
 
-                // Parse stories/levels
+                // Parse stories/levels and floor types
                 if (e2kSections.TryGetValue("STORIES - IN SEQUENCE FROM TOP", out string storiesSection))
                 {
+                    model.ModelLayout.FloorTypes = _floorTypeImport.Import(storiesSection); 
                     model.ModelLayout.Levels = ImportLevels(storiesSection);
-                }
-
-                // Create a default floor type if none exists
-                if (model.ModelLayout.FloorTypes.Count == 0)
-                {
-                    model.ModelLayout.FloorTypes.Add(new FloorType
-                    {
-                        Name = "typical",
-                        Description = "Default floor type"
-                    });
                 }
 
                 // Set floor types for levels

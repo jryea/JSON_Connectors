@@ -1,12 +1,11 @@
-﻿// Main coordinator class
-using System;
-using System.Collections.Generic;
-using System.Text;
-using Core.Models.Elements;
+﻿using Core.Models.Elements;
 using Core.Models.ModelLayout;
 using Core.Models.Properties;
-using ETABS.ToETABS.Elements.AreaConnectivity;
 using ETABS.ToETABS.Elements.AreaAssignment;
+using ETABS.ToETABS.Elements.AreaConnectivity;
+using System.Text;
+using System;
+using System.Collections.Generic;
 
 namespace ETABS.ToETABS.Elements
 {
@@ -20,8 +19,7 @@ namespace ETABS.ToETABS.Elements
         private readonly FloorAssignmentToETABS _floorAssignmentToETABS;
 
         // Constructor that takes a PointCoordinatesToETABS instance
-       
-        public AreaElementsToETABS(PointCoordinatesToETABS pointCoordinates)
+        public AreaElementsToETABS(PointCoordinatesToETABS pointCoordinates, List<string> validStoryNames)
         {
             if (pointCoordinates == null)
                 throw new ArgumentNullException(nameof(pointCoordinates));
@@ -30,16 +28,15 @@ namespace ETABS.ToETABS.Elements
             _wallConnectivityToETABS = new WallConnectivityToETABS(pointCoordinates);
             _floorConnectivityToETABS = new FloorConnectivityToETABS(pointCoordinates);
 
-            _wallAssignmentToETABS = new WallAssignmentToETABS();
-            _floorAssignmentToETABS = new FloorAssignmentToETABS();
+            _wallAssignmentToETABS = new WallAssignmentToETABS(validStoryNames);
+            _floorAssignmentToETABS = new FloorAssignmentToETABS(validStoryNames);
         }
 
         // Converts area elements to E2K format
         public string ConvertToE2K(
             ElementContainer elements,
-            IEnumerable<Level> levels,
-            IEnumerable<WallProperties> wallProperties,
-            IEnumerable<FloorProperties> floorProperties)
+            ModelLayoutContainer layout,
+            PropertiesContainer properties)
         {
             StringBuilder sb = new StringBuilder();
 
@@ -48,8 +45,8 @@ namespace ETABS.ToETABS.Elements
             _floorConnectivityToETABS.SetFloors(elements.Floors);
 
             // Set data for assignment converters
-            _wallAssignmentToETABS.SetData(elements.Walls, levels, wallProperties);
-            _floorAssignmentToETABS.SetData(elements.Floors, levels, floorProperties);
+            _wallAssignmentToETABS.SetData(elements.Walls, layout.Levels, properties.WallProperties);
+            _floorAssignmentToETABS.SetData(elements.Floors, layout.Levels, properties.FloorProperties);
 
             // Process all area connectivities
             sb.AppendLine("$ AREA CONNECTIVITIES");

@@ -71,13 +71,16 @@ namespace ETABS.ToETABS
                 sb.AppendLine(controlsSection);
                 sb.AppendLine();
 
-                // Convert stories
+                /// Convert stories
                 if (model.ModelLayout.Levels.Count > 0)
                 {
                     string storySection = _storiesToETABS.ConvertToE2K(model.ModelLayout.Levels);
                     sb.AppendLine(storySection);
                     sb.AppendLine();
                 }
+
+                // Get valid story names
+                List<string> validStoryNames = _storiesToETABS.GetStoryNames();
 
                 //Convert grids
                 if (model.ModelLayout.Grids.Count > 0)
@@ -157,14 +160,14 @@ namespace ETABS.ToETABS
                 sb.AppendLine();
 
                 // Create the area elements converter with the point coordinates instance
-                var areaElementsToETABS = new AreaElementsToETABS(_pointCoordinatesToETABS);
+                var areaElementsToETABS = new AreaElementsToETABS(_pointCoordinatesToETABS, validStoryNames);
 
                 // Convert area elements (both connectivities and assignments)
                 string areaElementsSection = areaElementsToETABS.ConvertToE2K(
                     model.Elements,
-                    model.ModelLayout.Levels,
-                    model.Properties.WallProperties,
-                    model.Properties.FloorProperties);
+                    model.ModelLayout,
+                    model.Properties);
+
                 sb.AppendLine(areaElementsSection);
                 sb.AppendLine();
 

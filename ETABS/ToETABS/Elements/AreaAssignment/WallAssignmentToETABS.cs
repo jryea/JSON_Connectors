@@ -1,9 +1,9 @@
-﻿using Core.Models.Elements;
+﻿using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using Core.Models.Elements;
 using Core.Models.ModelLayout;
 using Core.Models.Properties;
-using System.Collections.Generic;
-using System.Text;
-using System.Linq;
 
 namespace ETABS.ToETABS.Elements.AreaAssignment
 {
@@ -13,6 +13,13 @@ namespace ETABS.ToETABS.Elements.AreaAssignment
         private List<Wall> _walls;
         private IEnumerable<Level> _levels;
         private IEnumerable<WallProperties> _wallProperties;
+        private readonly HashSet<string> _validStoryNames;
+
+        // Constructor to initialize with valid story names
+        public WallAssignmentToETABS(IEnumerable<string> validStoryNames)
+        {
+            _validStoryNames = new HashSet<string>(validStoryNames);
+        }
 
         // Sets the data needed for converting wall assignments
         public void SetData(
@@ -39,16 +46,13 @@ namespace ETABS.ToETABS.Elements.AreaAssignment
                 if (!idMapping.TryGetValue(wall.Id, out string areaId))
                     continue;
 
-                // Find base and top levels
-                var baseLevel = _levels.FirstOrDefault(l => l.Id == wall.BaseLevelId);
+                // Find only the top level (ETABS wall assignments only need top level)
                 var topLevel = _levels.FirstOrDefault(l => l.Id == wall.TopLevelId);
-
-                if (baseLevel == null || topLevel == null)
+                if (topLevel == null || !_validStoryNames.Any(validName => validName.Contains(topLevel.Name)))
                     continue;
 
-                // Format story names
-                string baseStory = GetStoryName(baseLevel);
-                string topStory = GetStoryName(topLevel);
+                // Use the valid story name that contains the level name
+                string topStory = _validStoryNames.First(validName => validName.Contains(topLevel.Name));
 
                 // Find wall properties
                 string propertyName = "Default";
@@ -59,24 +63,21 @@ namespace ETABS.ToETABS.Elements.AreaAssignment
                         propertyName = properties.Name;
                 }
 
-                // Format wall assignment
-                sb.AppendLine(FormatWallAssignment(areaId, baseStory, topStory, propertyName));
+                // Format wall assignment using the valid story name
+                sb.AppendLine(FormatWallAssignment(areaId, topStory, propertyName));
             }
 
             return sb.ToString();
         }
 
-        // Gets a formatted story name from a level
-        private string GetStoryName(Level level)
-        {
-            return level.Name.ToLower() == "base" ? "Base" : $"Story{level.Name}";
-        }
-
         // Formats a wall assignment line for E2K format
-        private string FormatWallAssignment(string areaId, string baseStory, string topStory, string propertyName)
+        private string FormatWallAssignment(string areaId, string topStory, string propertyName)
         {
-            // Format: AREAASSIGN "W1" "Story1" "Story2" SECTION "Wall1" AUTOMESH "YES"
-            return $"  AREAASSIGN \"{areaId}\" \"{baseStory}\" \"{topStory}\" SECTION \"{propertyName}\" AUTOMESH \"YES\"";
+            // Replace all "\"" symbols in the name with " inch"
+            string formattedName = propertyName.Replace("\"", " inch");
+
+            // Format: AREAASSIGN "W1" "Story4" SECTION "Wall1" AUTOMESH "YES"
+            return $"  AREAASSIGN \"{areaId}\" \"{topStory}\" SECTION \"{formattedName}\" AUTOMESH \"YES\"";
         }
     }
 }

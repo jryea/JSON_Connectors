@@ -4,6 +4,7 @@ using Core.Models.Geometry;
 using System.Collections.Generic;
 using System.Text;
 using System;
+using System.Diagnostics;
 
 namespace ETABS.ToETABS.Elements.AreaConnectivity
 {
@@ -113,8 +114,18 @@ namespace ETABS.ToETABS.Elements.AreaConnectivity
         // Formats a wall connectivity line for E2K format
         private string FormatWallConnectivity(string areaId, List<string> pointIds)
         {
-            // Format: AREA "W1" WALL 4 "1" "2" "3" "4" 0 0 0 0
-            return $"  AREA \"{areaId}\" WALL {pointIds.Count} {string.Join(" ", pointIds.ConvertAll(id => $"\"{id}\""))} 0 0 0 0";
+            if (pointIds.Count != 2)
+            {
+                return "";
+            }
+
+            string pt1 = pointIds[0];
+            string pt2 = pointIds[1];
+
+            // Format: AREA "W1" WALL 4 "1" "2" "2" "1" 1 1 0 0
+            // Describes a vertical wall with 4 points starting at the top story
+            return $"  AREA \"{areaId}\" PANEL 4 \"{pt1}\" \"{pt2}\" \"{pt2}\" \"{pt1}\" 1 1 0 0";
+
         }
     }
 }

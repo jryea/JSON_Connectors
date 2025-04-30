@@ -38,12 +38,15 @@ namespace ETABS.ToETABS.Properties
                 wallProp.Name = $"{wallProp.Thickness} in wall";
             }
 
+            // Replace all "\"" symbols in the name with " inch"
+            string formattedName = wallProp.Name.Replace("\"", " inch");
+
             // Get Wall Material
             string materialName = _materials.FirstOrDefault(m => m.Id == wallProp.MaterialId)?.Name ?? "Concrete";
 
             // Format according to exact required pattern, no modifiers:
             // SHELLPROP  "IMEG_Concrete 14 3/4""  PROPTYPE  "Wall"  MATERIAL "Concrete"  MODELINGTYPE "ShellThin"  WALLTHICKNESS 14.75
-            return $"  SHELLPROP  \"{wallProp.Name}\"  PROPTYPE  \"Wall\"  MATERIAL \"{materialName}\"  MODELINGTYPE \"ShellThin\"  WALLTHICKNESS {wallProp.Thickness}";
+            return $"  SHELLPROP  \"{formattedName}\"  PROPTYPE  \"Wall\"  MATERIAL \"{materialName}\"  MODELINGTYPE \"ShellThin\"  WALLTHICKNESS {wallProp.Thickness}";
         }
 
         // Converts a single WallProperties object to E2K format text

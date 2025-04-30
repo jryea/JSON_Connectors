@@ -3,17 +3,23 @@ using Core.Models.ModelLayout;
 using Core.Models.Properties;
 using System.Collections.Generic;
 using System.Linq;
-
 using System.Text;
 
 namespace ETABS.ToETABS.Elements.AreaAssignment
 {
-        // Converts floor assignment information to ETABS E2K format
-        public class FloorAssignmentToETABS : IAssignmentToETABS
+    // Converts floor assignment information to ETABS E2K format
+    public class FloorAssignmentToETABS : IAssignmentToETABS
     {
         private List<Floor> _floors;
         private IEnumerable<Level> _levels;
         private IEnumerable<FloorProperties> _floorProperties;
+        private readonly HashSet<string> _validStoryNames;
+
+        // Constructor to initialize with valid story names
+        public FloorAssignmentToETABS(IEnumerable<string> validStoryNames)
+        {
+            _validStoryNames = new HashSet<string>(validStoryNames);
+        }
 
         // Sets the data needed for converting floor assignments
         public void SetData(
@@ -41,12 +47,12 @@ namespace ETABS.ToETABS.Elements.AreaAssignment
                     continue;
 
                 // Find the level
-                string story = "Story1"; // Default
                 var level = _levels?.FirstOrDefault(l => l.Id == floor.LevelId);
-                if (level != null)
-                {
-                    story = GetStoryName(level);
-                }
+                if (level == null || !_validStoryNames.Any(validName => validName.Contains(level.Name)))
+                    continue;
+
+                // Use the valid story name that contains the level name
+                string story = _validStoryNames.First(validName => validName.Contains(level.Name));
 
                 // Find floor properties
                 string propertyName = "Default";
@@ -69,12 +75,6 @@ namespace ETABS.ToETABS.Elements.AreaAssignment
             }
 
             return sb.ToString();
-        }
-
-        // Gets a formatted story name from a level
-        private string GetStoryName(Level level)
-        {
-            return level.Name.ToLower() == "base" ? "Base" : $"Story{level.Name}";
         }
 
         // Formats a floor assignment line for E2K format

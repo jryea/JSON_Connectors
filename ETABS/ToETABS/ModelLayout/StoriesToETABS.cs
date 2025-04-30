@@ -1,27 +1,38 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using Core.Models.ModelLayout;
 
 namespace ETABS.ToETABS.ModelLayout
 {
-    /// <summary>
-    /// Converts Core Level objects to ETABS E2K format text
-    /// </summary>
+    // Converts Core Level objects to ETABS E2K format text
     public class StoriesToETABS
     {
-        /// <summary>
-        /// Converts a collection of Level objects to E2K format text
-        /// </summary>
-        /// <param name="levels">Collection of Level objects</param>
-        /// <returns>E2K format text for levels</returns>
+        private List<string> _storyNames = new List<string>();
+
+        // Converts a collection of Level objects to E2K format text
         public string ConvertToE2K(List<Level> levels)
         {
-            StringBuilder sb = new StringBuilder();
-
             // Sort levels by elevation in descending order (top to bottom)
             var sortedLevels = new List<Level>(levels);
             sortedLevels.Sort((a, b) => b.Elevation.CompareTo(a.Elevation));
+
+            // Clear and populate _storyNames
+            _storyNames.Clear();
+            for (int i = 0; i < sortedLevels.Count; i++)
+            {
+                if (i == sortedLevels.Count - 1) // Lowest level
+                {
+                    _storyNames.Add("Base");
+                }
+                else
+                {
+                    _storyNames.Add($"Story{sortedLevels[i].Name}");
+                }
+            }
+
+            StringBuilder sb = new StringBuilder();
 
             // E2K Levels Section Header
             sb.AppendLine("$ STORIES - IN SEQUENCE FROM TOP");
@@ -43,6 +54,12 @@ namespace ETABS.ToETABS.ModelLayout
             sb.AppendLine($"\tSTORY \"Base\" ELEV {baseLevel.Elevation}");
 
             return sb.ToString();
+        }
+
+        // Returns the list of valid story names
+        public List<string> GetStoryNames()
+        {
+            return _storyNames;
         }
     }
 }

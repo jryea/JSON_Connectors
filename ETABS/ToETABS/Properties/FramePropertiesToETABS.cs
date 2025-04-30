@@ -71,7 +71,7 @@ namespace ETABS.ToETABS.Properties
         private string FormatGeneric(FrameProperties frameProp, string materialName)
         {
             string shape = !string.IsNullOrEmpty(frameProp.Shape) ? frameProp.Shape : "Custom";
-            return $"  FRAMESECTION  \"{frameProp.Name}\"  MATERIAL \"{materialName}\"  SHAPE \"{shape}\"";
+            return $"  FRAMESECTION  \"{frameProp.Name}\"  MATERIAL \"{materialName}\"  SHAPE \"{frameProp.Name}\"";
         }
 
         // Gets a dimension value from the FrameProperties dimensions dictionary with a default fallback

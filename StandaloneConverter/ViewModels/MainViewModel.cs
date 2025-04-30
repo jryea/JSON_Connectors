@@ -207,7 +207,6 @@ namespace StandaloneConverter.ViewModels
                 MessageBox.Show($"Conversion failed: {ex.Message}", "Error",
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
-            // Remove the finally block with IsConverting = false
         }
 
         private bool CanConvert()

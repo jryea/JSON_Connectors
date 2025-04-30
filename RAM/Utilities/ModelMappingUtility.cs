@@ -416,7 +416,7 @@ namespace RAM.Utilities
         public static string GetFramePropertyIdForSectionLabel(string sectionLabel)
         {
             if (string.IsNullOrEmpty(sectionLabel))
-                return null;
+                return _sectionLabelToFramePropId.Values.FirstOrDefault();
 
             // Try direct lookup
             if (_sectionLabelToFramePropId.TryGetValue(sectionLabel, out string framePropertyId))

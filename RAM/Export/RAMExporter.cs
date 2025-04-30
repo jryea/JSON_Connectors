@@ -16,6 +16,7 @@ using RAM.Export.ModelLayout;
 using RAM.Export.Elements;
 using RAMDATAACCESSLib;
 using RAM.Export.Properties;
+using System.Diagnostics;
 
 namespace RAM
 {
@@ -51,6 +52,8 @@ namespace RAM
 
                     // Setup exporters
                     string lengthUnit = model.Metadata.Units.Length;
+
+                    string version = ($"Version: {modelManager.Model.dVersion}");
 
                     try
                     {

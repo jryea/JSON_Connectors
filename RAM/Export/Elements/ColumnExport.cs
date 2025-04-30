@@ -79,13 +79,8 @@ namespace RAM.Export.Elements
                             }
                         }
 
-                        // Find the corresponding frame properties ID for this column section
-                        string framePropertiesId = null;
-                        if (!string.IsNullOrEmpty(ramColumn.strSectionLabel))
-                        {
-                            // Use the mapping utility to find the frame property ID
-                            framePropertiesId = ModelMappingUtility.GetFramePropertyIdForSectionLabel(ramColumn.strSectionLabel);
-                        }
+                        // Use the mapping utility to find the frame property ID
+                        string framePropertiesId = ModelMappingUtility.GetFramePropertyIdForSectionLabel(ramColumn.strSectionLabel);
 
                         // Create column from RAM data
                         Column column = new Column

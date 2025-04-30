@@ -5,6 +5,7 @@ using Core.Models.Geometry;
 using Core.Utilities;
 using RAM.Utilities;
 using RAMDATAACCESSLib;
+using System.Diagnostics;
 
 namespace RAM.Export.ModelLayout
 {
@@ -23,6 +24,8 @@ namespace RAM.Export.ModelLayout
         {
             var grids = new List<Grid>();
 
+            Debug.WriteLine($"Does IModel exist? Here is the version number: {_model.dVersion.ToString()} ");
+
             try
             {
                 // Get grid systems from RAM
@@ -40,6 +43,18 @@ namespace RAM.Export.ModelLayout
                 IModelGrids modelGrids = gridSystem.GetGrids();
                 if (modelGrids == null || modelGrids.GetCount() == 0)
                     return grids;
+
+                // Log the number of grid systems and grids
+                Debug.WriteLine($"Found {gridSystems.GetCount()} grid systems");
+                if (gridSystems.GetCount() > 0)
+                {
+                    Debug.WriteLine($"First grid system has {modelGrids.GetCount()} grids");
+                    for (int i = 0; i < modelGrids.GetCount(); i++)
+                    {
+                        IModelGrid grid = modelGrids.GetAt(i);
+                        Debug.WriteLine($"Grid {i}: Label={grid.strLabel}, Axis={grid.eAxis}, Coordinate={grid.dCoordinate_Angle}");
+                    }
+                }
 
                 // Process each grid
                 for (int i = 0; i < modelGrids.GetCount(); i++)

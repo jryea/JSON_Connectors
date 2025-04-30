@@ -64,18 +64,8 @@ namespace RAM.Export.Elements
                     ramBrace.GetEndCoordinates(ref topPoint, ref basePoint);
 
                     // Find the corresponding frame properties ID for this brace
-                    string framePropertiesId = null;
-                    if (!string.IsNullOrEmpty(ramBrace.strSectionLabel))
-                    {
-                        framePropertiesId = ModelMappingUtility.GetFramePropertyIdForSectionLabel(ramBrace.strSectionLabel);
-                    }
-
-                    // If no frame property found, try to get the default one
-                    if (string.IsNullOrEmpty(framePropertiesId))
-                    {
-                        framePropertiesId = ModelMappingUtility.GetDefaultFramePropertyId();
-                        Console.WriteLine($"Using default frame property for brace {i + 1}");
-                    }
+                    
+                    string framePropertiesId = ModelMappingUtility.GetFramePropertyIdForSectionLabel(ramBrace.strSectionLabel);
 
                     // Create brace from RAM data
                     Brace brace = new Brace

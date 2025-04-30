@@ -107,14 +107,14 @@ namespace ETABS.FromETABS
                     model.ModelLayout.Levels = ImportLevels(storiesSection);
                 }
 
-                // Set floor types for levels
-                string defaultFloorTypeId = model.ModelLayout.FloorTypes.Count > 0 ? model.ModelLayout.FloorTypes[0].Id : null;
-                Dictionary<string, string> floorTypeNames = new Dictionary<string, string>();
-                foreach (var floorType in model.ModelLayout.FloorTypes)
-                {
-                    floorTypeNames[floorType.Name] = floorType.Id;
-                }
-                _storiesImport.SetFloorTypes(floorTypeNames);
+                //// Set floor types for levels
+                //string defaultFloorTypeId = model.ModelLayout.FloorTypes.Count > 0 ? model.ModelLayout.FloorTypes[0].Id : null;
+                //Dictionary<string, string> floorTypeNames = new Dictionary<string, string>();
+                //foreach (var floorType in model.ModelLayout.FloorTypes)
+                //{
+                //    floorTypeNames[floorType.Name] = floorType.Id;
+                //}
+                //_storiesImport.SetFloorTypes(floorTypeNames);
 
                 // Parse grids
                 if (e2kSections.TryGetValue("GRIDS", out string gridsSection))
@@ -181,12 +181,12 @@ namespace ETABS.FromETABS
                 }
 
                 // Parse surface loads
-                if (e2kSections.TryGetValue("SHELL UNIFORM LOAD SETS", out string shellUniformLoadSetsSection))
-                {
-                    string shellObjectLoadsSection = e2kSections.TryGetValue("SHELL OBJECT LOADS", out string loadsValue) ? loadsValue : "";
-                    _surfaceLoadsImport.SetFloorTypes(floorTypeNames);
-                    model.Loads.SurfaceLoads = ImportSurfaceLoads(shellUniformLoadSetsSection, shellObjectLoadsSection);
-                }
+                //if (e2kSections.TryGetValue("SHELL UNIFORM LOAD SETS", out string shellUniformLoadSetsSection))
+                //{
+                //    string shellObjectLoadsSection = e2kSections.TryGetValue("SHELL OBJECT LOADS", out string loadsValue) ? loadsValue : "";
+                //    _surfaceLoadsImport.SetFloorTypes(floorTypeNames);
+                //    model.Loads.SurfaceLoads = ImportSurfaceLoads(shellUniformLoadSetsSection, shellObjectLoadsSection);
+                //}
 
                 // Parse line connectivities and assignments
                 if (e2kSections.TryGetValue("LINE CONNECTIVITIES", out string lineConnectivitiesSection))

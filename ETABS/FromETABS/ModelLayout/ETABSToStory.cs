@@ -15,47 +15,21 @@ namespace ETABS.Import.ModelLayout
         // The floor type importer
         private readonly ETABSToFloorType _floorTypeImporter = new ETABSToFloorType();
 
-        // Dictionary to map floor type names to IDs
-        private Dictionary<string, string> _floorTypeIdsByName = new Dictionary<string, string>();
-
         /// <summary>
-        /// Sets the floor type name to ID mapping for reference when creating levels
-        /// </summary>
-        public void SetFloorTypes(Dictionary<string, string> floorTypeIdMapping)
-        {
-            _floorTypeIdsByName = new Dictionary<string, string>(floorTypeIdMapping);
-        }
-
-        /// <summary>
-        /// Imports stories/levels from E2K STORIES section
+        /// Imports stories/levels and floor types from E2K STORIES section
         /// </summary>
         public List<Level> Import(string storiesSection)
-        {
-            var importResult = ImportWithFloorTypes(storiesSection);
-            return importResult.levels;
-        }
-
-        /// <summary>
-        /// Imports both levels and floor types from E2K STORIES section
-        /// </summary>
-        public (List<Level> levels, List<FloorType> floorTypes) ImportWithFloorTypes(string storiesSection)
         {
             var levels = new List<Level>();
 
             if (string.IsNullOrWhiteSpace(storiesSection))
-                return (levels, new List<FloorType>());
+                return levels;
 
             // First, import floor types
             var floorTypes = _floorTypeImporter.Import(storiesSection);
 
-            // Get mapping from stories to floor types
+            // Get direct mapping from stories to floor type IDs
             var storyToFloorTypeMap = _floorTypeImporter.GetFloorTypeMapping();
-
-            // Update our internal mapping for reference
-            foreach (var floorType in floorTypes)
-            {
-                _floorTypeIdsByName[floorType.Name] = floorType.Id;
-            }
 
             // Regular expressions to match story definitions
             var storyHeightPattern = new Regex(@"^\s*STORY\s+""([^""]+)""\s+HEIGHT\s+([\d\.]+)",
@@ -78,10 +52,15 @@ namespace ETABS.Import.ModelLayout
                     // Store elevation in dictionary
                     storyElevations[storyName] = elevation;
 
-                    // Create level with floor type if available
-                    var level = CreateLevel(storyName, elevation);
+                    // Create level with the correct floor type ID
+                    var level = new Level
+                    {
+                        Id = IdGenerator.Generate(IdGenerator.Layout.LEVEL),
+                        Name = NormalizeStoryName(storyName),
+                        Elevation = elevation
+                    };
 
-                    // Assign floor type ID from mapping
+                    // Assign floor type ID directly from storyToFloorTypeMap
                     if (storyToFloorTypeMap.TryGetValue(storyName, out string floorTypeId))
                     {
                         level.FloorTypeId = floorTypeId;
@@ -111,21 +90,7 @@ namespace ETABS.Import.ModelLayout
             // Sort levels by elevation
             levels.Sort((a, b) => a.Elevation.CompareTo(b.Elevation));
 
-            return (levels, floorTypes);
-        }
-
-        // Creates a Level object with the given name and elevation
-        private Level CreateLevel(string storyName, double elevation)
-        {
-            string normalizedName = NormalizeStoryName(storyName);
-
-            return new Level
-            {
-                Id = IdGenerator.Generate(IdGenerator.Layout.LEVEL),
-                Name = normalizedName,
-                Elevation = elevation,
-                FloorTypeId = GetDefaultFloorTypeId()
-            };
+            return levels;
         }
 
         // Calculates elevations for stories defined by height
@@ -167,7 +132,7 @@ namespace ETABS.Import.ModelLayout
             // Calculate elevations for each story
             foreach (string storyName in sortedStoryNames)
             {
-                if (storyName == "Base") continue; // Already processed
+                if (storyName == "Base") continue; // Skip base - already processed
 
                 // If elevation is already known, use it
                 if (storyElevations.TryGetValue(storyName, out double elevation))
@@ -183,10 +148,15 @@ namespace ETABS.Import.ModelLayout
                     // Calculate elevation based on previous story elevation
                     currentElevation += height;
 
-                    // Create level
-                    var level = CreateLevel(storyName, currentElevation);
+                    // Create level with the correct floor type ID
+                    var level = new Level
+                    {
+                        Id = IdGenerator.Generate(IdGenerator.Layout.LEVEL),
+                        Name = NormalizeStoryName(storyName),
+                        Elevation = currentElevation
+                    };
 
-                    // Assign floor type ID from mapping
+                    // Assign floor type ID directly from storyToFloorTypeMap
                     if (storyToFloorTypeMap.TryGetValue(storyName, out string floorTypeId))
                     {
                         level.FloorTypeId = floorTypeId;
@@ -207,22 +177,11 @@ namespace ETABS.Import.ModelLayout
             return storyName;
         }
 
-        // Gets the floor type IDs mapped to the levels
-        public Dictionary<string, string> GetLevelFloorTypeMappings()
-        {
-            return new Dictionary<string, string>(_floorTypeIdsByName);
-        }
-
-        // Helper methods (unchanged)
+        // Helper methods
         private string ExtractNumericPart(string storyName)
         {
             var match = Regex.Match(storyName, @"\d+");
             return match.Success ? match.Value : "0";
-        }
-
-        private string GetDefaultFloorTypeId()
-        {
-            return _floorTypeIdsByName.Count > 0 ? _floorTypeIdsByName.Values.First() : null;
         }
     }
 }

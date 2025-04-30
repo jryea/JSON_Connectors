@@ -15,7 +15,6 @@ using System.Collections.Generic;
 
 namespace ETABS.FromETABS
 {
-    // E2K to model
     public class ETABSToModel
     {
         // Element importers
@@ -28,43 +27,66 @@ namespace ETABS.FromETABS
         private readonly LineAssignmentParser _lineAssignmentParser = new LineAssignmentParser();
 
         // Property and metadata importers
-        private readonly ETABSToMaterial _materialsImport = new ETABSToMaterial();
-        private readonly ETABSToFrameProperties _framePropertiesImport = new ETABSToFrameProperties();
-        private readonly ETABSToFloorProperties _floorPropertiesImport = new ETABSToFloorProperties();
-        private readonly WallPropertiesImport _wallPropertiesImport = new WallPropertiesImport();
-        private readonly ETABSToDiaphragm _diaphragmsImport = new ETABSToDiaphragm();
-        private readonly ETABSToFloorType _floorTypeImport = new ETABSToFloorType();
-        private readonly ETABSToStory _storiesImport = new ETABSToStory();
-        private readonly ETABSToGrid _gridsImport;
-        private readonly ETABSToProjectInfo _projectInfoImport = new ETABSToProjectInfo();
-        private readonly ETABSToUnits _unitsImport = new ETABSToUnits();
+        private readonly ETABSToMaterial _materialsImporter = new ETABSToMaterial();
+        private readonly ETABSToFrameProperties _framePropertiesImporter = new ETABSToFrameProperties();
+        private readonly ETABSToFloorProperties _floorPropertiesImporter = new ETABSToFloorProperties();
+        private readonly WallPropertiesImport _wallPropertiesImporter = new WallPropertiesImport();
+        private readonly ETABSToDiaphragm _diaphragmsImporter = new ETABSToDiaphragm();
+        private readonly ETABSToStory _storiesImporter = new ETABSToStory();
+        private readonly ETABSToGrid _gridsImporter;
+        private readonly ETABSToProjectInfo _projectInfoImporter = new ETABSToProjectInfo();
+        private readonly ETABSToUnits _unitsImporter = new ETABSToUnits();
 
         // Load importers
-        private readonly ETABSToLoadDefinition _loadDefinitionsImport = new ETABSToLoadDefinition();
-        private readonly ETABSToSurfaceLoad _surfaceLoadsImport = new ETABSToSurfaceLoad();
-        private readonly ETABSToLoadCombination _loadCombinationsImport = new ETABSToLoadCombination();
+        private readonly ETABSToLoadDefinition _loadDefinitionsImporter = new ETABSToLoadDefinition();
+        private readonly ETABSToSurfaceLoad _surfaceLoadsImporter = new ETABSToSurfaceLoad();
+        private readonly ETABSToLoadCombination _loadCombinationsImporter = new ETABSToLoadCombination();
 
-        // Initializes a new instance of the E2KToModel class
         public ETABSToModel()
         {
-            // Initialize GridsImport with the PointsCollector
-            _gridsImport = new ETABSToGrid(_pointsCollector);
+            _gridsImporter = new ETABSToGrid(_pointsCollector);
         }
 
-        // Imports a model from E2K sections
         public BaseModel ImportFromE2K(Dictionary<string, string> e2kSections)
         {
             try
             {
                 BaseModel model = new BaseModel();
 
-                // Initialize metadata
-                model.Metadata = new MetadataContainer();
-
                 // Parse project info and units
+                string controlsSection = null;
+                if (e2kSections.TryGetValue("CONTROLS", out controlsSection))
+                {
+                    model.Metadata.Units = _unitsImporter.Import(controlsSection);
+                }
+                else
+                {
+                    model.Metadata.Units = new Units
+                    {
+                        Length = "inches",
+                        Force = "pounds",
+                        Temperature = "fahrenheit"
+                    };
+                }
+
                 if (e2kSections.TryGetValue("PROJECT INFORMATION", out string projectInfoSection))
                 {
-                    model.Metadata.ProjectInfo = ImportProjectInfo(projectInfoSection, e2kSections);
+                    model.Metadata.ProjectInfo = _projectInfoImporter.Import(projectInfoSection);
+
+                    // Extract additional info from other sections
+                    if (e2kSections.TryGetValue("PROGRAM INFORMATION", out string programInfoSection))
+                    {
+                        if (e2kSections.TryGetValue("LOG", out string logSection))
+                        {
+                            _projectInfoImporter.ExtractAdditionalInfo(programInfoSection, logSection, model.Metadata.ProjectInfo);
+                        }
+                    }
+
+                    // Use the already obtained controlsSection without redeclaring it
+                    if (controlsSection != null)
+                    {
+                        _projectInfoImporter.ExtractFromControls(controlsSection, model.Metadata.ProjectInfo);
+                    }
                 }
                 else
                 {
@@ -77,49 +99,32 @@ namespace ETABS.FromETABS
                     };
                 }
 
-                if (e2kSections.TryGetValue("CONTROLS", out string controlsSection))
-                {
-                    model.Metadata.Units = ImportUnits(controlsSection);
-                }
-                else
-                {
-                    model.Metadata.Units = new Units
-                    {
-                        Length = "inches",
-                        Force = "pounds",
-                        Temperature = "fahrenheit"
-                    };
-                }
-
                 // Initialize model layout container
                 model.ModelLayout = new ModelLayoutContainer();
 
-                // First, we need to parse all the points for later use
+                // Parse all points for later use
                 if (e2kSections.TryGetValue("POINT COORDINATES", out string pointsSection))
                 {
                     _pointsCollector.ParsePoints(pointsSection);
                 }
 
-                // Parse stories/levels and floor types
+                // Parse stories/levels
                 if (e2kSections.TryGetValue("STORIES - IN SEQUENCE FROM TOP", out string storiesSection))
                 {
-                    model.ModelLayout.FloorTypes = _floorTypeImport.Import(storiesSection); 
-                    model.ModelLayout.Levels = ImportLevels(storiesSection);
-                }
+                    // Import levels (internally creates floor types as well)
+                    model.ModelLayout.Levels = _storiesImporter.Import(storiesSection);
 
-                //// Set floor types for levels
-                //string defaultFloorTypeId = model.ModelLayout.FloorTypes.Count > 0 ? model.ModelLayout.FloorTypes[0].Id : null;
-                //Dictionary<string, string> floorTypeNames = new Dictionary<string, string>();
-                //foreach (var floorType in model.ModelLayout.FloorTypes)
-                //{
-                //    floorTypeNames[floorType.Name] = floorType.Id;
-                //}
-                //_storiesImport.SetFloorTypes(floorTypeNames);
+                    // Get the floor types that were created
+                    // This would require a change to ETABSToStory to expose the floor types it created
+                    // For now, we'll use the existing ETABSToFloorType class
+                    var floorTypeImporter = new ETABSToFloorType();
+                    model.ModelLayout.FloorTypes = floorTypeImporter.Import(storiesSection);
+                }
 
                 // Parse grids
                 if (e2kSections.TryGetValue("GRIDS", out string gridsSection))
                 {
-                    model.ModelLayout.Grids = ImportGrids(gridsSection);
+                    model.ModelLayout.Grids = _gridsImporter.Import(gridsSection);
                 }
 
                 // Initialize properties container
@@ -128,24 +133,24 @@ namespace ETABS.FromETABS
                 // Parse materials
                 if (e2kSections.TryGetValue("MATERIAL PROPERTIES", out string materialsSection))
                 {
-                    model.Properties.Materials = ImportMaterials(materialsSection);
-                }
+                    model.Properties.Materials = _materialsImporter.Import(materialsSection);
 
-                // Set materials for other property importers
-                _framePropertiesImport.SetMaterials(model.Properties.Materials);
-                _floorPropertiesImport.SetMaterials(model.Properties.Materials);
-                _wallPropertiesImport.SetMaterials(model.Properties.Materials);
+                    // Set materials for other property importers
+                    _framePropertiesImporter.SetMaterials(model.Properties.Materials);
+                    _floorPropertiesImporter.SetMaterials(model.Properties.Materials);
+                    _wallPropertiesImporter.SetMaterials(model.Properties.Materials);
+                }
 
                 // Parse frame properties
                 if (e2kSections.TryGetValue("FRAME SECTIONS", out string frameSectionsSection))
                 {
-                    model.Properties.FrameProperties = ImportFrameProperties(frameSectionsSection);
+                    model.Properties.FrameProperties = _framePropertiesImporter.Import(frameSectionsSection);
                 }
 
                 // Parse wall properties
                 if (e2kSections.TryGetValue("WALL PROPERTIES", out string wallPropertiesSection))
                 {
-                    model.Properties.WallProperties = ImportWallProperties(wallPropertiesSection);
+                    model.Properties.WallProperties = _wallPropertiesImporter.Import(wallPropertiesSection);
                 }
 
                 // Parse floor properties
@@ -153,13 +158,13 @@ namespace ETABS.FromETABS
                 {
                     string slabSection = e2kSections.TryGetValue("SLAB PROPERTIES", out string slabValue) ? slabValue : "";
                     string deckSection = e2kSections.TryGetValue("DECK PROPERTIES", out string deckValue) ? deckValue : "";
-                    model.Properties.FloorProperties = ImportFloorProperties(slabSection, deckSection);
+                    model.Properties.FloorProperties = _floorPropertiesImporter.Import(slabSection, deckSection);
                 }
 
                 // Parse diaphragms
                 if (e2kSections.TryGetValue("DIAPHRAGM NAMES", out string diaphragmsSection))
                 {
-                    model.Properties.Diaphragms = ImportDiaphragms(diaphragmsSection);
+                    model.Properties.Diaphragms = _diaphragmsImporter.Import(diaphragmsSection);
                 }
 
                 // Initialize loads container
@@ -168,25 +173,25 @@ namespace ETABS.FromETABS
                 // Parse load definitions
                 if (e2kSections.TryGetValue("LOAD PATTERNS", out string loadPatternsSection))
                 {
-                    model.Loads.LoadDefinitions = ImportLoadDefinitions(loadPatternsSection);
-                }
+                    model.Loads.LoadDefinitions = _loadDefinitionsImporter.Import(loadPatternsSection);
 
-                // Set load definitions for other load importers
-                _surfaceLoadsImport.SetLoadDefinitions(model.Loads.LoadDefinitions);
+                    // Set load definitions for other load importers
+                    _surfaceLoadsImporter.SetLoadDefinitions(model.Loads.LoadDefinitions);
+                    _loadCombinationsImporter.SetLoadDefinitions(model.Loads.LoadDefinitions);
+                }
 
                 // Parse load combinations
                 if (e2kSections.TryGetValue("LOAD COMBINATIONS", out string loadCombosSection))
                 {
-                    model.Loads.LoadCombinations = ImportLoadCombinations(loadCombosSection, model.Loads.LoadDefinitions);
+                    model.Loads.LoadCombinations = _loadCombinationsImporter.Import(loadCombosSection, model.Loads.LoadDefinitions);
                 }
 
                 // Parse surface loads
-                //if (e2kSections.TryGetValue("SHELL UNIFORM LOAD SETS", out string shellUniformLoadSetsSection))
-                //{
-                //    string shellObjectLoadsSection = e2kSections.TryGetValue("SHELL OBJECT LOADS", out string loadsValue) ? loadsValue : "";
-                //    _surfaceLoadsImport.SetFloorTypes(floorTypeNames);
-                //    model.Loads.SurfaceLoads = ImportSurfaceLoads(shellUniformLoadSetsSection, shellObjectLoadsSection);
-                //}
+                if (e2kSections.TryGetValue("SHELL UNIFORM LOAD SETS", out string shellUniformLoadSetsSection))
+                {
+                    string shellObjectLoadsSection = e2kSections.TryGetValue("SHELL OBJECT LOADS", out string loadsValue) ? loadsValue : "";
+                    model.Loads.SurfaceLoads = _surfaceLoadsImporter.Import(shellUniformLoadSetsSection, shellObjectLoadsSection);
+                }
 
                 // Parse line connectivities and assignments
                 if (e2kSections.TryGetValue("LINE CONNECTIVITIES", out string lineConnectivitiesSection))
@@ -229,100 +234,5 @@ namespace ETABS.FromETABS
                 throw new Exception($"Error importing from E2K: {ex.Message}", ex);
             }
         }
-
-        #region Import Methods
-
-        // Imports project information from E2K sections
-        private ProjectInfo ImportProjectInfo(string projectInfoSection, Dictionary<string, string> e2kSections)
-        {
-            ProjectInfo projectInfo = _projectInfoImport.Import(projectInfoSection);
-
-            // Extract additional information from other sections
-            if (e2kSections.TryGetValue("PROGRAM INFORMATION", out string programInfoSection))
-            {
-                if (e2kSections.TryGetValue("LOG", out string logSection))
-                {
-                    _projectInfoImport.ExtractAdditionalInfo(programInfoSection, logSection, projectInfo);
-                }
-            }
-
-            if (e2kSections.TryGetValue("CONTROLS", out string controlsSection))
-            {
-                _projectInfoImport.ExtractFromControls(controlsSection, projectInfo);
-            }
-
-            return projectInfo;
-        }
-
-        // Imports units from E2K CONTROLS section
-        private Units ImportUnits(string controlsSection)
-        {
-            return _unitsImport.Import(controlsSection);
-        }
-
-        /// <summary>
-        /// Imports levels from E2K STORIES section
-        /// </summary>
-        private List<Level> ImportLevels(string storiesSection)
-        {
-            return _storiesImport.Import(storiesSection);
-        }
-
-        // Imports grids from E2K GRIDS section
-        private List<Grid> ImportGrids(string gridsSection)
-        {
-            return _gridsImport.Import(gridsSection);
-        }
-
-        // Imports materials from E2K MATERIAL PROPERTIES section
-        private List<Material> ImportMaterials(string materialsSection)
-        {
-            return _materialsImport.Import(materialsSection);
-        }
-
-        // Imports frame properties from E2K FRAME SECTIONS section
-        private List<FrameProperties> ImportFrameProperties(string frameSectionsSection)
-        {
-            return _framePropertiesImport.Import(frameSectionsSection);
-        }
-
-        // Imports wall properties from E2K WALL PROPERTIES section
-        private List<WallProperties> ImportWallProperties(string wallPropertiesSection)
-        {
-            return _wallPropertiesImport.Import(wallPropertiesSection);
-        }
-
-        // Imports floor properties from E2K SLAB PROPERTIES and DECK PROPERTIES sections
-        private List<FloorProperties> ImportFloorProperties(string slabSection, string deckSection)
-        {
-            return _floorPropertiesImport.Import(slabSection, deckSection);
-        }
-
-        // Imports diaphragms from E2K DIAPHRAGM NAMES section
-        private List<Diaphragm> ImportDiaphragms(string diaphragmsSection)
-        {
-            return _diaphragmsImport.Import(diaphragmsSection);
-        }
-
-        // Imports load definitions from E2K LOAD PATTERNS section
-        private List<LoadDefinition> ImportLoadDefinitions(string loadPatternsSection)
-        {
-            return _loadDefinitionsImport.Import(loadPatternsSection);
-        }
-
-        // Imports load combinations from E2K LOAD COMBINATIONS section
-        private List<LoadCombination> ImportLoadCombinations(string loadCombosSection, List<LoadDefinition> loadDefinitions)
-        {
-            _loadCombinationsImport.SetLoadDefinitions(loadDefinitions);
-            return _loadCombinationsImport.Import(loadCombosSection, loadDefinitions);
-        }
-
-        // Imports surface loads from E2K SHELL UNIFORM LOAD SETS and SHELL OBJECT LOADS sections
-        private List<SurfaceLoad> ImportSurfaceLoads(string surfaceLoadsSection, string shellObjectLoadsSection)
-        {
-            return _surfaceLoadsImport.Import(surfaceLoadsSection, shellObjectLoadsSection);
-        }
-
-        #endregion
     }
 }

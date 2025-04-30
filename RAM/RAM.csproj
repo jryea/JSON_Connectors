@@ -104,7 +104,6 @@
     <Compile Include="Utilities\RAMModelManager.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="Diagnostics\" />
     <Folder Include="Export\Loads\" />
   </ItemGroup>
   <ItemGroup>

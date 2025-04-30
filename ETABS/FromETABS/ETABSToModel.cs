@@ -111,14 +111,16 @@ namespace ETABS.FromETABS
                 // Parse stories/levels
                 if (e2kSections.TryGetValue("STORIES - IN SEQUENCE FROM TOP", out string storiesSection))
                 {
-                    // Import levels (internally creates floor types as well)
-                    model.ModelLayout.Levels = _storiesImporter.Import(storiesSection);
-
-                    // Get the floor types that were created
-                    // This would require a change to ETABSToStory to expose the floor types it created
-                    // For now, we'll use the existing ETABSToFloorType class
+                    // First generate all floor types
                     var floorTypeImporter = new ETABSToFloorType();
                     model.ModelLayout.FloorTypes = floorTypeImporter.Import(storiesSection);
+
+                    // Pass the FloorTypeImporter to the storiesImporter to ensure consistent IDs
+                    // This could be done by adding a method to ETABSToStory:
+                    _storiesImporter.UseFloorTypeMapping(floorTypeImporter.GetFloorTypeMapping());
+
+                    // Now import levels with correct FloorTypeIds
+                    model.ModelLayout.Levels = _storiesImporter.Import(storiesSection);
                 }
 
                 // Parse grids

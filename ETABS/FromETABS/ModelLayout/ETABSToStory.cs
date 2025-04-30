@@ -14,6 +14,7 @@ namespace ETABS.Import.ModelLayout
     {
         // The floor type importer
         private readonly ETABSToFloorType _floorTypeImporter = new ETABSToFloorType();
+        private Dictionary<string, string> _storyToFloorTypeMap = new Dictionary<string, string>();
 
         /// <summary>
         /// Imports stories/levels and floor types from E2K STORIES section
@@ -25,8 +26,11 @@ namespace ETABS.Import.ModelLayout
             if (string.IsNullOrWhiteSpace(storiesSection))
                 return levels;
 
-            // First, import floor types
-            var floorTypes = _floorTypeImporter.Import(storiesSection);
+            if (_storyToFloorTypeMap.Count == 0)
+            {
+                _floorTypeImporter.Import(storiesSection);
+                _storyToFloorTypeMap = _floorTypeImporter.GetFloorTypeMapping();    
+            }
 
             // Get direct mapping from stories to floor type IDs
             var storyToFloorTypeMap = _floorTypeImporter.GetFloorTypeMapping();
@@ -61,7 +65,7 @@ namespace ETABS.Import.ModelLayout
                     };
 
                     // Assign floor type ID directly from storyToFloorTypeMap
-                    if (storyToFloorTypeMap.TryGetValue(storyName, out string floorTypeId))
+                    if (_storyToFloorTypeMap.TryGetValue(storyName, out string floorTypeId))
                     {
                         level.FloorTypeId = floorTypeId;
                     }
@@ -157,7 +161,7 @@ namespace ETABS.Import.ModelLayout
                     };
 
                     // Assign floor type ID directly from storyToFloorTypeMap
-                    if (storyToFloorTypeMap.TryGetValue(storyName, out string floorTypeId))
+                    if (_storyToFloorTypeMap.TryGetValue(storyName, out string floorTypeId))
                     {
                         level.FloorTypeId = floorTypeId;
                     }
@@ -182,6 +186,12 @@ namespace ETABS.Import.ModelLayout
         {
             var match = Regex.Match(storyName, @"\d+");
             return match.Success ? match.Value : "0";
+        }
+
+        // Method to set the floor type mapping from outside
+        public void UseFloorTypeMapping(Dictionary<string, string> mapping)
+        {
+            _storyToFloorTypeMap = mapping ?? new Dictionary<string, string>();
         }
     }
 }

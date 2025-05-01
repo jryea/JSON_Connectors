@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using DB = Autodesk.Revit.DB;
 using CE = Core.Models.Elements;
 using CG = Core.Models.Geometry;
+using Autodesk.Revit.DB;
+using Core.Models.Metadata;
+using System.Diagnostics;
 
 namespace Revit.Utilities
 {
@@ -66,6 +69,68 @@ namespace Revit.Utilities
             double y = point.Y * 12.0;
 
             return new CG.Point2D(x, y);
+        }
+
+        // Add to Revit/Utilities/Helpers.cs
+        public static Coordinates ExtractCoordinateSystem(Document doc)
+        {
+            Coordinates coords = new Coordinates();
+
+            try
+            {
+                // Get project base point
+                FilteredElementCollector collector = new FilteredElementCollector(doc);
+                collector.OfCategory(BuiltInCategory.OST_ProjectBasePoint);
+                Element projectBasePoint = collector.FirstElement();
+
+                if (projectBasePoint != null)
+                {
+                    // Get the position
+                    double x = projectBasePoint.get_Parameter(BuiltInParameter.BASEPOINT_EASTWEST_PARAM)?.AsDouble() ?? 0.0;
+                    double y = projectBasePoint.get_Parameter(BuiltInParameter.BASEPOINT_NORTHSOUTH_PARAM)?.AsDouble() ?? 0.0;
+                    double z = projectBasePoint.get_Parameter(BuiltInParameter.BASEPOINT_ELEVATION_PARAM)?.AsDouble() ?? 0.0;
+
+                    // Convert to inches (Revit internal units are feet) and round to 2 decimal places
+                    coords.ProjectBasePoint = new CG.Point3D(
+                        Math.Round(x * 12.0, 2),
+                        Math.Round(y * 12.0, 2),
+                        Math.Round(z * 12.0, 2)
+                    );
+
+                    // Get angle to true north (in radians)
+                    Parameter angleParam = projectBasePoint.get_Parameter(BuiltInParameter.BASEPOINT_ANGLETON_PARAM);
+                    if (angleParam != null)
+                    {
+                        coords.Rotation = Math.Round(angleParam.AsDouble(), 2);
+                    }
+                }
+
+                // Get survey point
+                collector = new FilteredElementCollector(doc);
+                collector.OfCategory(BuiltInCategory.OST_SharedBasePoint);
+                Element surveyPoint = collector.FirstElement();
+
+                if (surveyPoint != null)
+                {
+                    // Get the position
+                    double x = surveyPoint.get_Parameter(BuiltInParameter.BASEPOINT_EASTWEST_PARAM)?.AsDouble() ?? 0.0;
+                    double y = surveyPoint.get_Parameter(BuiltInParameter.BASEPOINT_NORTHSOUTH_PARAM)?.AsDouble() ?? 0.0;
+                    double z = surveyPoint.get_Parameter(BuiltInParameter.BASEPOINT_ELEVATION_PARAM)?.AsDouble() ?? 0.0;
+
+                    // Convert to inches and round to 2 decimal places
+                    coords.SurveyPoint = new CG.Point3D(
+                        Math.Round(x * 12.0, 2),
+                        Math.Round(y * 12.0, 2),
+                        Math.Round(z * 12.0, 2)
+                        );
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error extracting coordinate system: {ex.Message}");
+            }
+
+            return coords;
         }
     }
 }

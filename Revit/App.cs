@@ -9,7 +9,9 @@ using System.Diagnostics;
 using System.Runtime.Versioning;
 using System.Windows.Markup;
 using Revit.Import;
+using Revit.Export;
 using RU = Revit.Utilities;
+using UIFramework;
 
 
 #endregion
@@ -38,19 +40,21 @@ namespace Revit
           
             // Create model button data
             PushButtonData btnModelImport = ModelImportCommand.GetButtonData();
-            PushButtonData btnModelExport = Export.ModelExportCommand.GetButtonData();
+            PushButtonData btnModelExport = ModelExportCommand.GetButtonData();
+            PushButtonData btnGrasshopperExport = GrasshopperExportCommand.GetButtonData();
 
             // Create RAM button data
             PushButtonData btnRAMImport = RAMImportCommand.GetButtonData();
-            PushButtonData btnRAMExport = Export.RAMExportCommand.GetButtonData();
+            PushButtonData btnRAMExport = RAMExportCommand.GetButtonData();
 
             // Create ETABS button data
             PushButtonData btnETABSImport = ETABSImportCommand.GetButtonData();
-            PushButtonData btnETABSExport = Export.ETABSExportCommand.GetButtonData();
+            PushButtonData btnETABSExport = ETABSExportCommand.GetButtonData();
 
             // Add buttons to model panel
             PushButton buttonModelImport = modelPanel.AddItem(btnModelImport) as PushButton;
             PushButton buttonModelExport = modelPanel.AddItem(btnModelExport) as PushButton;
+            PushButton buttonGrasshopperExport = modelPanel.AddItem(btnGrasshopperExport) as PushButton;
 
             // Add buttons to RAM panel
             PushButton buttonRAMImport = RAMPanel.AddItem(btnRAMImport) as PushButton;

@@ -2,16 +2,19 @@
 using Autodesk.Revit.UI;
 using Core.Converters;
 using Core.Models.Geometry;
-using Core.Models.Metadata;
+using CE = Core.Models.Elements;
+using CM = Core.Models.Metadata;    
+using CL = Core.Models.ModelLayout;
 using Core.Models;
 using Core.Utilities;
+using Revit.Export.Elements;
+using Revit.Export.ModelLayout;
+using Revit.Export.Properties;
+using Revit.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.IO;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Revit.Export
 {
@@ -37,7 +40,8 @@ namespace Revit.Export
             ExportModelStructure();
 
             // Export CAD plans
-            ExportCADPlans(dwgFolder);
+            CADExporter cadExporter = new CADExporter(_doc);
+            cadExporter.ExportCADPlans(dwgFolder);
 
             // Save the model to JSON
             JsonConverter.SaveToFile(_model, jsonPath);
@@ -45,108 +49,100 @@ namespace Revit.Export
 
         private void InitializeMetadata()
         {
-            // Set metadata like in your existing exporter
-            // Plus add coordinate system info
-            _model.Metadata.Coordinates = ExtractCoordinateSystem();
-        }
-
-        private Coordinates ExtractCoordinateSystem()
-        {
-            Coordinates coords = new Coordinates();
-
-            // Get Project Base Point
-            BasePoint projectBasePoint = GetProjectBasePoint();
-            if (projectBasePoint != null)
+            // Initialize project info
+            CM.ProjectInfo projectInfo = new CM.ProjectInfo
             {
-                coords.ProjectBasePoint = new Point3D(
-                    projectBasePoint.Position.X * 12.0, // Convert to inches
-                    projectBasePoint.Position.Y * 12.0,
-                    projectBasePoint.Position.Z * 12.0
-                );
-
-                // Get angle to true north
-                coords.Rotation = projectBasePoint.GetProjectRotation();
-            }
-
-            // Similar code for Survey Point
-
-            return coords;
-        }
-
-        private void ExportCADPlans(string folderPath)
-        {
-            // Get all floor plan views
-            var views = new FilteredElementCollector(_doc)
-                .OfClass(typeof(View))
-                .WhereElementIsNotElementType()
-                .Cast<View>()
-                .Where(v => v.ViewType == ViewType.FloorPlan && !v.IsTemplate)
-                .ToList();
-
-            // Setup DWG export options
-            DWGExportOptions options = new DWGExportOptions
-            {
-                MergedViews = false,
-                ExportingLinks = true,
-                FileVersion = ACADVersion.R2018
+                ProjectName = _doc.ProjectInformation?.Name ?? _doc.Title,
+                ProjectId = _doc.ProjectInformation?.Number ?? Guid.NewGuid().ToString(),
+                CreationDate = DateTime.Now,
+                SchemaVersion = "1.0"
             };
 
-            // Export each view to DWG
-            foreach (View view in views)
+            // Initialize units
+            CM.Units units = new CM.Units
             {
-                string filename = Path.Combine(folderPath,
-                    SanitizeFilename(view.Name) + ".dwg");
+                Length = "inches",
+                Force = "pounds",
+                Temperature = "fahrenheit"
+            };
 
-                try
-                {
-                    _doc.Export(folderPath, view.Name + ".dwg",
-                        new List<ElementId> { view.Id }, options);
+            // Set project info and units
+            _model.Metadata.ProjectInfo = projectInfo;
+            _model.Metadata.Units = units;
 
-                    Debug.WriteLine($"Exported view {view.Name} to {filename}");
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"Error exporting view {view.Name}: {ex.Message}");
-                }
-            }
+            // Add coordinate system info using the helper method
+            _model.Metadata.Coordinates = Helpers.ExtractCoordinateSystem(_doc);
         }
 
         private void ExportModelStructure()
         {
-            // This could reuse your existing export methods
+            // Export layout elements first
             ExportLayoutElements();
-            ExportProperties();
+
+            // Create unique FloorTypes from Levels
+            CreateFloorTypesFromLevels();
+
+            // Export structural elements
             ExportStructuralElements();
         }
 
-        private string SanitizeFilename(string filename)
+        private void ExportLayoutElements()
         {
-            if (string.IsNullOrEmpty(filename))
-                return "unnamed";
+            int count = 0;
 
-            // Remove invalid file system characters
-            char[] invalidChars = Path.GetInvalidFileNameChars();
-            string sanitized = string.Join("_", filename.Split(invalidChars, StringSplitOptions.RemoveEmptyEntries));
+            // Export levels
+            LevelExport levelExport = new LevelExport(_doc);
+            count += levelExport.Export(_model.ModelLayout.Levels);
+            Debug.WriteLine($"Exported {_model.ModelLayout.Levels.Count} levels");
 
-            // Replace common problematic characters
-            sanitized = sanitized.Replace(" ", "_")
-                                .Replace(".", "_")
-                                .Replace(",", "_")
-                                .Replace(":", "_")
-                                .Replace(";", "_")
-                                .Replace("\"", "_")
-                                .Replace("'", "_")
-                                .Replace("|", "_");
+            // Export grids
+            GridExport gridExport = new GridExport(_doc);
+            count += gridExport.Export(_model.ModelLayout.Grids);
+            Debug.WriteLine($"Exported {_model.ModelLayout.Grids.Count} grids");
+        }
 
-            // Limit filename length (Windows has a 260 character path limit)
-            if (sanitized.Length > 100)
-                sanitized = sanitized.Substring(0, 100);
+        private void CreateFloorTypesFromLevels()
+        {
+            // Clear any existing floor types
+            _model.ModelLayout.FloorTypes = new List<CL.FloorType>();
 
-            // Ensure filename isn't empty after sanitization
-            if (string.IsNullOrEmpty(sanitized))
-                return "unnamed";
+            // Create a unique FloorType for each Level
+            foreach (var level in _model.ModelLayout.Levels)
+            {
+                // Generate a unique floor type ID
+                string floorTypeId = Core.Utilities.IdGenerator.Generate(Core.Utilities.IdGenerator.Layout.FLOOR_TYPE);
 
-            return sanitized;
+                // Create a new FloorType using the level name
+                CL.FloorType floorType = new CL.FloorType
+                {
+                    Id = floorTypeId,
+                    Name = level.Name,
+                    Description = $"Floor type for {level.Name}"
+                };
+
+                // Add to the model's FloorTypes collection
+                _model.ModelLayout.FloorTypes.Add(floorType);
+
+                // Associate this FloorType with the Level
+                level.FloorTypeId = floorTypeId;
+            }
+
+            Debug.WriteLine($"Created {_model.ModelLayout.FloorTypes.Count} unique FloorTypes for Grasshopper export");
+        }
+
+        private void ExportStructuralElements()
+        {
+            int count = 0;
+
+            // Export floors
+            FloorExport floorExport = new FloorExport(_doc);
+            count += floorExport.Export(_model.Elements.Floors, _model);
+            Debug.WriteLine($"Exported {_model.Elements.Floors.Count} floors");
+
+            // Export columns
+            ColumnExport columnExport = new ColumnExport(_doc);
+            count += columnExport.Export(_model.Elements.Columns, _model);
+            Debug.WriteLine($"Exported {_model.Elements.Columns.Count} columns");
         }
     }
 }

@@ -1,13 +1,15 @@
-﻿using Autodesk.Revit.Attributes;
+﻿using System;
+using System.Reflection;
+using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
-using Microsoft.Win32;
-using System.IO;
+using Revit.Export.Views;
+using Revit.Utilities;
 
 namespace Revit.Export
 {
     [Transaction(TransactionMode.ReadOnly)]
-    public class RevitToGrasshopperCommand : IExternalCommand
+    public class GrasshopperExportCommand : IExternalCommand
     {
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
@@ -15,33 +17,52 @@ namespace Revit.Export
             UIDocument uiDoc = uiApp.ActiveUIDocument;
             Document doc = uiDoc.Document;
 
-            // Show export dialog
-            SaveFileDialog saveDialog = new SaveFileDialog();
-            saveDialog.Title = "Export to Grasshopper";
-            saveDialog.Filter = "JSON Files (*.json)|*.json";
-            saveDialog.DefaultExt = ".json";
-            saveDialog.FileName = doc.Title;
+            try
+            {
+                // Show the custom export dialog using the MVVM structure
+                ExportGrasshopperWindow exportWindow = new ExportGrasshopperWindow(uiApp);
+                bool? dialogResult = exportWindow.ShowDialog();
 
-            if (saveDialog.ShowDialog() != true)
+                // If dialog was completed successfully, result will be true
+                if (dialogResult.HasValue && dialogResult.Value)
+                {
+                    return Result.Succeeded;
+                }
+
+                // If dialog was canceled, return cancelled
                 return Result.Cancelled;
-
-            string jsonFilePath = saveDialog.FileName;
-            string exportFolder = Path.GetDirectoryName(jsonFilePath);
-            string baseName = Path.GetFileNameWithoutExtension(jsonFilePath);
-
-            // Create a dedicated subfolder for all files
-            string projectFolder = Path.Combine(exportFolder, baseName);
-            Directory.CreateDirectory(projectFolder);
-
-            string jsonPath = Path.Combine(projectFolder, baseName + ".json");
-            string dwgFolder = Path.Combine(projectFolder, "CAD");
-            Directory.CreateDirectory(dwgFolder);
-
-            // Execute the exporter
-            GrasshopperExporter exporter = new GrasshopperExporter(doc, uiApp);
-            exporter.ExportAll(jsonPath, dwgFolder);
-
-            return Result.Succeeded;
+            }
+            catch (Exception ex)
+            {
+                message = ex.Message;
+                TaskDialog.Show("Error",
+                    $"An error occurred while exporting to Grasshopper: {ex.Message}");
+                return Result.Failed;
+            }
         }
-    }   
+
+        internal static System.Drawing.Bitmap ByteArrayToBitmap(byte[] byteArray)
+        {
+            using (var ms = new System.IO.MemoryStream(byteArray))
+            {
+                return new System.Drawing.Bitmap(ms);
+            }
+        }
+
+        internal static PushButtonData GetButtonData()
+        {
+            string buttonInternalName = "btnExportGrasshopper";
+            string buttonTitle = "Export to Grasshopper";
+
+            ButtonDataClass myButtonData = new ButtonDataClass(
+                buttonInternalName,
+                buttonTitle,
+                MethodBase.GetCurrentMethod().DeclaringType?.FullName,
+                ByteArrayToBitmap(Revit.Properties.Resources.IMEG_32),
+                ByteArrayToBitmap(Revit.Properties.Resources.IMEG_16),
+                "Export the current structural model to Grasshopper format");
+
+            return myButtonData.Data;
+        }
+    }
 }

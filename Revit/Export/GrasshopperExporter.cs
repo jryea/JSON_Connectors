@@ -9,6 +9,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -113,69 +114,39 @@ namespace Revit.Export
         private void ExportModelStructure()
         {
             // This could reuse your existing export methods
-            // For example:
             ExportLayoutElements();
             ExportProperties();
             ExportStructuralElements();
-
-            // Additional method for consolidating floors by level
-            ConsolidateFloorsByLevel();
         }
 
-        private void ConsolidateFloorsByLevel()
+        private string SanitizeFilename(string filename)
         {
-            // Group floors by level
-            Dictionary<string, List<Floor>> floorsByLevel = new Dictionary<string, List<Floor>>();
+            if (string.IsNullOrEmpty(filename))
+                return "unnamed";
 
-            foreach (var floor in _model.Elements.Floors)
-            {
-                if (!floorsByLevel.ContainsKey(floor.LevelId))
-                    floorsByLevel[floor.LevelId] = new List<Floor>();
+            // Remove invalid file system characters
+            char[] invalidChars = Path.GetInvalidFileNameChars();
+            string sanitized = string.Join("_", filename.Split(invalidChars, StringSplitOptions.RemoveEmptyEntries));
 
-                floorsByLevel[floor.LevelId].Add(floor);
-            }
+            // Replace common problematic characters
+            sanitized = sanitized.Replace(" ", "_")
+                                .Replace(".", "_")
+                                .Replace(",", "_")
+                                .Replace(":", "_")
+                                .Replace(";", "_")
+                                .Replace("\"", "_")
+                                .Replace("'", "_")
+                                .Replace("|", "_");
 
-            // Replace model's floors with consolidated ones
-            List<Floor> consolidatedFloors = new List<Floor>();
+            // Limit filename length (Windows has a 260 character path limit)
+            if (sanitized.Length > 100)
+                sanitized = sanitized.Substring(0, 100);
 
-            foreach (var levelGroup in floorsByLevel)
-            {
-                if (levelGroup.Value.Count > 1)
-                {
-                    // Create a consolidated floor for this level
-                    Floor consolidated = MergeFloors(levelGroup.Value);
-                    consolidatedFloors.Add(consolidated);
-                }
-                else if (levelGroup.Value.Count == 1)
-                {
-                    // Keep single floors as is
-                    consolidatedFloors.Add(levelGroup.Value[0]);
-                }
-            }
+            // Ensure filename isn't empty after sanitization
+            if (string.IsNullOrEmpty(sanitized))
+                return "unnamed";
 
-            _model.Elements.Floors = consolidatedFloors;
-        }
-
-        private Floor MergeFloors(List<Floor> floors)
-        {
-            // Simplified implementation - in practice you'd do proper polygon union
-
-            // Use the first floor as a template
-            Floor mergedFloor = new Floor
-            {
-                LevelId = floors[0].LevelId,
-                FloorPropertiesId = floors[0].FloorPropertiesId,
-                DiaphragmId = floors[0].DiaphragmId,
-                Points = new List<Point2D>()
-            };
-
-            // Union all floor perimeters 
-            // (Simplified - real implementation would use proper Boolean operations)
-
-            // For the demo, just take the first floor's points
-            mergedFloor.Points = floors[0].Points;
-
-            return mergedFloor;
+            return sanitized;
         }
     }
 }

@@ -2,7 +2,7 @@
 using Autodesk.Revit.UI;
 using Revit.ViewModels;
 
-namespace Revit.Export.Views
+namespace Revit.Views
 {
     /// <summary>
     /// Interaction logic for ExportGrasshopperWindow.xaml

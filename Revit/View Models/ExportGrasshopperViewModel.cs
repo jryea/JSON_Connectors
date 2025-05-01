@@ -18,7 +18,7 @@ namespace Revit.ViewModels
 {
     public class ExportGrasshopperViewModel : INotifyPropertyChanged
     {
-        #region Fields
+       
         private UIApplication _uiApp;
         private Document _document;
         private string _outputLocation;
@@ -30,9 +30,9 @@ namespace Revit.ViewModels
         private ObservableCollection<SheetViewModel> _sheetViewCollection;
         private ICollectionView _filteredSheetViewCollection;
         private string _searchText;
-        #endregion
+       
 
-        #region Properties
+     
         public string OutputLocation
         {
             get => _outputLocation;
@@ -118,16 +118,6 @@ namespace Revit.ViewModels
                 FilterSheetViews();
             }
         }
-        #endregion
-
-        #region Commands
-        public ICommand BrowseOutputCommand { get; private set; }
-        public ICommand SelectPointCommand { get; private set; }
-        public ICommand AddFloorTypeCommand { get; private set; }
-        public ICommand RemoveFloorTypeCommand { get; private set; }
-        public ICommand ExportCommand { get; private set; }
-        public ICommand CancelCommand { get; private set; }
-        #endregion
 
         // Constructor for designer time
         public ExportGrasshopperViewModel()
@@ -135,6 +125,7 @@ namespace Revit.ViewModels
             InitializeProperties();
             InitializeCommands();
 
+            // WHAT????
             // Add sample data for design time
             if (System.ComponentModel.DesignerProperties.GetIsInDesignMode(new DependencyObject()))
             {

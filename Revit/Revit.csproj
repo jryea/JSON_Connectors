@@ -171,6 +171,8 @@
     <Compile Include="Export\Elements\WallExport.cs" />
     <Compile Include="Export\ETABSExportCommand.cs" />
     <Compile Include="Export\ExportManager.cs" />
+    <Compile Include="Export\GrasshopperExportCommand.cs" />
+    <Compile Include="Export\GrasshopperExporter.cs" />
     <Compile Include="Export\ModelLayout\GridExport.cs" />
     <Compile Include="Export\ModelLayout\LevelExport.cs" />
     <Compile Include="Export\Properties\FloorPropertiesExport.cs" />

@@ -7,12 +7,11 @@ using System.Threading.Tasks;
 
 namespace Core.Models.Metadata
 {
-    /// <summary>
-    /// Container for model
-    /// </summary>
+    // Container for model
     public class MetadataContainer  
     {
         public ProjectInfo ProjectInfo { get; set; } = new ProjectInfo();
-        public Units Units { get; set; } = new Units(); 
+        public Units Units { get; set; } = new Units();
+        public Coordinates Coordinates { get; set; } = new Coordinates();
     }
 }

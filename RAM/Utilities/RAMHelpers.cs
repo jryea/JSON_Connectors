@@ -16,23 +16,35 @@ namespace RAM.Utilities
         /// <summary>
         /// Get the appropriate RAM material type based on Core model properties
         /// </summary>
+        /// <summary>
+        /// Get the appropriate RAM material type based on Core model properties
+        /// </summary>
         public static EMATERIALTYPES GetRAMMaterialType(string framePropId,
                                                       IEnumerable<FrameProperties> frameProperties,
                                                       IEnumerable<Material> materials,
                                                       bool isJoist = false)
         {
-            // If it's a joist, return joist material type regardless of base material
-            if (isJoist)
-                return EMATERIALTYPES.ESteelJoistMat;
-
-            // Get the frame property to find the material ID
+            // Get the frame property to find the material ID and shape
             string materialId = null;
+            string shape = null;
+
             if (!string.IsNullOrEmpty(framePropId))
             {
                 var frameProp = frameProperties?.FirstOrDefault(fp => fp.Id == framePropId);
                 if (frameProp != null)
                 {
                     materialId = frameProp.MaterialId;
+                    shape = frameProp.Shape;
+                }
+            }
+
+            // Only treat as a joist if isJoist is true AND the shape is not W or HSS
+            if (isJoist && shape != null)
+            {
+                // If shape contains 'W' or 'HSS', don't treat as joist
+                if (!shape.Contains("W") && !shape.Contains("HSS"))
+                {
+                    return EMATERIALTYPES.ESteelJoistMat;
                 }
             }
 

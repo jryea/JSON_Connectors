@@ -41,12 +41,6 @@ namespace Revit.Export.ModelLayout
                         floorType.Id = IdGenerator.Generate(IdGenerator.Layout.FLOOR_TYPE);
                     }
 
-                    // Add default description if not provided
-                    if (string.IsNullOrEmpty(floorType.Description))
-                    {
-                        floorType.Description = $"Floor type for {floorType.Name}";
-                    }
-
                     count++;
                     Debug.WriteLine($"Exported floor type: {floorType.Name} ({floorType.Id})");
                 }
@@ -113,7 +107,6 @@ namespace Revit.Export.ModelLayout
                 {
                     Id = IdGenerator.Generate(IdGenerator.Layout.FLOOR_TYPE),
                     Name = "Default",
-                    Description = "Default floor type"
                 });
                 return floorTypes;
             }
@@ -128,7 +121,6 @@ namespace Revit.Export.ModelLayout
                 {
                     Id = IdGenerator.Generate(IdGenerator.Layout.FLOOR_TYPE),
                     Name = name.Trim(),
-                    Description = $"Floor type for {name.Trim()}"
                 };
 
                 floorTypes.Add(floorType);
@@ -141,7 +133,6 @@ namespace Revit.Export.ModelLayout
                 {
                     Id = IdGenerator.Generate(IdGenerator.Layout.FLOOR_TYPE),
                     Name = "Default",
-                    Description = "Default floor type"
                 });
             }
 

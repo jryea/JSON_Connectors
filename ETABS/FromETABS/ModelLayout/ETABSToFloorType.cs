@@ -43,7 +43,6 @@ namespace ETABS.Import.ModelLayout
                     {
                         Id = IdGenerator.Generate(IdGenerator.Layout.FLOOR_TYPE),
                         Name = NormalizeStoryName(storyName),
-                        Description = $"Master floor type from {storyName}"
                     };
 
                     floorTypes.Add(floorType);
@@ -92,7 +91,6 @@ namespace ETABS.Import.ModelLayout
                 {
                     Id = IdGenerator.Generate(IdGenerator.Layout.FLOOR_TYPE),
                     Name = NormalizeStoryName(storyName),
-                    Description = $"Standard floor type for {storyName}"
                 };
 
                 floorTypes.Add(floorType);

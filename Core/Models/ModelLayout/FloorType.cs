@@ -2,43 +2,25 @@
 
 namespace Core.Models.ModelLayout
 {
-    /// <summary>
-    /// Represents a floor type in the structural model
-    /// </summary>
+    // Represents a floor type in the structural model
     public class FloorType : IIdentifiable
     {
-        /// <summary>
-        /// Unique identifier for the floor type
-        /// </summary>
+        // Unique identifier for the floor type
         public string Id { get; set; }
 
-        /// <summary>
-        /// Name of the floor type
-        /// </summary>
+        // Name of the floor type
         public string Name { get; set; }
 
-        /// <summary>
-        /// Description of the floor type
-        /// </summary>
-        public string Description { get; set; }
-
-        /// <summary>
-        /// Creates a new FloorType with a generated ID
-        /// </summary>
+        // Creates a new FloorType with a generated ID
         public FloorType()
         {
             Id = IdGenerator.Generate(IdGenerator.Layout.FLOOR_TYPE);
         }
 
-        /// <summary>
-        /// Creates a new FloorType with the specified properties
-        /// </summary>
-        /// <param name="name">Name of the floor type</param>
-        /// <param name="description">Description of the floor type</param>
-        public FloorType(string name, string description = null) : this()
+        // Creates a new FloorType with the specified properties
+        public FloorType(string name) : this()
         {
             Name = name;
-            Description = description;
         }
     }
 }

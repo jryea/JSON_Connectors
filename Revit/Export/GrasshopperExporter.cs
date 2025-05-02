@@ -17,6 +17,9 @@ using System.Linq;
 
 namespace Revit.Export
 {
+    /// <summary>
+    /// Exports Revit models to Grasshopper format, with support for floor type associations
+    /// </summary>
     public class GrasshopperExporter
     {
         private readonly Document _doc;
@@ -30,23 +33,55 @@ namespace Revit.Export
             _model = new BaseModel();
         }
 
+        /// <summary>
+        /// Exports the entire model to Grasshopper format
+        /// </summary>
+        /// <param name="jsonPath">Path to save the JSON file</param>
+        /// <param name="dwgFolder">Path to save CAD exports</param>
         public void ExportAll(string jsonPath, string dwgFolder)
         {
-            // Initialize metadata
-            InitializeMetadata();
+            try
+            {
+                // Initialize a fresh model
+                _model = new BaseModel();
 
-            // Export model structure
-            ExportModelStructure();
+                // Initialize metadata
+                InitializeMetadata();
 
-            // Export CAD plans
-            ExportCADPlans(dwgFolder);
+                // Export model structure
+                ExportModelStructure();
 
-            // Save the model to JSON
-            JsonConverter.SaveToFile(_model, jsonPath);
+                // Export CAD plans
+                ExportCADPlans(dwgFolder);
+
+                // Save the model to JSON
+                JsonConverter.SaveToFile(_model, jsonPath);
+
+                Debug.WriteLine($"Successfully exported complete model to {jsonPath}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error exporting complete model: {ex.Message}");
+                throw;
+            }
         }
 
-        public void ExportSelectedSheets(string jsonPath, string dwgFolder, List<SheetViewModel> selectedSheets,
-                                        List<CL.FloorType> floorTypes, XYZ referencePoint)
+        /// <summary>
+        /// Exports selected sheets with proper floor type associations
+        /// </summary>
+        /// <param name="jsonPath">Path to save the JSON file</param>
+        /// <param name="dwgFolder">Path to save CAD exports</param>
+        /// <param name="selectedSheets">List of sheets to export</param>
+        /// <param name="floorTypes">List of floor types to include</param>
+        /// <param name="referencePoint">Reference point for the model</param>
+        /// <param name="levelToFloorTypeMap">Mapping between level IDs and floor type IDs</param>
+        public void ExportSelectedSheets(
+            string jsonPath,
+            string dwgFolder,
+            List<SheetViewModel> selectedSheets,
+            List<CL.FloorType> floorTypes,
+            XYZ referencePoint,
+            Dictionary<string, string> levelToFloorTypeMap = null)
         {
             try
             {
@@ -59,8 +94,11 @@ namespace Revit.Export
                 // Add the floor types to the model
                 _model.ModelLayout.FloorTypes = floorTypes;
 
-                // Export structural elements
+                // Export structural elements and layout
                 ExportModelStructure();
+
+                // Now that levels are exported, associate them with floor types
+                AssociateLevelsWithFloorTypes(levelToFloorTypeMap);
 
                 // Export selected CAD plans
                 ExportSelectedCADPlans(dwgFolder, selectedSheets);
@@ -68,7 +106,7 @@ namespace Revit.Export
                 // Save the model to JSON
                 JsonConverter.SaveToFile(_model, jsonPath);
 
-                Debug.WriteLine($"Successfully exported model to {jsonPath}");
+                Debug.WriteLine($"Successfully exported model to {jsonPath} with {_model.ModelLayout.Levels.Count} levels and {_model.ModelLayout.FloorTypes.Count} floor types");
             }
             catch (Exception ex)
             {
@@ -77,12 +115,102 @@ namespace Revit.Export
             }
         }
 
+        /// <summary>
+        /// Associates levels with floor types based on the provided mapping
+        /// </summary>
+        private void AssociateLevelsWithFloorTypes(Dictionary<string, string> levelToFloorTypeMap)
+        {
+            if (levelToFloorTypeMap == null || levelToFloorTypeMap.Count == 0 ||
+                _model.ModelLayout.Levels.Count == 0 || _model.ModelLayout.FloorTypes.Count == 0)
+            {
+                // Use default floor type for all levels if no mapping is provided
+                AssociateWithDefaultFloorType();
+                return;
+            }
+
+            // Get default floor type to use as fallback
+            string defaultFloorTypeId = _model.ModelLayout.FloorTypes.FirstOrDefault()?.Id;
+
+            // Create a dictionary to track Revit level IDs to model level IDs
+            var revitToModelLevelMap = new Dictionary<string, string>();
+
+            // We'll be tracking mapping by level name since the IDs are different between Revit and the model
+            foreach (var level in _model.ModelLayout.Levels)
+            {
+                // For each level in the model, find its corresponding level in Revit by name
+                var revitLevels = new FilteredElementCollector(_doc)
+                    .OfClass(typeof(Level))
+                    .Cast<Level>()
+                    .Where(l => l.Name == level.Name)
+                    .ToList();
+
+                // Associate this level with a floor type
+                if (revitLevels.Any())
+                {
+                    var revitLevel = revitLevels.First();
+                    // Try to find the floor type ID for this level
+                    if (levelToFloorTypeMap.TryGetValue(revitLevel.Id.ToString(), out string floorTypeId))
+                    {
+                        // Verify the floor type exists
+                        if (_model.ModelLayout.FloorTypes.Any(ft => ft.Id == floorTypeId))
+                        {
+                            level.FloorTypeId = floorTypeId;
+                            Debug.WriteLine($"Associated level '{level.Name}' with floor type '{floorTypeId}'");
+                        }
+                        else
+                        {
+                            level.FloorTypeId = defaultFloorTypeId;
+                            Debug.WriteLine($"Level '{level.Name}' mapped to unknown floor type - using default");
+                        }
+                    }
+                    else
+                    {
+                        level.FloorTypeId = defaultFloorTypeId;
+                        Debug.WriteLine($"Level '{level.Name}' not in mapping - using default floor type");
+                    }
+                }
+                else
+                {
+                    level.FloorTypeId = defaultFloorTypeId;
+                    Debug.WriteLine($"Could not find Revit level for '{level.Name}' - using default floor type");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Associates all levels with the default floor type
+        /// </summary>
+        private void AssociateWithDefaultFloorType()
+        {
+            if (_model.ModelLayout.Levels.Count == 0 || _model.ModelLayout.FloorTypes.Count == 0)
+                return;
+
+            // Get the first floor type as default
+            string defaultFloorTypeId = _model.ModelLayout.FloorTypes.FirstOrDefault()?.Id;
+            if (defaultFloorTypeId == null)
+                return;
+
+            // Set all levels to use the default floor type
+            foreach (var level in _model.ModelLayout.Levels)
+            {
+                level.FloorTypeId = defaultFloorTypeId;
+            }
+
+            Debug.WriteLine($"Associated all levels with default floor type '{defaultFloorTypeId}'");
+        }
+
+        /// <summary>
+        /// Initializes the model metadata
+        /// </summary>
         private void InitializeMetadata(XYZ referencePoint = null)
         {
             // Initialize project info
             CM.ProjectInfo projectInfo = new CM.ProjectInfo
             {
                 ProjectName = _doc.ProjectInformation?.Name ?? _doc.Title,
+                ProjectId = _doc.ProjectInformation?.Number ?? Guid.NewGuid().ToString("N").Substring(0, 10).ToUpper(),
+                CreationDate = DateTime.Now,
+                SchemaVersion = "1.0"
             };
 
             // Initialize units
@@ -120,28 +248,35 @@ namespace Revit.Export
             }
         }
 
+        /// <summary>
+        /// Exports layout elements and structural elements
+        /// </summary>
         private void ExportModelStructure()
         {
-            // Export layout elements (levels, grids)
+            // Export layout elements first (levels, grids)
             ExportLayoutElements();
 
             // Export structural elements (walls, floors, columns, etc.)
             ExportStructuralElements();
         }
 
+        /// <summary>
+        /// Exports layout elements from Revit to the model
+        /// </summary>
         private void ExportLayoutElements()
         {
             try
             {
-                // Export floor types
-                FloorTypeExport floorTypeExport = new FloorTypeExport(_doc);
-                int floorTypeCount = floorTypeExport.Export(_model.ModelLayout.FloorTypes, _model.ModelLayout.Levels);
-                Debug.WriteLine($"Exported {floorTypeCount} floor types");
-
-                // Export levels
+                // Export levels first
                 LevelExport levelExport = new LevelExport(_doc);
                 int levelCount = levelExport.Export(_model.ModelLayout.Levels);
                 Debug.WriteLine($"Exported {levelCount} levels");
+
+                // Then, after levels are exported, export floor types
+                // This helps ensure that types will be correctly associated with levels later
+                FloorTypeExport floorTypeExport = new FloorTypeExport(_doc);
+                int floorTypeCount = floorTypeExport.Export(_model.ModelLayout.FloorTypes, _model.ModelLayout.Levels);
+                Debug.WriteLine($"Exported {floorTypeCount} floor types");
 
                 // Export grids
                 GridExport gridExport = new GridExport(_doc);
@@ -151,36 +286,83 @@ namespace Revit.Export
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error exporting layout elements: {ex.Message}");
+                throw;
             }
         }
 
+        /// <summary>
+        /// Exports structural elements from Revit to the model
+        /// </summary>
         private void ExportStructuralElements()
         {
             try
             {
-                // Export floors
+                // Export materials first 
+                MaterialExport materialExport = new MaterialExport(_doc);
+                int materialCount = materialExport.Export(_model.Properties.Materials);
+                Debug.WriteLine($"Exported {materialCount} materials");
+
+                // Export properties that reference materials
+                WallPropertiesExport wallPropertiesExport = new WallPropertiesExport(_doc);
+                int wallPropsCount = wallPropertiesExport.Export(_model.Properties.WallProperties, _model.Properties.Materials);
+                Debug.WriteLine($"Exported {wallPropsCount} wall properties");
+
+                FloorPropertiesExport floorPropertiesExport = new FloorPropertiesExport(_doc);
+                int floorPropsCount = floorPropertiesExport.Export(_model.Properties.FloorProperties);
+                Debug.WriteLine($"Exported {floorPropsCount} floor properties");
+
+                FramePropertiesExport framePropertiesExport = new FramePropertiesExport(_doc);
+                int framePropsCount = framePropertiesExport.Export(_model.Properties.FrameProperties, _model.Properties.Materials);
+                Debug.WriteLine($"Exported {framePropsCount} frame properties");
+
+                // Export structural elements
                 FloorExport floorExport = new FloorExport(_doc);
                 int floorCount = floorExport.Export(_model.Elements.Floors, _model);
                 Debug.WriteLine($"Exported {floorCount} floors");
 
-                // Export columns
                 ColumnExport columnExport = new ColumnExport(_doc);
                 int columnCount = columnExport.Export(_model.Elements.Columns, _model);
                 Debug.WriteLine($"Exported {columnCount} columns");
+
+                WallExport wallExport = new WallExport(_doc);
+                int wallCount = wallExport.Export(_model.Elements.Walls, _model);
+                Debug.WriteLine($"Exported {wallCount} walls");
+
+                BeamExport beamExport = new BeamExport(_doc);
+                int beamCount = beamExport.Export(_model.Elements.Beams, _model);
+                Debug.WriteLine($"Exported {beamCount} beams");
+
+                BraceExport braceExport = new BraceExport(_doc);
+                int braceCount = braceExport.Export(_model.Elements.Braces, _model);
+                Debug.WriteLine($"Exported {braceCount} braces");
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error exporting structural elements: {ex.Message}");
+                throw;
             }
         }
 
+        /// <summary>
+        /// Exports all CAD plans
+        /// </summary>
         private void ExportCADPlans(string folderPath)
         {
-            // Use CADExporter class to export all plans
-            CADExporter exporter = new CADExporter(_doc);
-            exporter.ExportCADPlans(folderPath);
+            try
+            {
+                // Use CADExporter class to export all plans
+                CADExporter exporter = new CADExporter(_doc);
+                exporter.ExportCADPlans(folderPath);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error exporting CAD plans: {ex.Message}");
+            }
         }
 
+        /// <summary>
+        /// Exports selected CAD plans
+        /// </summary>
         private void ExportSelectedCADPlans(string folderPath, List<SheetViewModel> selectedSheets)
         {
             try
@@ -239,6 +421,9 @@ namespace Revit.Export
             }
         }
 
+        /// <summary>
+        /// Sanitizes a filename by removing invalid characters
+        /// </summary>
         private string SanitizeFilename(string filename)
         {
             if (string.IsNullOrEmpty(filename))
@@ -250,9 +435,9 @@ namespace Revit.Export
 
             // Replace common problematic characters
             sanitized = sanitized.Replace(" ", "_")
-                              .Replace(".", "_")
-                              .Replace(",", "_")
-                              .Replace(":", "_");
+                                .Replace(".", "_")
+                                .Replace(",", "_")
+                                .Replace(":", "_");
 
             // Limit length
             if (sanitized.Length > 100)

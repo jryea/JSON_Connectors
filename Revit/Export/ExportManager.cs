@@ -80,7 +80,6 @@ namespace Revit.Export
                 {
                     Id = floorTypeId,
                     Name = level.Name, // Use level name as the floor type name
-                    Description = $"Floor type for {level.Name}"
                 };
 
                 // Add to the model's FloorTypes collection

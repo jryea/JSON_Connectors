@@ -37,7 +37,6 @@ namespace RAM.Export.ModelLayout
                         {
                             Id = IdGenerator.Generate(IdGenerator.Layout.FLOOR_TYPE),
                             Name = ramFloorType.strLabel,
-                            Description = $"Floor type from RAM (ID: {ramFloorType.lUID})"
                         };
 
                         floorTypes.Add(floorType);
@@ -49,7 +48,6 @@ namespace RAM.Export.ModelLayout
                 {
                     Id = IdGenerator.Generate(IdGenerator.Layout.FLOOR_TYPE),
                     Name = "Ground",
-                    Description = "Foundation level floor type"
                 };
                 floorTypes.Add(groundFloorType);
                 Console.WriteLine($"Added Ground floor type with ID: {groundFloorType.Id}");

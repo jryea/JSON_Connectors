@@ -305,7 +305,7 @@ namespace Revit.ViewModels
                         Name = level.Name,
                         Elevation = level.Elevation * 12.0, // Convert to inches
                         LevelId = level.Id,
-                        IsSelected = true,
+                        IsSelected = false, // Set to false by default
                         SelectedFloorType = FloorTypes.FirstOrDefault() // Set default floor type
                     };
 

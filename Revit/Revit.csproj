@@ -193,7 +193,10 @@
     <Compile Include="Export\ModelExportCommand.cs" />
     <Compile Include="Import\RAMImportCommand.cs" />
     <Compile Include="Models\FloorTypeModel.cs" />
+    <Compile Include="Models\FloorTypeViewMappingModel.cs" />
+    <Compile Include="Models\LevelViewModel.cs" />
     <Compile Include="Models\SheetViewModel.cs" />
+    <Compile Include="Models\ViewPlanViewModel.cs" />
     <Compile Include="Properties\Resources.Designer.cs">
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>

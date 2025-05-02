@@ -28,9 +28,12 @@ namespace Revit.ViewModels
         private string _newFloorTypeName;
         private ObservableCollection<FloorTypeModel> _floorTypes;
         private FloorTypeModel _selectedFloorType;
-        private ObservableCollection<SheetViewModel> _sheetViewCollection;
-        private ICollectionView _filteredSheetViewCollection;
-        private string _searchText;
+        private string _levelSearchText;
+        private string _viewSearchText;
+        private ObservableCollection<LevelViewModel> _levelCollection;
+        private ObservableCollection<ViewPlanViewModel> _viewPlanCollection;
+        private ObservableCollection<FloorTypeViewMappingModel> _floorTypeViewMappingCollection;
+        private ICollectionView _filteredLevelCollection;
         private FloorTypeExport _floorTypeExporter;
         #endregion
 
@@ -100,24 +103,55 @@ namespace Revit.ViewModels
             }
         }
 
-        public ObservableCollection<SheetViewModel> SheetViewCollection
+        public string LevelSearchText
         {
-            get => _sheetViewCollection;
+            get => _levelSearchText;
             set
             {
-                _sheetViewCollection = value;
+                _levelSearchText = value;
+                OnPropertyChanged();
+                FilterLevelCollection();
+            }
+        }
+
+        public string ViewSearchText
+        {
+            get => _viewSearchText;
+            set
+            {
+                _viewSearchText = value;
+                OnPropertyChanged();
+                FilterViewPlanCollection();
+            }
+        }
+
+        public ObservableCollection<LevelViewModel> LevelCollection
+        {
+            get => _levelCollection;
+            set
+            {
+                _levelCollection = value;
                 OnPropertyChanged();
             }
         }
 
-        public string SearchText
+        public ObservableCollection<ViewPlanViewModel> ViewPlanCollection
         {
-            get => _searchText;
+            get => _viewPlanCollection;
             set
             {
-                _searchText = value;
+                _viewPlanCollection = value;
                 OnPropertyChanged();
-                FilterSheetViews();
+            }
+        }
+
+        public ObservableCollection<FloorTypeViewMappingModel> FloorTypeViewMappingCollection
+        {
+            get => _floorTypeViewMappingCollection;
+            set
+            {
+                _floorTypeViewMappingCollection = value;
+                OnPropertyChanged();
             }
         }
         #endregion
@@ -160,26 +194,29 @@ namespace Revit.ViewModels
 
             if (_document != null)
             {
-                LoadSheetsAndViews();
+                LoadLevels();
+                LoadViewPlans();
+                UpdateFloorTypeViewMappings();
             }
         }
 
         private void InitializeProperties()
         {
             FloorTypes = new ObservableCollection<FloorTypeModel>();
-            SheetViewCollection = new ObservableCollection<SheetViewModel>();
+            LevelCollection = new ObservableCollection<LevelViewModel>();
+            ViewPlanCollection = new ObservableCollection<ViewPlanViewModel>();
+            FloorTypeViewMappingCollection = new ObservableCollection<FloorTypeViewMappingModel>();
+
             ReferencePointText = "No point selected";
+            LevelSearchText = string.Empty;
+            ViewSearchText = string.Empty;
 
-            // Initialize the filtered view
-            _filteredSheetViewCollection = CollectionViewSource.GetDefaultView(SheetViewCollection);
-            _filteredSheetViewCollection.Filter = SheetViewFilter;
+            // Initialize the filtered views
+            _filteredLevelCollection = CollectionViewSource.GetDefaultView(LevelCollection);
+            _filteredLevelCollection.Filter = LevelViewFilter;
 
-            // Add a default floor type with proper ID format
-            FloorTypes.Add(new FloorTypeModel
-            {
-                Id = Core.Utilities.IdGenerator.Generate(Core.Utilities.IdGenerator.Layout.FLOOR_TYPE),
-                Name = "Default"
-            });
+            // Add a default floor type
+            FloorTypes.Add(new FloorTypeModel { Id = "default", Name = "Default" });
             SelectedFloorType = FloorTypes.First();
         }
 
@@ -199,136 +236,162 @@ namespace Revit.ViewModels
             FloorTypes.Add(new FloorTypeModel { Id = "ft1", Name = "Concrete Slab" });
             FloorTypes.Add(new FloorTypeModel { Id = "ft2", Name = "Metal Deck" });
 
-            // Add sample sheets
-            SheetViewCollection.Add(new SheetViewModel
+            // Add sample levels
+            LevelCollection.Add(new LevelViewModel
             {
-                SheetNumber = "A1.01",
-                SheetName = "First Floor Plan",
-                ViewName = "Level 1",
+                Id = "level1",
+                Name = "Level 1",
+                Elevation = 0.0,
                 IsSelected = true,
                 SelectedFloorType = FloorTypes[0]
             });
 
-            SheetViewCollection.Add(new SheetViewModel
+            LevelCollection.Add(new LevelViewModel
             {
-                SheetNumber = "A1.02",
-                SheetName = "Second Floor Plan",
-                ViewName = "Level 2",
+                Id = "level2",
+                Name = "Level 2",
+                Elevation = 144.0,
                 IsSelected = true,
-                SelectedFloorType = FloorTypes[0]
+                SelectedFloorType = FloorTypes[1]
+            });
+
+            // Add sample view plans
+            ViewPlanCollection.Add(new ViewPlanViewModel
+            {
+                Id = "view1",
+                Name = "First Floor Plan"
+            });
+
+            ViewPlanCollection.Add(new ViewPlanViewModel
+            {
+                Id = "view2",
+                Name = "Second Floor Plan"
+            });
+
+            // Add sample floor type view mappings
+            FloorTypeViewMappingCollection.Add(new FloorTypeViewMappingModel
+            {
+                FloorTypeId = "ft1",
+                FloorTypeName = "Concrete Slab",
+                SelectedViewPlan = ViewPlanCollection[0]
+            });
+
+            FloorTypeViewMappingCollection.Add(new FloorTypeViewMappingModel
+            {
+                FloorTypeId = "ft2",
+                FloorTypeName = "Metal Deck",
+                SelectedViewPlan = ViewPlanCollection[1]
             });
         }
 
-        private void LoadSheetsAndViews()
+        private void LoadLevels()
         {
             // Clear existing items
-            SheetViewCollection.Clear();
-
-            // Check if document is null
-            if (_document == null)
-            {
-                MessageBox.Show("No active document found.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
+            LevelCollection.Clear();
 
             try
             {
-                // Get all sheets with more explicit error handling
-                FilteredElementCollector sheetCollector = new FilteredElementCollector(_document);
-                sheetCollector.OfClass(typeof(ViewSheet));
-                var sheets = sheetCollector.Cast<ViewSheet>().ToList();
+                // Get all levels from Revit
+                var levels = new FilteredElementCollector(_document)
+                    .OfClass(typeof(Level))
+                    .WhereElementIsNotElementType()
+                    .Cast<Level>()
+                    .OrderBy(l => l.Elevation)
+                    .ToList();
 
-                if (sheets.Count == 0)
+                foreach (var level in levels)
                 {
-                    MessageBox.Show("No sheets found in the current document.", "Information",
-                        MessageBoxButton.OK, MessageBoxImage.Information);
-                    return;
-                }
-
-                // Debug information
-                System.Diagnostics.Debug.WriteLine($"Found {sheets.Count} sheets");
-
-                foreach (var sheet in sheets)
-                {
-                    var sheetNumber = sheet.SheetNumber;
-                    var sheetName = sheet.Name;
-
-                    System.Diagnostics.Debug.WriteLine($"Processing sheet: {sheetNumber} - {sheetName}");
-
-                    // Get all views placed on this sheet
-                    ICollection<ElementId> viewIds = sheet.GetAllPlacedViews();
-                    System.Diagnostics.Debug.WriteLine($"Found {viewIds.Count} views on sheet {sheetNumber}");
-
-                    // Include all view types that could be relevant, not just floor plans
-                    foreach (ElementId viewId in viewIds)
+                    var levelViewModel = new LevelViewModel
                     {
-                        View view = _document.GetElement(viewId) as View;
-                        if (view == null) continue;
+                        Id = level.UniqueId,
+                        Name = level.Name,
+                        Elevation = level.Elevation * 12.0, // Convert to inches
+                        LevelId = level.Id,
+                        IsSelected = true,
+                        SelectedFloorType = FloorTypes.FirstOrDefault() // Set default floor type
+                    };
 
-                        // Consider including other view types as needed
-                        // You could also make this configurable or add checkboxes in the UI
-                        bool isValidViewType = (view.ViewType == ViewType.FloorPlan ||
-                                                view.ViewType == ViewType.CeilingPlan ||
-                                                view.ViewType == ViewType.EngineeringPlan);
-
-                        if (isValidViewType)
-                        {
-                            System.Diagnostics.Debug.WriteLine($"Adding view: {view.Name} (Type: {view.ViewType})");
-
-                            var sheetViewModel = new SheetViewModel
-                            {
-                                SheetNumber = sheetNumber,
-                                SheetName = sheetName,
-                                ViewName = view.Name,
-                                ViewId = view.Id,
-                                SheetId = sheet.Id,
-                                IsSelected = true,
-                                SelectedFloorType = FloorTypes.FirstOrDefault() // Default floor type
-                            };
-
-                            // Check if the floor type exists (safer access)
-                            if (sheetViewModel.SelectedFloorType == null && FloorTypes.Count > 0)
-                            {
-                                sheetViewModel.SelectedFloorType = FloorTypes[0];
-                            }
-
-                            SheetViewCollection.Add(sheetViewModel);
-                        }
-                    }
-                }
-
-                System.Diagnostics.Debug.WriteLine($"Total views added to collection: {SheetViewCollection.Count}");
-
-                // If nothing was added, show a message
-                if (SheetViewCollection.Count == 0)
-                {
-                    MessageBox.Show("No valid views found on any sheets.", "Information",
-                        MessageBoxButton.OK, MessageBoxImage.Information);
+                    LevelCollection.Add(levelViewModel);
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Exception in LoadSheetsAndViews: {ex.Message}");
-                System.Diagnostics.Debug.WriteLine($"Stack trace: {ex.StackTrace}");
-                MessageBox.Show($"Error loading sheets and views: {ex.Message}\n\nStack trace: {ex.StackTrace}",
-                    "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Error loading levels: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
-        private void FilterSheetViews()
+        private void LoadViewPlans()
         {
-            _filteredSheetViewCollection?.Refresh();
+            // Clear existing items
+            ViewPlanCollection.Clear();
+
+            try
+            {
+                // Get all floor plan views from Revit
+                var viewPlans = new FilteredElementCollector(_document)
+                    .OfClass(typeof(ViewPlan))
+                    .WhereElementIsNotElementType()
+                    .Cast<ViewPlan>()
+                    .Where(v => !v.IsTemplate && (v.ViewType == ViewType.FloorPlan || v.ViewType == ViewType.EngineeringPlan || v.ViewType == ViewType.CeilingPlan))
+                    .OrderBy(v => v.Name)
+                    .ToList();
+
+                foreach (var viewPlan in viewPlans)
+                {
+                    var viewPlanViewModel = new ViewPlanViewModel
+                    {
+                        Id = viewPlan.UniqueId,
+                        Name = viewPlan.Name,
+                        ViewId = viewPlan.Id
+                    };
+
+                    ViewPlanCollection.Add(viewPlanViewModel);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error loading view plans: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
-        private bool SheetViewFilter(object item)
+        private void UpdateFloorTypeViewMappings()
         {
-            if (string.IsNullOrEmpty(SearchText))
+            // Clear existing mappings
+            FloorTypeViewMappingCollection.Clear();
+
+            // Create a mapping for each floor type
+            foreach (var floorType in FloorTypes)
+            {
+                var mapping = new FloorTypeViewMappingModel
+                {
+                    FloorTypeId = floorType.Id,
+                    FloorTypeName = floorType.Name,
+                    SelectedViewPlan = ViewPlanCollection.FirstOrDefault() // Set first view plan as default
+                };
+
+                FloorTypeViewMappingCollection.Add(mapping);
+            }
+        }
+
+        private void FilterLevelCollection()
+        {
+            _filteredLevelCollection?.Refresh();
+        }
+
+        private bool LevelViewFilter(object item)
+        {
+            if (string.IsNullOrEmpty(LevelSearchText))
                 return true;
 
-            var sheetView = (SheetViewModel)item;
-            return sheetView.SheetNumber.IndexOf(SearchText, StringComparison.OrdinalIgnoreCase) >= 0 ||
-                   sheetView.SheetName.IndexOf(SearchText, StringComparison.OrdinalIgnoreCase) >= 0 ||
-                   sheetView.ViewName.IndexOf(SearchText, StringComparison.OrdinalIgnoreCase) >= 0;
+            var level = (LevelViewModel)item;
+            return level.Name.IndexOf(LevelSearchText, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private void FilterViewPlanCollection()
+        {
+            // Since we don't have a filtered collection for ViewPlans directly,
+            // we need to ensure the appropriate views are shown in the mappings
+            // This could be enhanced with more complex filtering if needed
         }
 
         private void BrowseOutput(object parameter)
@@ -386,15 +449,18 @@ namespace Revit.ViewModels
                 return;
             }
 
-            // Add new floor type with proper ID format
+            // Add new floor type
             var newType = new FloorTypeModel
             {
-                Id = Core.Utilities.IdGenerator.Generate(Core.Utilities.IdGenerator.Layout.FLOOR_TYPE),
+                Id = Guid.NewGuid().ToString(),
                 Name = typeName
             };
 
             FloorTypes.Add(newType);
             NewFloorTypeName = string.Empty;
+
+            // Add a new floor type-view mapping
+            UpdateFloorTypeViewMappings();
         }
 
         private bool CanAddFloorType(object parameter)
@@ -413,18 +479,25 @@ namespace Revit.ViewModels
                     return;
                 }
 
-                // Update any sheet views using this floor type to use default
+                // Update any levels using this floor type to use default
                 var defaultType = FloorTypes.First(ft => ft.Id == "default");
-                foreach (var sheetView in SheetViewCollection)
+                foreach (var level in LevelCollection)
                 {
-                    if (sheetView.SelectedFloorType?.Id == floorType.Id)
+                    if (level.SelectedFloorType?.Id == floorType.Id)
                     {
-                        sheetView.SelectedFloorType = defaultType;
+                        level.SelectedFloorType = defaultType;
                     }
                 }
 
                 // Remove the floor type
                 FloorTypes.Remove(floorType);
+
+                // Remove corresponding floor type-view mapping
+                var mappingToRemove = FloorTypeViewMappingCollection.FirstOrDefault(m => m.FloorTypeId == floorType.Id);
+                if (mappingToRemove != null)
+                {
+                    FloorTypeViewMappingCollection.Remove(mappingToRemove);
+                }
             }
         }
 
@@ -444,15 +517,26 @@ namespace Revit.ViewModels
 
             try
             {
-                // Get selected sheets and views
-                var selectedItems = SheetViewCollection
-                    .Where(sv => sv.IsSelected)
+                // Get selected levels
+                var selectedLevels = LevelCollection
+                    .Where(level => level.IsSelected)
                     .ToList();
 
-                if (!selectedItems.Any())
+                if (!selectedLevels.Any())
                 {
-                    MessageBox.Show("Please select at least one sheet view to export.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show("Please select at least one level to export.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                     return;
+                }
+
+                // Check if all floor types have an assigned view plan
+                foreach (var floorTypeMapping in FloorTypeViewMappingCollection)
+                {
+                    if (floorTypeMapping.SelectedViewPlan == null)
+                    {
+                        MessageBox.Show($"Please assign a view plan to floor type: {floorTypeMapping.FloorTypeName}",
+                            "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        return;
+                    }
                 }
 
                 // Create export directory
@@ -476,26 +560,34 @@ namespace Revit.ViewModels
 
                 // Create level-to-floor-type mapping
                 var levelToFloorTypeMap = new Dictionary<string, string>();
-
-                foreach (var sheetView in selectedItems)
+                foreach (var level in selectedLevels)
                 {
-                    if (sheetView.ViewId != null && sheetView.SelectedFloorType != null)
+                    if (level.LevelId != null && level.SelectedFloorType != null)
                     {
-                        View view = _document.GetElement(sheetView.ViewId) as View;
-                        if (view?.GenLevel != null)
-                        {
-                            // Build mapping from level ID to floor type ID
-                            string levelId = view.GenLevel.Id.ToString();
-                            levelToFloorTypeMap[levelId] = sheetView.SelectedFloorType.Id;
-                        }
+                        levelToFloorTypeMap[level.LevelId.ToString()] = level.SelectedFloorType.Id;
                     }
                 }
+
+                // Create floor type to view plan mapping for export
+                var floorTypeToViewMap = FloorTypeViewMappingCollection
+                    .Where(mapping => mapping.SelectedViewPlan != null)
+                    .ToDictionary(
+                        mapping => mapping.FloorTypeId,
+                        mapping => mapping.SelectedViewPlan.ViewId
+                    );
 
                 // Execute the exporter
                 GrasshopperExporter exporter = new GrasshopperExporter(_document, _uiApp);
 
-                // Export the model with floor type information
-                exporter.ExportSelectedSheets(jsonPath, dwgFolder, selectedItems, floorTypesList, ReferencePoint, levelToFloorTypeMap);
+                // Export the model with floor type information and view plan mappings
+                exporter.ExportWithFloorTypeViewMappings(
+                    jsonPath,
+                    dwgFolder,
+                    floorTypesList,
+                    ReferencePoint,
+                    levelToFloorTypeMap,
+                    floorTypeToViewMap
+                );
 
                 MessageBox.Show($"Export completed successfully to:\n{projectFolder}", "Export Complete", MessageBoxButton.OK, MessageBoxImage.Information);
 
@@ -512,7 +604,7 @@ namespace Revit.ViewModels
         {
             return !string.IsNullOrEmpty(OutputLocation) &&
                    ReferencePoint != null &&
-                   SheetViewCollection.Any(sv => sv.IsSelected);
+                   LevelCollection.Any(level => level.IsSelected);
         }
 
         #region Events
@@ -529,7 +621,8 @@ namespace Revit.ViewModels
             // Update command states when properties change
             if (propertyName == nameof(OutputLocation) ||
                 propertyName == nameof(ReferencePoint) ||
-                propertyName == nameof(NewFloorTypeName))
+                propertyName == nameof(NewFloorTypeName) ||
+                propertyName == nameof(LevelCollection))
             {
                 CommandManager.InvalidateRequerySuggested();
             }
@@ -565,4 +658,3 @@ namespace Revit.ViewModels
         }
     }
 }
-

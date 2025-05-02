@@ -421,9 +421,133 @@ namespace Revit.Export
             }
         }
 
-        /// <summary>
-        /// Sanitizes a filename by removing invalid characters
-        /// </summary>
+        public void ExportWithFloorTypeViewMappings(
+    string jsonPath,
+    string dwgFolder,
+    List<CL.FloorType> floorTypes,
+    XYZ referencePoint,
+    Dictionary<string, string> levelToFloorTypeMap,
+    Dictionary<string, ElementId> floorTypeToViewMap)
+        {
+            try
+            {
+                // Re-initialize the model
+                _model = new BaseModel();
+
+                // Initialize metadata with reference point
+                InitializeMetadata(referencePoint);
+
+                // Add the floor types to the model
+                _model.ModelLayout.FloorTypes = floorTypes;
+
+                // Export structural elements
+                ExportModelStructure();
+
+                // Apply level to floor type mappings
+                ApplyLevelToFloorTypeMappings(levelToFloorTypeMap);
+
+                // Export CAD plans based on floor type to view mappings
+                ExportFloorTypeViews(dwgFolder, floorTypeToViewMap);
+
+                // Save the model to JSON
+                JsonConverter.SaveToFile(_model, jsonPath);
+
+                Debug.WriteLine($"Successfully exported model to {jsonPath}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error exporting model: {ex.Message}");
+                throw;
+            }
+        }
+
+        private void ApplyLevelToFloorTypeMappings(Dictionary<string, string> levelToFloorTypeMap)
+        {
+            // Skip if no mappings
+            if (levelToFloorTypeMap == null || levelToFloorTypeMap.Count == 0)
+                return;
+
+            // Update each level with its associated floor type
+            foreach (var level in _model.ModelLayout.Levels)
+            {
+                // Find if we have a mapping for this level
+                foreach (var mapping in levelToFloorTypeMap)
+                {
+                    // Check if the ID formats match (Revit Element ID vs. internal ID)
+                    if (level.Id.EndsWith(mapping.Key) || mapping.Key.EndsWith(level.Id))
+                    {
+                        level.FloorTypeId = mapping.Value;
+                        Debug.WriteLine($"Mapped level {level.Name} to floor type {mapping.Value}");
+                        break;
+                    }
+                }
+            }
+        }
+
+        private void ExportFloorTypeViews(string folderPath, Dictionary<string, ElementId> floorTypeToViewMap)
+        {
+            try
+            {
+                // Create folder if it doesn't exist
+                if (!Directory.Exists(folderPath))
+                {
+                    Directory.CreateDirectory(folderPath);
+                }
+
+                // Skip if no mappings
+                if (floorTypeToViewMap == null || floorTypeToViewMap.Count == 0)
+                    return;
+
+                // Set up export options
+                DWGExportOptions options = new DWGExportOptions();
+
+                // Track exported views to avoid duplicates
+                HashSet<ElementId> exportedViewIds = new HashSet<ElementId>();
+
+                // For each floor type in the model, export its associated view
+                foreach (var floorType in _model.ModelLayout.FloorTypes)
+                {
+                    // Check if we have a view mapping for this floor type
+                    if (floorTypeToViewMap.TryGetValue(floorType.Id, out ElementId viewId))
+                    {
+                        // Skip if already exported
+                        if (exportedViewIds.Contains(viewId))
+                            continue;
+
+                        // Get the view from the document
+                        View view = _doc.GetElement(viewId) as View;
+                        if (view == null)
+                            continue;
+
+                        // Create filename based on floor type name
+                        string baseFilename = SanitizeFilename($"{floorType.Name}_Plan");
+
+                        try
+                        {
+                            // Export to DWG using Revit API
+                            _doc.Export(folderPath, baseFilename, new List<ElementId> { viewId }, options);
+
+                            // Add to tracked views
+                            exportedViewIds.Add(viewId);
+
+                            Debug.WriteLine($"Exported view {view.Name} to {baseFilename}.dwg for floor type {floorType.Name}");
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Error exporting view {view.Name}: {ex.Message}");
+                        }
+                    }
+                }
+
+                Debug.WriteLine($"Exported {exportedViewIds.Count} views to {folderPath}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error exporting floor type views: {ex.Message}");
+            }
+        }
+
+        // Sanitizes a filename by removing invalid characters
         private string SanitizeFilename(string filename)
         {
             if (string.IsNullOrEmpty(filename))

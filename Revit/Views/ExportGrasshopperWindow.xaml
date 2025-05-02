@@ -2,279 +2,319 @@
 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
 xmlns:vm="clr-namespace:Revit.ViewModels"
-Title="Export to Grasshopper" Height="700" Width="900"
+Title="Export to Grasshopper" Height="800" Width="900"
 WindowStartupLocation="CenterScreen">
-<Window.Resources>
-	<!-- IMEG Colors -->
-	<SolidColorBrush x:Key="PrimaryBlue" Color="#005687"/>
-	<SolidColorBrush x:Key="SecondaryBlue" Color="#256FAF"/>
-	<SolidColorBrush x:Key="AccentGreen" Color="#8DC63F"/>
-	<SolidColorBrush x:Key="TextDarkGrey" Color="#333333"/>
-	<SolidColorBrush x:Key="LightGrey" Color="#F5F5F5"/>
+    <Window.Resources>
+        <!-- IMEG Colors -->
+        <SolidColorBrush x:Key="PrimaryBlue" Color="#005687"/>
+        <SolidColorBrush x:Key="SecondaryBlue" Color="#256FAF"/>
+        <SolidColorBrush x:Key="AccentGreen" Color="#8DC63F"/>
+        <SolidColorBrush x:Key="TextDarkGrey" Color="#333333"/>
+        <SolidColorBrush x:Key="LightGrey" Color="#F5F5F5"/>
 
-	<!-- Styles -->
-	<Style x:Key="SectionText" TargetType="TextBlock">
-		<Setter Property="FontSize" Value="14"/>
-		<Setter Property="FontWeight" Value="SemiBold"/>
-		<Setter Property="Foreground" Value="#01538C"/>
-		<Setter Property="Margin" Value="0,0,0,5"/>
-	</Style>
-	<Style x:Key="IMEG_Title" TargetType="TextBlock">
-		<Setter Property="FontFamily" Value="Century Gothic"/>
-		<Setter Property="FontSize" Value="22"/>
-		<Setter Property="VerticalAlignment" Value="Center"/>
-		<Setter Property="HorizontalAlignment" Value="Left"/>
-		<Setter Property="Padding" Value="20"/>
-		<Setter Property="Foreground" Value="White"/>
-	</Style>
-	<Style TargetType="Button" x:Key="StandardButton">
-		<Setter Property="Background" Value="{StaticResource SecondaryBlue}"/>
-		<Setter Property="Foreground" Value="White"/>
-		<Setter Property="Padding" Value="16,8"/>
-		<Setter Property="BorderThickness" Value="0"/>
-		<Setter Property="Template">
-			<Setter.Value>
-				<ControlTemplate TargetType="Button">
-					<Border Background="{TemplateBinding Background}"
+        <!-- Styles -->
+        <Style x:Key="SectionText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#01538C"/>
+            <Setter Property="Margin" Value="0,0,0,5"/>
+        </Style>
+        <Style x:Key="IMEG_Title" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Century Gothic"/>
+            <Setter Property="FontSize" Value="22"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+            <Setter Property="Padding" Value="20"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+        <Style TargetType="Button" x:Key="StandardButton">
+            <Setter Property="Background" Value="{StaticResource SecondaryBlue}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Padding" Value="16,8"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
 							BorderBrush="{TemplateBinding BorderBrush}"
 							BorderThickness="{TemplateBinding BorderThickness}"
 							CornerRadius="1">
-						<ContentPresenter HorizontalAlignment="Center"
+                            <ContentPresenter HorizontalAlignment="Center"
 										VerticalAlignment="Center"
 										Margin="{TemplateBinding Padding}"/>
-					</Border>
-					<ControlTemplate.Triggers>
-						<Trigger Property="IsEnabled" Value="False">
-							<Setter Property="Opacity" Value="0.5"/>
-						</Trigger>
-					</ControlTemplate.Triggers>
-				</ControlTemplate>
-			</Setter.Value>
-		</Setter>
-		<Style.Triggers>
-			<Trigger Property="IsMouseOver" Value="True">
-				<Setter Property="Background" Value="{StaticResource PrimaryBlue}"/>
-			</Trigger>
-		</Style.Triggers>
-	</Style>
-	<Style x:Key="SecondaryButton" TargetType="Button">
-		<Setter Property="Background" Value="#E0E0E0"/>
-		<Setter Property="Foreground" Value="Black"/>
-		<Setter Property="Padding" Value="16,6"/>
-		<Setter Property="BorderThickness" Value="1"/>
-		<Setter Property="Template">
-			<Setter.Value>
-				<ControlTemplate TargetType="Button">
-					<Border Background="{TemplateBinding Background}"
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{StaticResource PrimaryBlue}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="SecondaryButton" TargetType="Button">
+            <Setter Property="Background" Value="#E0E0E0"/>
+            <Setter Property="Foreground" Value="Black"/>
+            <Setter Property="Padding" Value="16,6"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
 							BorderBrush="{TemplateBinding BorderBrush}"
 							BorderThickness="{TemplateBinding BorderThickness}"
 							CornerRadius="0">
-						<ContentPresenter HorizontalAlignment="Center"
+                            <ContentPresenter HorizontalAlignment="Center"
 										VerticalAlignment="Center"
 										Margin="{TemplateBinding Padding}"/>
-					</Border>
-					<ControlTemplate.Triggers>
-						<Trigger Property="IsEnabled" Value="False">
-							<Setter Property="Opacity" Value="0.5"/>
-						</Trigger>
-					</ControlTemplate.Triggers>
-				</ControlTemplate>
-			</Setter.Value>
-		</Setter>
-		<Style.Triggers>
-			<Trigger Property="IsMouseOver" Value="True">
-				<Setter Property="Background" Value="#CCCCCC"/>
-			</Trigger>
-		</Style.Triggers>
-	</Style>
-	<!-- GroupBox Header Style -->
-	<Style TargetType="GroupBox">
-		<Setter Property="HeaderTemplate">
-			<Setter.Value>
-				<DataTemplate>
-					<TextBlock Text="{Binding}" Style="{StaticResource SectionText}"/>
-				</DataTemplate>
-			</Setter.Value>
-		</Setter>
-		<Setter Property="Margin" Value="0,0,0,15"/>
-		<Setter Property="Padding" Value="10"/>
-	</Style>
-</Window.Resources>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#CCCCCC"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <!-- GroupBox Header Style -->
+        <Style TargetType="GroupBox">
+            <Setter Property="HeaderTemplate">
+                <Setter.Value>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding}" Style="{StaticResource SectionText}"/>
+                    </DataTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="Margin" Value="0,0,0,15"/>
+            <Setter Property="Padding" Value="10"/>
+        </Style>
+    </Window.Resources>
 
-<Window.DataContext>
-	<vm:ExportGrasshopperViewModel/>
-</Window.DataContext>
+    <Window.DataContext>
+        <vm:ExportGrasshopperViewModel/>
+    </Window.DataContext>
 
-<Border Background="White">
-	<Grid>
-		<Grid.RowDefinitions>
-			<RowDefinition Height="60"/>
-			<!-- Blue Title Bar -->
-			<RowDefinition Height="30"/>
-			<!-- Green Bar -->
-			<RowDefinition Height="*"/>
-			<!-- Main Content -->
-		</Grid.RowDefinitions>
+    <Border Background="White">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="60"/>
+                <!-- Blue Title Bar -->
+                <RowDefinition Height="30"/>
+                <!-- Green Bar -->
+                <RowDefinition Height="*"/>
+                <!-- Main Content -->
+            </Grid.RowDefinitions>
 
-		<!-- Blue Title Bar -->
-		<Grid Background="{StaticResource PrimaryBlue}" Grid.Row="0">
-			<TextBlock Style="{StaticResource IMEG_Title}" Text="Export to Grasshopper" />
-		</Grid>
+            <!-- Blue Title Bar -->
+            <Grid Background="{StaticResource PrimaryBlue}" Grid.Row="0">
+                <TextBlock Style="{StaticResource IMEG_Title}" Text="Export to Grasshopper" />
+            </Grid>
 
-		<!-- Green Bar -->
-		<StackPanel Height="30" Grid.Row="1" FlowDirection="RightToLeft">
-			<StackPanel.Background>
-				<LinearGradientBrush StartPoint="-2,0" EndPoint="1,1">
-					<GradientStop Color="White" Offset="0.7" />
-					<GradientStop Color="{Binding Source={StaticResource AccentGreen}, Path=Color}" Offset="1.0" />
-				</LinearGradientBrush>
-			</StackPanel.Background>
-		</StackPanel>
+            <!-- Green Bar -->
+            <StackPanel Height="30" Grid.Row="1" FlowDirection="RightToLeft">
+                <StackPanel.Background>
+                    <LinearGradientBrush StartPoint="-2,0" EndPoint="1,1">
+                        <GradientStop Color="White" Offset="0.7" />
+                        <GradientStop Color="{Binding Source={StaticResource AccentGreen}, Path=Color}" Offset="1.0" />
+                    </LinearGradientBrush>
+                </StackPanel.Background>
+            </StackPanel>
 
-		<!-- Main Content -->
-		<Grid Margin="15" Grid.Row="2">
-			<Grid.RowDefinitions>
-				<RowDefinition Height="Auto"/>
-				<!-- Output Location & Reference Point -->
-				<RowDefinition Height="Auto"/>
-				<!-- Floor Types -->
-				<RowDefinition Height="*"/>
-				<!-- DataGrid -->
-				<RowDefinition Height="Auto"/>
-				<!-- Buttons -->
-			</Grid.RowDefinitions>
+            <!-- Main Content -->
+            <Grid Margin="15" Grid.Row="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <!-- Output Location & Reference Point -->
+                    <RowDefinition Height="Auto"/>
+                    <!-- Floor Types -->
+                    <RowDefinition Height="Auto"/>
+                    <!-- Levels to Floor Types -->
+                    <RowDefinition Height="Auto"/>
+                    <!-- View Plans to Floor Types -->
+                    <RowDefinition Height="Auto"/>
+                    <!-- Action Buttons -->
+                </Grid.RowDefinitions>
 
-			<!-- Output Location & Reference Point side by side -->
-			<Grid Grid.Row="0">
-				<Grid.ColumnDefinitions>
-					<ColumnDefinition Width="*"/>
-					<ColumnDefinition Width="*"/>
-				</Grid.ColumnDefinitions>
+                <!-- Output Location & Reference Point side by side -->
+                <Grid Grid.Row="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
 
-				<!-- Output Location -->
-				<GroupBox Grid.Column="0" Header="Output Location" Margin="0,0,10,0">
-					<Grid>
-						<Grid.ColumnDefinitions>
-							<ColumnDefinition Width="*"/>
-							<ColumnDefinition Width="Auto"/>
-						</Grid.ColumnDefinitions>
-						<TextBox x:Name="txtOutputLocation" Text="{Binding OutputLocation, UpdateSourceTrigger=PropertyChanged}"
+                    <!-- Output Location -->
+                    <GroupBox Grid.Column="0" Header="Output Location" Margin="0,0,10,0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="txtOutputLocation" Text="{Binding OutputLocation, UpdateSourceTrigger=PropertyChanged}"
 								 Grid.Column="0" Margin="0,0,10,0"/>
-						<Button Content="Browse..." Command="{Binding BrowseOutputCommand}"
+                            <Button Content="Browse..." Command="{Binding BrowseOutputCommand}"
 								Style="{StaticResource SecondaryButton}" Grid.Column="1" Width="80"/>
-					</Grid>
-				</GroupBox>
+                        </Grid>
+                    </GroupBox>
 
-				<!-- Reference Point -->
-				<GroupBox Grid.Column="1" Header="Reference Point" Margin="10,0,0,0">
-					<Grid>
-						<Grid.ColumnDefinitions>
-							<ColumnDefinition Width="*"/>
-							<ColumnDefinition Width="Auto"/>
-						</Grid.ColumnDefinitions>
-						<TextBox x:Name="txtReferencePoint" Text="{Binding ReferencePointText, Mode=OneWay}"
+                    <!-- Reference Point -->
+                    <GroupBox Grid.Column="1" Header="Reference Point" Margin="10,0,0,0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="txtReferencePoint" Text="{Binding ReferencePointText, Mode=OneWay}"
 								 IsReadOnly="True" Grid.Column="0" Margin="0,0,10,0"/>
-						<Button Content="Select Point" Command="{Binding SelectPointCommand}"
+                            <Button Content="Select Point" Command="{Binding SelectPointCommand}"
 								Style="{StaticResource SecondaryButton}" Grid.Column="1" Width="100"/>
-					</Grid>
-				</GroupBox>
-			</Grid>
+                        </Grid>
+                    </GroupBox>
+                </Grid>
 
-			<!-- Floor Types -->
-			<GroupBox Grid.Row="1" Header="Floor Types">
-				<Grid>
-					<Grid.ColumnDefinitions>
-						<ColumnDefinition Width="3*"/>
-						<ColumnDefinition Width="Auto"/>
-						<ColumnDefinition Width="1*"/>
-					</Grid.ColumnDefinitions>
-					<Grid.RowDefinitions>
-						<RowDefinition Height="Auto"/>
-						<RowDefinition Height="*"/>
-					</Grid.RowDefinitions>
+                <!-- Floor Types Management -->
+                <GroupBox Grid.Row="1" Header="Floor Types">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="3*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="1*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
 
-					<!-- Floor Type Entry -->
-					<TextBox x:Name="txtNewFloorType" Text="{Binding NewFloorTypeName, UpdateSourceTrigger=PropertyChanged}"
+                        <!-- Floor Type Entry -->
+                        <TextBox x:Name="txtNewFloorType" Text="{Binding NewFloorTypeName, UpdateSourceTrigger=PropertyChanged}"
 							 Grid.Column="0" Grid.Row="0" Margin="0,0,10,5"/>
-					<Button Content="Add Type" Command="{Binding AddFloorTypeCommand}"
+                        <Button Content="Add Type" Command="{Binding AddFloorTypeCommand}"
 							Style="{StaticResource StandardButton}" Grid.Column="1" Grid.Row="0" Width="80" Margin="0,0,10,5"/>
 
-					<!-- Floor Types List -->
-					<ListBox x:Name="lbFloorTypes" Grid.Column="0" Grid.Row="1" Grid.ColumnSpan="2"
+                        <!-- Floor Types List -->
+                        <ListBox x:Name="lbFloorTypes" Grid.Column="0" Grid.Row="1" Grid.ColumnSpan="2"
 							 Height="100" Margin="0,0,0,0"
 							 ItemsSource="{Binding FloorTypes}"
 							 SelectedItem="{Binding SelectedFloorType}">
-						<ListBox.ItemTemplate>
-							<DataTemplate>
-								<Grid>
-									<Grid.ColumnDefinitions>
-										<ColumnDefinition Width="*"/>
-										<ColumnDefinition Width="Auto"/>
-									</Grid.ColumnDefinitions>
-									<TextBlock Text="{Binding Name}" Grid.Column="0" VerticalAlignment="Center"/>
-									<Button Content="✕" Command="{Binding DataContext.RemoveFloorTypeCommand, 
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding Name}" Grid.Column="0" VerticalAlignment="Center"/>
+                                        <Button Content="✕" Command="{Binding DataContext.RemoveFloorTypeCommand, 
                                                  RelativeSource={RelativeSource AncestorType=ListBox}}"
 											CommandParameter="{Binding}"
 											Grid.Column="1" Padding="5,0" Margin="5,0,0,0"/>
-								</Grid>
-							</DataTemplate>
-						</ListBox.ItemTemplate>
-					</ListBox>
-				</Grid>
-			</GroupBox>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Grid>
+                </GroupBox>
 
-			<!-- DataGrid Section -->
-			<GroupBox Grid.Row="2" Header="Views">
-				<Grid>
-					<Grid.RowDefinitions>
-						<RowDefinition Height="Auto"/>
-						<RowDefinition Height="*"/>
-					</Grid.RowDefinitions>
+                <!-- Levels to Floor Types -->
+                <GroupBox Grid.Row="2" Header="Levels to Floor Types">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
 
-					<!-- Search Box -->
-					<Grid Grid.Row="0" Margin="0,0,0,10">
-						<Grid.ColumnDefinitions>
-							<ColumnDefinition Width="Auto"/>
-							<ColumnDefinition Width="3*"/>
-							<ColumnDefinition Width="4*"/>
-						</Grid.ColumnDefinitions>
-						<TextBlock Text="Search:" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0"/>
-						<TextBox x:Name="txtSearch" Grid.Column="1" Margin="0"
-								 Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"/>
-					</Grid>
+                        <!-- Search Box -->
+                        <Grid Grid.Row="0" Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Search:" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <TextBox x:Name="txtLevelSearch" Grid.Column="1" Margin="0"
+								 Text="{Binding LevelSearchText, UpdateSourceTrigger=PropertyChanged}"/>
+                        </Grid>
 
-					<!-- DataGrid -->
-					<DataGrid x:Name="dgSheets" Grid.Row="1" AutoGenerateColumns="False"
-							  ItemsSource="{Binding SheetViewCollection}"
+                        <!-- Levels DataGrid -->
+                        <DataGrid x:Name="dgLevels" Grid.Row="1" AutoGenerateColumns="False" Height="150"
+							  ItemsSource="{Binding LevelCollection}" 
 							  CanUserAddRows="False" CanUserDeleteRows="False">
-						<DataGrid.Columns>
-							<DataGridTextColumn Header="Sheet #" Binding="{Binding SheetNumber}" Width="100"/>
-							<DataGridTextColumn Header="Sheet Name" Binding="{Binding SheetName}" Width="*"/>
-							<DataGridTextColumn Header="View Name" Binding="{Binding ViewName}" Width="*"/>
-							<DataGridTemplateColumn Header="Floor Type" Width="150">
-								<DataGridTemplateColumn.CellTemplate>
-									<DataTemplate>
-										<ComboBox ItemsSource="{Binding DataContext.FloorTypes, 
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Level Name" Binding="{Binding Name}" Width="*"/>
+                                <DataGridTextColumn Header="Elevation" Binding="{Binding Elevation}" Width="120"/>
+                                <DataGridTemplateColumn Header="Floor Type" Width="150">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <ComboBox ItemsSource="{Binding DataContext.FloorTypes, 
                                                       RelativeSource={RelativeSource AncestorType=Window}}"
 												  SelectedItem="{Binding SelectedFloorType, UpdateSourceTrigger=PropertyChanged}"
 												  DisplayMemberPath="Name" Margin="2"/>
-									</DataTemplate>
-								</DataGridTemplateColumn.CellTemplate>
-							</DataGridTemplateColumn>
-							<DataGridCheckBoxColumn Header="Export" Binding="{Binding IsSelected}" Width="60"/>
-						</DataGrid.Columns>
-					</DataGrid>
-				</Grid>
-			</GroupBox>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridCheckBoxColumn Header="Export" Binding="{Binding IsSelected}" Width="60"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </GroupBox>
 
-			<!-- Action Buttons -->
-			<StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
-				<Button Content="Export" Command="{Binding ExportCommand}"
+                <!-- View Plans to Floor Types -->
+                <GroupBox Grid.Row="3" Header="View Plans to Floor Types">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Search Box -->
+                        <Grid Grid.Row="0" Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Search:" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <TextBox x:Name="txtViewSearch" Grid.Column="1" Margin="0"
+								 Text="{Binding ViewSearchText, UpdateSourceTrigger=PropertyChanged}"/>
+                        </Grid>
+
+                        <!-- View Plans DataGrid -->
+                        <DataGrid x:Name="dgViewPlans" Grid.Row="1" AutoGenerateColumns="False" Height="200"
+							  ItemsSource="{Binding FloorTypeViewMappingCollection}"
+							  CanUserAddRows="False" CanUserDeleteRows="False">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Floor Type" Binding="{Binding FloorTypeName}" Width="150"/>
+                                <DataGridTemplateColumn Header="View Plan" Width="*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <ComboBox ItemsSource="{Binding DataContext.ViewPlanCollection, 
+                                                      RelativeSource={RelativeSource AncestorType=Window}}"
+												  SelectedItem="{Binding SelectedViewPlan, UpdateSourceTrigger=PropertyChanged}"
+												  DisplayMemberPath="Name" Margin="2"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </GroupBox>
+
+                <!-- Action Buttons -->
+                <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">
+                    <Button Content="Export" Command="{Binding ExportCommand}"
 						Style="{StaticResource StandardButton}" Width="100" Height="30" Margin="0,0,10,0"/>
-				<Button Content="Cancel" Command="{Binding CancelCommand}"
+                    <Button Content="Cancel" Command="{Binding CancelCommand}"
 						Style="{StaticResource SecondaryButton}" Width="100" Height="30"/>
-			</StackPanel>
-		</Grid>
-	</Grid>
-</Border>
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Border>
 </Window>

@@ -7,18 +7,17 @@ using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Input;
-using System.Xml.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Microsoft.Win32;
-using Revit.Export.Models;
 using Revit.Export;
+using Revit.Export.Models;
 
 namespace Revit.ViewModels
 {
     public class ExportGrasshopperViewModel : INotifyPropertyChanged
     {
-       
+        #region Fields
         private UIApplication _uiApp;
         private Document _document;
         private string _outputLocation;
@@ -30,9 +29,9 @@ namespace Revit.ViewModels
         private ObservableCollection<SheetViewModel> _sheetViewCollection;
         private ICollectionView _filteredSheetViewCollection;
         private string _searchText;
-       
+        #endregion
 
-     
+        #region Properties
         public string OutputLocation
         {
             get => _outputLocation;
@@ -118,19 +117,22 @@ namespace Revit.ViewModels
                 FilterSheetViews();
             }
         }
+        #endregion
+
+        #region Commands
+        public ICommand BrowseOutputCommand { get; private set; }
+        public ICommand SelectPointCommand { get; private set; }
+        public ICommand AddFloorTypeCommand { get; private set; }
+        public ICommand RemoveFloorTypeCommand { get; private set; }
+        public ICommand ExportCommand { get; private set; }
+        public ICommand CancelCommand { get; private set; }
+        #endregion
 
         // Constructor for designer time
         public ExportGrasshopperViewModel()
         {
             InitializeProperties();
             InitializeCommands();
-
-            // WHAT????
-            // Add sample data for design time
-            if (System.ComponentModel.DesignerProperties.GetIsInDesignMode(new DependencyObject()))
-            {
-                AddSampleData();
-            }
         }
 
         // Constructor for runtime with Revit API
@@ -171,32 +173,6 @@ namespace Revit.ViewModels
             RemoveFloorTypeCommand = new RelayCommand(RemoveFloorType);
             ExportCommand = new RelayCommand(Export, CanExport);
             CancelCommand = new RelayCommand(obj => RequestClose?.Invoke());
-        }
-
-        private void AddSampleData()
-        {
-            // Add sample floor types
-            FloorTypes.Add(new FloorTypeModel { Id = "ft1", Name = "Concrete Slab" });
-            FloorTypes.Add(new FloorTypeModel { Id = "ft2", Name = "Metal Deck" });
-
-            // Add sample sheets
-            SheetViewCollection.Add(new SheetViewModel
-            {
-                SheetNumber = "A1.01",
-                SheetName = "First Floor Plan",
-                ViewName = "Level 1",
-                IsSelected = true,
-                SelectedFloorType = FloorTypes[0]
-            });
-
-            SheetViewCollection.Add(new SheetViewModel
-            {
-                SheetNumber = "A1.02",
-                SheetName = "Second Floor Plan",
-                ViewName = "Level 2",
-                IsSelected = true,
-                SelectedFloorType = FloorTypes[0]
-            });
         }
 
         private void LoadSheetsAndViews()
@@ -407,7 +383,7 @@ namespace Revit.ViewModels
                 }).ToList();
 
                 // Execute the exporter
-                GrasshopperExporter exporter = new GrasshopperExporter(_document, _uiApp);
+                GrasshopperExporter exporter = new GrasshopperExporter(_document, _uiApp);  
                 exporter.ExportSelectedSheets(jsonPath, dwgFolder, selectedItems, floorTypesList, ReferencePoint);
 
                 MessageBox.Show($"Export completed successfully to:\n{projectFolder}", "Export Complete", MessageBoxButton.OK, MessageBoxImage.Information);

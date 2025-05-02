@@ -12,6 +12,8 @@ using Autodesk.Revit.UI;
 using Microsoft.Win32;
 using Revit.Export;
 using Revit.Export.Models;
+using Revit.Export.ModelLayout;
+using System.Collections.Generic;
 
 namespace Revit.ViewModels
 {
@@ -29,6 +31,7 @@ namespace Revit.ViewModels
         private ObservableCollection<SheetViewModel> _sheetViewCollection;
         private ICollectionView _filteredSheetViewCollection;
         private string _searchText;
+        private FloorTypeExport _floorTypeExporter;
         #endregion
 
         #region Properties
@@ -133,6 +136,12 @@ namespace Revit.ViewModels
         {
             InitializeProperties();
             InitializeCommands();
+
+            // Add sample data for design time
+            if (System.ComponentModel.DesignerProperties.GetIsInDesignMode(new DependencyObject()))
+            {
+                AddSampleData();
+            }
         }
 
         // Constructor for runtime with Revit API
@@ -140,6 +149,11 @@ namespace Revit.ViewModels
         {
             _uiApp = uiApp;
             _document = uiApp?.ActiveUIDocument?.Document;
+
+            if (_document != null)
+            {
+                _floorTypeExporter = new FloorTypeExport(_document);
+            }
 
             InitializeProperties();
             InitializeCommands();
@@ -173,6 +187,32 @@ namespace Revit.ViewModels
             RemoveFloorTypeCommand = new RelayCommand(RemoveFloorType);
             ExportCommand = new RelayCommand(Export, CanExport);
             CancelCommand = new RelayCommand(obj => RequestClose?.Invoke());
+        }
+
+        private void AddSampleData()
+        {
+            // Add sample floor types
+            FloorTypes.Add(new FloorTypeModel { Id = "ft1", Name = "Concrete Slab" });
+            FloorTypes.Add(new FloorTypeModel { Id = "ft2", Name = "Metal Deck" });
+
+            // Add sample sheets
+            SheetViewCollection.Add(new SheetViewModel
+            {
+                SheetNumber = "A1.01",
+                SheetName = "First Floor Plan",
+                ViewName = "Level 1",
+                IsSelected = true,
+                SelectedFloorType = FloorTypes[0]
+            });
+
+            SheetViewCollection.Add(new SheetViewModel
+            {
+                SheetNumber = "A1.02",
+                SheetName = "Second Floor Plan",
+                ViewName = "Level 2",
+                IsSelected = true,
+                SelectedFloorType = FloorTypes[0]
+            });
         }
 
         private void LoadSheetsAndViews()
@@ -382,8 +422,30 @@ namespace Revit.ViewModels
                     Description = $"Floor type for {ft.Name}"
                 }).ToList();
 
+                // Create level-to-floor-type mapping
+                var levelToFloorTypeMap = new Dictionary<string, string>();
+                foreach (var sheetView in selectedItems)
+                {
+                    if (sheetView.ViewId != null && sheetView.SelectedFloorType != null)
+                    {
+                        // Get the view from the document
+                        View view = _document.GetElement(sheetView.ViewId) as View;
+                        if (view != null)
+                        {
+                            // Try to find the level associated with this view
+                            Level level = view.GenLevel;
+                            if (level != null)
+                            {
+                                levelToFloorTypeMap[level.Id.ToString()] = sheetView.SelectedFloorType.Id;
+                            }
+                        }
+                    }
+                }
+
                 // Execute the exporter
-                GrasshopperExporter exporter = new GrasshopperExporter(_document, _uiApp);  
+                GrasshopperExporter exporter = new GrasshopperExporter(_document, _uiApp);
+
+                // Export the model with floor type information
                 exporter.ExportSelectedSheets(jsonPath, dwgFolder, selectedItems, floorTypesList, ReferencePoint);
 
                 MessageBox.Show($"Export completed successfully to:\n{projectFolder}", "Export Complete", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -454,3 +516,4 @@ namespace Revit.ViewModels
         }
     }
 }
+

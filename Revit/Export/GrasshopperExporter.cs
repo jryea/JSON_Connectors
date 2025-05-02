@@ -135,7 +135,7 @@ namespace Revit.Export
             {
                 // Export floor types
                 FloorTypeExport floorTypeExport = new FloorTypeExport(_doc);
-                int floorTypeCount = floorTypeExport.Export(_model.ModelLayout.FloorTypes);
+                int floorTypeCount = floorTypeExport.Export(_model.ModelLayout.FloorTypes, _model.ModelLayout.Levels);
                 Debug.WriteLine($"Exported {floorTypeCount} floor types");
 
                 // Export levels

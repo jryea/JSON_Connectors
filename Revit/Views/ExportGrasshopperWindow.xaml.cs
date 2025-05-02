@@ -20,12 +20,34 @@ namespace Revit.Views
             DataContext = _viewModel;
 
             // Set up event handling for the view model
-            _viewModel.RequestClose += () => DialogResult = true;
-            _viewModel.RequestMinimize += () => this.Hide();
+            _viewModel.RequestClose += () =>
+            {
+                if (this.IsLoaded && this.IsVisible)
+                {
+                    // Only set DialogResult if the window is shown as a dialog
+                    if (this.Owner != null)
+                    {
+                        this.DialogResult = false;
+                    }
+                    this.Close();
+                }
+            };
+
+            _viewModel.RequestMinimize += () =>
+            {
+                if (this.IsLoaded && this.IsVisible)
+                {
+                    this.Hide();
+                }
+            };
+
             _viewModel.RequestRestore += () =>
             {
-                this.Show();
-                this.Activate();
+                if (!this.IsVisible)
+                {
+                    this.Show();
+                    this.Activate();
+                }
             };
         }
     }

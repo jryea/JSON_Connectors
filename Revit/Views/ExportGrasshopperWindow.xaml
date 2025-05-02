@@ -224,7 +224,7 @@ WindowStartupLocation="CenterScreen">
 			</GroupBox>
 
 			<!-- DataGrid Section -->
-			<GroupBox Grid.Row="2" Header="Sheets and Views">
+			<GroupBox Grid.Row="2" Header="Views">
 				<Grid>
 					<Grid.RowDefinitions>
 						<RowDefinition Height="Auto"/>

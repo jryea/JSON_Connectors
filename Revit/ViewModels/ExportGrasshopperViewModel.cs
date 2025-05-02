@@ -215,8 +215,8 @@ namespace Revit.ViewModels
             _filteredLevelCollection = CollectionViewSource.GetDefaultView(LevelCollection);
             _filteredLevelCollection.Filter = LevelViewFilter;
 
-            // Add a default floor type
-            FloorTypes.Add(new FloorTypeModel { Id = "default", Name = "Default" });
+            // Add a default floor type - do NOT generate an ID, let the Core.Models.ModelLayout.FloorType constructor do it
+            FloorTypes.Add(new FloorTypeModel { Name = "Default" });
             SelectedFloorType = FloorTypes.First();
         }
 
@@ -233,8 +233,8 @@ namespace Revit.ViewModels
         private void AddSampleData()
         {
             // Add sample floor types
-            FloorTypes.Add(new FloorTypeModel { Id = "ft1", Name = "Concrete Slab" });
-            FloorTypes.Add(new FloorTypeModel { Id = "ft2", Name = "Metal Deck" });
+            FloorTypes.Add(new FloorTypeModel { Name = "Concrete Slab" });
+            FloorTypes.Add(new FloorTypeModel { Name = "Metal Deck" });
 
             // Add sample levels
             LevelCollection.Add(new LevelViewModel
@@ -271,14 +271,12 @@ namespace Revit.ViewModels
             // Add sample floor type view mappings
             FloorTypeViewMappingCollection.Add(new FloorTypeViewMappingModel
             {
-                FloorTypeId = "ft1",
                 FloorTypeName = "Concrete Slab",
                 SelectedViewPlan = ViewPlanCollection[0]
             });
 
             FloorTypeViewMappingCollection.Add(new FloorTypeViewMappingModel
             {
-                FloorTypeId = "ft2",
                 FloorTypeName = "Metal Deck",
                 SelectedViewPlan = ViewPlanCollection[1]
             });
@@ -332,7 +330,7 @@ namespace Revit.ViewModels
                     .OfClass(typeof(ViewPlan))
                     .WhereElementIsNotElementType()
                     .Cast<ViewPlan>()
-                    .Where(v => !v.IsTemplate && (v.ViewType == ViewType.FloorPlan || v.ViewType == ViewType.EngineeringPlan || v.ViewType == ViewType.CeilingPlan))
+                    .Where(v => !v.IsTemplate && v.ViewType == ViewType.FloorPlan)
                     .OrderBy(v => v.Name)
                     .ToList();
 
@@ -364,7 +362,6 @@ namespace Revit.ViewModels
             {
                 var mapping = new FloorTypeViewMappingModel
                 {
-                    FloorTypeId = floorType.Id,
                     FloorTypeName = floorType.Name,
                     SelectedViewPlan = ViewPlanCollection.FirstOrDefault() // Set first view plan as default
                 };
@@ -472,15 +469,15 @@ namespace Revit.ViewModels
         {
             if (parameter is FloorTypeModel floorType)
             {
-                // Check if this is the default type
-                if (floorType.Id == "default")
+                // Prevent removing the first floor type (default)
+                if (FloorTypes.IndexOf(floorType) == 0)
                 {
                     MessageBox.Show("The default floor type cannot be removed.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                     return;
                 }
 
                 // Update any levels using this floor type to use default
-                var defaultType = FloorTypes.First(ft => ft.Id == "default");
+                var defaultType = FloorTypes.First(); // Always use the first floor type as default
                 foreach (var level in LevelCollection)
                 {
                     if (level.SelectedFloorType?.Id == floorType.Id)
@@ -551,42 +548,78 @@ namespace Revit.ViewModels
                 string dwgFolder = Path.Combine(projectFolder, "CAD");
                 Directory.CreateDirectory(dwgFolder);
 
-                // Convert view models to domain models
+                // Create new instances of Core.Models.ModelLayout.FloorType to let their constructors generate the IDs
                 var floorTypesList = FloorTypes.Select(ft => new Core.Models.ModelLayout.FloorType
                 {
-                    Id = ft.Id,
                     Name = ft.Name,
+                    Description = $"Floor type for {ft.Name}"
                 }).ToList();
 
-                // Create level-to-floor-type mapping
-                var levelToFloorTypeMap = new Dictionary<string, string>();
-                foreach (var level in selectedLevels)
+                // Create a map between the view model floor types and the new Core.Models instances
+                var floorTypeNameToIdMap = floorTypesList
+                    .ToDictionary(ft => ft.Name, ft => ft.Id);
+
+                // Now assign the generated IDs back to our view models for consistency
+                foreach (var ft in FloorTypes)
                 {
-                    if (level.LevelId != null && level.SelectedFloorType != null)
+                    if (floorTypeNameToIdMap.TryGetValue(ft.Name, out string newId))
                     {
-                        levelToFloorTypeMap[level.LevelId.ToString()] = level.SelectedFloorType.Id;
+                        ft.Id = newId;
                     }
                 }
 
+                // Create level-to-floor-type mapping for selected levels only,
+                // using the newly generated floor type IDs
+                var selectedCoreModelLevels = new List<Core.Models.ModelLayout.Level>();
+                foreach (var level in selectedLevels)
+                {
+                    // Create a Core.Models.ModelLayout.Level for each selected level
+                    var coreLevel = new Core.Models.ModelLayout.Level
+                    {
+                        Name = level.Name,
+                        Elevation = level.Elevation
+                    };
+
+                    // Assign floor type ID based on the selected floor type's name using our map
+                    if (level.SelectedFloorType != null &&
+                        floorTypeNameToIdMap.TryGetValue(level.SelectedFloorType.Name, out string floorTypeId))
+                    {
+                        coreLevel.FloorTypeId = floorTypeId;
+                    }
+
+                    selectedCoreModelLevels.Add(coreLevel);
+                }
+
+                // Create list of selected level IDs to only export those levels
+                var selectedLevelIds = selectedLevels
+                    .Select(level => level.LevelId)
+                    .Where(id => id != null)
+                    .ToList();
+
                 // Create floor type to view plan mapping for export
-                var floorTypeToViewMap = FloorTypeViewMappingCollection
-                    .Where(mapping => mapping.SelectedViewPlan != null)
-                    .ToDictionary(
-                        mapping => mapping.FloorTypeId,
-                        mapping => mapping.SelectedViewPlan.ViewId
-                    );
+                // using the updated floor type IDs
+                var floorTypeToViewMap = new Dictionary<string, ElementId>();
+                foreach (var mapping in FloorTypeViewMappingCollection)
+                {
+                    if (mapping.SelectedViewPlan != null &&
+                        floorTypeNameToIdMap.TryGetValue(mapping.FloorTypeName, out string mappedFloorTypeId))
+                    {
+                        floorTypeToViewMap[mappedFloorTypeId] = mapping.SelectedViewPlan.ViewId;
+                    }
+                }
 
                 // Execute the exporter
                 GrasshopperExporter exporter = new GrasshopperExporter(_document, _uiApp);
 
-                // Export the model with floor type information and view plan mappings
+                // Export the model with floor type information, view plan mappings, and selected levels only
                 exporter.ExportWithFloorTypeViewMappings(
                     jsonPath,
                     dwgFolder,
                     floorTypesList,
+                    selectedCoreModelLevels,
                     ReferencePoint,
-                    levelToFloorTypeMap,
-                    floorTypeToViewMap
+                    floorTypeToViewMap,
+                    selectedLevelIds
                 );
 
                 MessageBox.Show($"Export completed successfully to:\n{projectFolder}", "Export Complete", MessageBoxButton.OK, MessageBoxImage.Information);

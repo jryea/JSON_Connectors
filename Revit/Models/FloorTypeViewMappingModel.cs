@@ -5,19 +5,8 @@ namespace Revit.Export.Models
 {
     public class FloorTypeViewMappingModel : INotifyPropertyChanged
     {
-        private string _floorTypeId;
         private string _floorTypeName;
         private ViewPlanViewModel _selectedViewPlan;
-
-        public string FloorTypeId
-        {
-            get => _floorTypeId;
-            set
-            {
-                _floorTypeId = value;
-                OnPropertyChanged();
-            }
-        }
 
         public string FloorTypeName
         {

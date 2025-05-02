@@ -19,7 +19,8 @@ namespace Revit.Export.Elements
             _doc = doc;
         }
 
-        public int Export(List<CE.Column> columns, BaseModel model)
+        // Modified to support filtering by level names
+        public int Export(List<CE.Column> columns, BaseModel model, HashSet<string> selectedLevelNames = null)
         {
             int count = 0;
 
@@ -58,10 +59,7 @@ namespace Revit.Export.Elements
 
                     DB.XYZ point = location.Point;
 
-                    // Create column object
-                    CE.Column column = new CE.Column();
-
-                    // Get base and top level IDs 
+                    // Get base and top level IDs
                     DB.ElementId baseLevelId = revitColumn.get_Parameter(DB.BuiltInParameter.FAMILY_BASE_LEVEL_PARAM).AsElementId();
                     DB.ElementId topLevelId = revitColumn.get_Parameter(DB.BuiltInParameter.FAMILY_TOP_LEVEL_PARAM).AsElementId();
 
@@ -73,6 +71,21 @@ namespace Revit.Export.Elements
                     {
                         Debug.WriteLine($"Skipping column at ({point.X}, {point.Y}) due to missing base or top level");
                         continue;
+                    }
+
+                    // Filter by level name if requested
+                    if (selectedLevelNames != null && selectedLevelNames.Count > 0)
+                    {
+                        // Check if either the base or top level is in the selected levels
+                        bool baseSelected = selectedLevelNames.Contains(baseLevel.Name);
+                        bool topSelected = selectedLevelNames.Contains(topLevel.Name);
+
+                        // Skip if neither base nor top level is selected
+                        if (!baseSelected && !topSelected)
+                        {
+                            Debug.WriteLine($"Skipping column at ({point.X}, {point.Y}) as neither base nor top level is selected");
+                            continue;
+                        }
                     }
 
                     // Get offset parameters
@@ -105,6 +118,9 @@ namespace Revit.Export.Elements
                     DB.Level matchedTopLevel = FindClosestLevelByElevation(revitLevels, actualTopElevation);
 
                     Debug.WriteLine($"Column at ({point.X:F2}, {point.Y:F2}): Matched base level = {matchedBaseLevel?.Name ?? "None"}, Matched top level = {matchedTopLevel?.Name ?? "None"}");
+
+                    // Create column object
+                    CE.Column column = new CE.Column();
 
                     // Map levels to model level IDs 
                     if (matchedBaseLevel != null && levelIdMap.ContainsKey(matchedBaseLevel.Id))

@@ -1,6 +1,6 @@
 ﻿using Rhino;
 using Rhino.Commands;
-using Rhino.UI.Dialogs;
+using Rhino.UI;
 using Rhino.Geometry;
 using Rhino.DocObjects;
 using System;
@@ -37,7 +37,7 @@ namespace StructuralSetup.Commands
             }
 
             // Step 3: Begin setup command
-            Command.BeginCommand("Parametric Setup");
+            RhinoApp.RunScript("_-Command _Pause", false);
 
             try
             {
@@ -53,26 +53,28 @@ namespace StructuralSetup.Commands
                     ImportDwgFile(doc, dwgFile, setupLayer);
                 }
 
-                Command.EndCommand();
+                RhinoApp.RunScript("_-Command _Resume", false);
                 return Result.Success;
             }
             catch (Exception ex)
             {
                 RhinoApp.WriteLine("Error during setup: {0}", ex.Message);
-                Command.CancelCommand();
+                Rhino.RhinoApp.RunScript("_-Command _Cancel", false);
                 return Result.Failure;
             }
         }
 
-        private string SelectDirectory()
+        string SelectDirectory()
         {
-            FolderBrowserDialog dialog = new FolderBrowserDialog();
-            dialog.Title = "Select Project Root Directory";
-            dialog.FolderPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-
-            if (dialog.ShowDialog())
-                return dialog.FolderPath;
-
+            using (var dialog = new Eto.Forms.SelectFolderDialog
+            {
+                Title = "Select Project Root Directory"
+            })
+            {
+                var result = dialog.ShowDialog(RhinoEtoApp.MainWindow);
+                if (result == Eto.Forms.DialogResult.Ok)
+                    return dialog.Directory;
+            }
             return null;
         }
 
@@ -138,13 +140,9 @@ namespace StructuralSetup.Commands
 
         private bool ImportDwgFile(RhinoDoc doc, string filePath, LayerStructure layers)
         {
-            var options = new Rhino.FileIO.FileReadOptions
-            {
-                ImportMode = Rhino.FileIO.ImportMode.Insert,
-                CurrentLayerIndex = layers.SetupLayerIndex
-            };
-
-            return doc.Import(filePath, options);
+            // Use the command line to import
+            string cmd = $"-_Import \"{filePath}\" _Enter";
+            return RhinoApp.RunScript(cmd, false);
         }
 
         private int GetOrCreateLayer(RhinoDoc doc, string layerName, int parentIndex = -1)

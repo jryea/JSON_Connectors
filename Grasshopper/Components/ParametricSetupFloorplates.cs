@@ -4,10 +4,12 @@ using Grasshopper.Kernel;
 using Rhino.Geometry;
 using Grasshopper.Kernel.Data;
 using Grasshopper.Kernel.Types;
+using Grasshopper.Components.Core;
 
-namespace StructuralSetup.Components
+namespace Grasshopper.Components
 {
-    public class FloorplateElevationsComponent : GH_Component
+
+    public class FloorplateElevationsComponent : ComponentBase
     {
         public FloorplateElevationsComponent()
             : base("Floorplate Elevations", "FloorEl",

@@ -64,11 +64,6 @@ namespace Revit.Export.ModelLayout
             if (levels == null || levels.Count == 0 || floorTypes == null || floorTypes.Count == 0)
                 return;
 
-            // Get default floor type ID
-            string defaultFloorTypeId = floorTypes.FirstOrDefault()?.Id;
-            if (string.IsNullOrEmpty(defaultFloorTypeId))
-                return;
-
             foreach (var level in levels)
             {
                 // If mapping provided, use it
@@ -80,16 +75,6 @@ namespace Revit.Export.ModelLayout
                         level.FloorTypeId = floorTypeId;
                         Debug.WriteLine($"Associated level '{level.Name}' with floor type ID '{floorTypeId}'");
                     }
-                    else
-                    {
-                        level.FloorTypeId = defaultFloorTypeId;
-                        Debug.WriteLine($"Associated level '{level.Name}' with default floor type ID '{defaultFloorTypeId}'");
-                    }
-                }
-                else
-                {
-                    // If no mapping or level not in mapping, use default
-                    level.FloorTypeId = defaultFloorTypeId;
                 }
             }
         }
@@ -102,12 +87,6 @@ namespace Revit.Export.ModelLayout
 
             if (floorTypeNames == null || floorTypeNames.Count == 0)
             {
-                // Add at least a default floor type
-                floorTypes.Add(new FloorType
-                {
-                    Id = IdGenerator.Generate(IdGenerator.Layout.FLOOR_TYPE),
-                    Name = "Default",
-                });
                 return floorTypes;
             }
 
@@ -123,17 +102,7 @@ namespace Revit.Export.ModelLayout
                     Name = name.Trim(),
                 };
 
-                floorTypes.Add(floorType);
-            }
-
-            // Ensure at least one floor type exists
-            if (floorTypes.Count == 0)
-            {
-                floorTypes.Add(new FloorType
-                {
-                    Id = IdGenerator.Generate(IdGenerator.Layout.FLOOR_TYPE),
-                    Name = "Default",
-                });
+                return floorTypes;
             }
 
             return floorTypes;

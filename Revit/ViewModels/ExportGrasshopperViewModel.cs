@@ -214,10 +214,6 @@ namespace Revit.ViewModels
             // Initialize the filtered views
             _filteredLevelCollection = CollectionViewSource.GetDefaultView(LevelCollection);
             _filteredLevelCollection.Filter = LevelViewFilter;
-
-            // Add a default floor type - do NOT generate an ID, let the Core.Models.ModelLayout.FloorType constructor do it
-            FloorTypes.Add(new FloorTypeModel { Name = "Default" });
-            SelectedFloorType = FloorTypes.First();
         }
 
         private void InitializeCommands()
@@ -281,7 +277,6 @@ namespace Revit.ViewModels
                 SelectedViewPlan = ViewPlanCollection[1]
             });
         }
-
         private void LoadLevels()
         {
             // Clear existing items
@@ -306,7 +301,7 @@ namespace Revit.ViewModels
                         Elevation = level.Elevation * 12.0, // Convert to inches
                         LevelId = level.Id,
                         IsSelected = false, // Set to false by default
-                        SelectedFloorType = FloorTypes.FirstOrDefault() // Set default floor type
+                                            // No default floor type assignment - this will be null initially
                     };
 
                     LevelCollection.Add(levelViewModel);
@@ -325,12 +320,15 @@ namespace Revit.ViewModels
 
             try
             {
-                // Get all floor plan views from Revit
+                // Get all floor plan, ceiling plan, and engineering plan views from Revit
                 var viewPlans = new FilteredElementCollector(_document)
                     .OfClass(typeof(ViewPlan))
                     .WhereElementIsNotElementType()
                     .Cast<ViewPlan>()
-                    .Where(v => !v.IsTemplate && v.ViewType == ViewType.FloorPlan)
+                    .Where(v => !v.IsTemplate &&
+                               (v.ViewType == ViewType.FloorPlan ||
+                                v.ViewType == ViewType.CeilingPlan ||
+                                v.ViewType == ViewType.EngineeringPlan))
                     .OrderBy(v => v.Name)
                     .ToList();
 
@@ -363,6 +361,7 @@ namespace Revit.ViewModels
                 var mapping = new FloorTypeViewMappingModel
                 {
                     FloorTypeName = floorType.Name,
+                    FloorTypeId = floorType.Id, // This is a temporary ID that will be updated when exporting
                     SelectedViewPlan = ViewPlanCollection.FirstOrDefault() // Set first view plan as default
                 };
 
@@ -456,9 +455,26 @@ namespace Revit.ViewModels
             FloorTypes.Add(newType);
             NewFloorTypeName = string.Empty;
 
-            // Add a new floor type-view mapping
+            // Set as selected floor type if it's the first one added
+            if (FloorTypes.Count == 1)
+            {
+                SelectedFloorType = newType;
+            }
+
+            // Update floor type-view mappings
             UpdateFloorTypeViewMappings();
+
+            // Update level floor type assignments if needed
+            if (FloorTypes.Count == 1)
+            {
+                // This is the first floor type, assign it to all levels
+                foreach (var level in LevelCollection)
+                {
+                    level.SelectedFloorType = newType;
+                }
+            }
         }
+
 
         private bool CanAddFloorType(object parameter)
         {
@@ -469,35 +485,55 @@ namespace Revit.ViewModels
         {
             if (parameter is FloorTypeModel floorType)
             {
-                // Prevent removing the first floor type (default)
-                if (FloorTypes.IndexOf(floorType) == 0)
+                // Get the index of the floor type being removed
+                int index = FloorTypes.IndexOf(floorType);
+
+                // Check if this is the last floor type
+                if (FloorTypes.Count == 1)
                 {
-                    MessageBox.Show("The default floor type cannot be removed.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show("Cannot remove the last floor type. At least one floor type is required.",
+                                   "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                     return;
                 }
 
-                // Update any levels using this floor type to use default
-                var defaultType = FloorTypes.First(); // Always use the first floor type as default
+                // Find a replacement floor type for levels using this one
+                FloorTypeModel replacementType = null;
+                if (index > 0)
+                {
+                    replacementType = FloorTypes[index - 1]; // Use previous type
+                }
+                else if (FloorTypes.Count > 1)
+                {
+                    replacementType = FloorTypes[1]; // Use next type
+                }
+
+                // Update any levels using this floor type
                 foreach (var level in LevelCollection)
                 {
                     if (level.SelectedFloorType?.Id == floorType.Id)
                     {
-                        level.SelectedFloorType = defaultType;
+                        level.SelectedFloorType = replacementType;
                     }
                 }
 
                 // Remove the floor type
                 FloorTypes.Remove(floorType);
 
+                // Update SelectedFloorType if needed
+                if (SelectedFloorType == floorType)
+                {
+                    SelectedFloorType = replacementType;
+                }
+
                 // Remove corresponding floor type-view mapping
-                var mappingToRemove = FloorTypeViewMappingCollection.FirstOrDefault(m => m.FloorTypeId == floorType.Id);
+                var mappingToRemove = FloorTypeViewMappingCollection.FirstOrDefault(m =>
+                                        m.FloorTypeName == floorType.Name);
                 if (mappingToRemove != null)
                 {
                     FloorTypeViewMappingCollection.Remove(mappingToRemove);
                 }
             }
         }
-
         private void Export(object parameter)
         {
             if (string.IsNullOrEmpty(OutputLocation))
@@ -512,6 +548,12 @@ namespace Revit.ViewModels
                 return;
             }
 
+            if (FloorTypes.Count == 0)
+            {
+                MessageBox.Show("Please create at least one floor type first.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
             try
             {
                 // Get selected levels
@@ -523,6 +565,16 @@ namespace Revit.ViewModels
                 {
                     MessageBox.Show("Please select at least one level to export.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                     return;
+                }
+
+                // Verify each selected level has a floor type assigned
+                foreach (var level in selectedLevels)
+                {
+                    if (level.SelectedFloorType == null)
+                    {
+                        MessageBox.Show($"Please assign a floor type to level: {level.Name}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        return;
+                    }
                 }
 
                 // Check if all floor types have an assigned view plan
@@ -548,28 +600,18 @@ namespace Revit.ViewModels
                 string dwgFolder = Path.Combine(projectFolder, "CAD");
                 Directory.CreateDirectory(dwgFolder);
 
-                // Create new instances of Core.Models.ModelLayout.FloorType to let their constructors generate the IDs
+                // Use ONLY the floor types from the UI - no default type
                 var floorTypesList = FloorTypes.Select(ft => new Core.Models.ModelLayout.FloorType
                 {
-                    Name = ft.Name,
-                    Description = $"Floor type for {ft.Name}"
+                    Id = ft.Id,
+                    Name = ft.Name
                 }).ToList();
 
-                // Create a map between the view model floor types and the new Core.Models instances
-                var floorTypeNameToIdMap = floorTypesList
-                    .ToDictionary(ft => ft.Name, ft => ft.Id);
+                // Create a map between the view model floor types and the core model instances
+                var floorTypeIdToNameMap = floorTypesList
+                    .ToDictionary(ft => ft.Id, ft => ft.Name);
 
-                // Now assign the generated IDs back to our view models for consistency
-                foreach (var ft in FloorTypes)
-                {
-                    if (floorTypeNameToIdMap.TryGetValue(ft.Name, out string newId))
-                    {
-                        ft.Id = newId;
-                    }
-                }
-
-                // Create level-to-floor-type mapping for selected levels only,
-                // using the newly generated floor type IDs
+                // Create level-to-floor-type mapping for selected levels only
                 var selectedCoreModelLevels = new List<Core.Models.ModelLayout.Level>();
                 foreach (var level in selectedLevels)
                 {
@@ -580,11 +622,10 @@ namespace Revit.ViewModels
                         Elevation = level.Elevation
                     };
 
-                    // Assign floor type ID based on the selected floor type's name using our map
-                    if (level.SelectedFloorType != null &&
-                        floorTypeNameToIdMap.TryGetValue(level.SelectedFloorType.Name, out string floorTypeId))
+                    // Assign floor type ID based on the selected floor type
+                    if (level.SelectedFloorType != null)
                     {
-                        coreLevel.FloorTypeId = floorTypeId;
+                        coreLevel.FloorTypeId = level.SelectedFloorType.Id;
                     }
 
                     selectedCoreModelLevels.Add(coreLevel);
@@ -597,14 +638,17 @@ namespace Revit.ViewModels
                     .ToList();
 
                 // Create floor type to view plan mapping for export
-                // using the updated floor type IDs
                 var floorTypeToViewMap = new Dictionary<string, ElementId>();
                 foreach (var mapping in FloorTypeViewMappingCollection)
                 {
-                    if (mapping.SelectedViewPlan != null &&
-                        floorTypeNameToIdMap.TryGetValue(mapping.FloorTypeName, out string mappedFloorTypeId))
+                    if (mapping.SelectedViewPlan != null)
                     {
-                        floorTypeToViewMap[mappedFloorTypeId] = mapping.SelectedViewPlan.ViewId;
+                        // Find the floor type ID by name
+                        var floorType = FloorTypes.FirstOrDefault(ft => ft.Name == mapping.FloorTypeName);
+                        if (floorType != null)
+                        {
+                            floorTypeToViewMap[floorType.Id] = mapping.SelectedViewPlan.ViewId;
+                        }
                     }
                 }
 
@@ -632,14 +676,14 @@ namespace Revit.ViewModels
                 MessageBox.Show($"Error during export: {ex.Message}", "Export Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
-
+        
         private bool CanExport(object parameter)
         {
             return !string.IsNullOrEmpty(OutputLocation) &&
                    ReferencePoint != null &&
-                   LevelCollection.Any(level => level.IsSelected);
+                   LevelCollection.Any(level => level.IsSelected) &&
+                   FloorTypes.Count > 0;
         }
-
         #region Events
         public event Action RequestClose;
         public event Action RequestMinimize;

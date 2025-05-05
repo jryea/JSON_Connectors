@@ -4,9 +4,7 @@ using Revit.ViewModels;
 
 namespace Revit.Views
 {
-    /// <summary>
-    /// Interaction logic for ExportGrasshopperWindow.xaml
-    /// </summary>
+    // Interaction logic for ExportGrasshopperWindow.xaml
     public partial class ExportGrasshopperWindow : Window
     {
         private readonly ExportGrasshopperViewModel _viewModel;

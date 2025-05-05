@@ -14,5 +14,9 @@ namespace Core.Models.Metadata
 
         // Survey Point
         public Point3D SurveyPoint { get; set; }
+
+        // Custom User Selected Coordination Point
+        public Point3D CoordinationPoint { get; set; }
+
     }
 }

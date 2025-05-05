@@ -58,6 +58,9 @@ namespace Grasshopper.Components
                     }
                 }
 
+                // Sort elevations
+                branchElevations.Sort();
+
                 // Convert to GH_Number and add to output tree
                 var ghNumbers = branchElevations.ConvertAll(z => new GH_Number(z));
                 elevations.AppendRange(ghNumbers, path);

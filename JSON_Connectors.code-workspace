@@ -1,0 +1,11 @@
+{
+  "folders": [
+    {
+      "path": "."
+    }
+  ],
+  "settings": {
+    "dotnet.defaultSolution": "JSON_Connectors.sln",
+    "dotnet.preferCSharpExtension": true
+  }
+}

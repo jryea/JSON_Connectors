@@ -23,6 +23,7 @@
     <Description>Description of Grasshopper</Description>
     <UserSecretsId>f454a5a3-51a2-467a-94f2-53222f0bff87</UserSecretsId>
   </PropertyGroup>
+
   
   <!-- For Windows only builds -->
   <PropertyGroup Condition="$(TargetFramework.Contains('-windows')) or $(TargetFramework.StartsWith('net4'))">

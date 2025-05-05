@@ -6,6 +6,8 @@ using Rhino.DocObjects;
 using System;
 using System.IO;
 using System.Linq;
+using Rhino.Input;
+using System.Collections.Generic;
 
 namespace StructuralSetup.Commands
 {
@@ -27,28 +29,39 @@ namespace StructuralSetup.Commands
             if (string.IsNullOrEmpty(rootDirectory))
                 return Result.Cancel;
 
-            // Step 2: Check for CAD directory and get first DWG file
-            string cadDirectory = Path.Combine(rootDirectory, "CAD");
-            string dwgFile = null;
+            // Find DWG file
+            string dwgFile = FindFirstDwgFile(rootDirectory);
 
-            if (Directory.Exists(cadDirectory))
+            // Ask about CAD import if file exists
+            bool importCad = false;
+            if (!string.IsNullOrEmpty(dwgFile))
             {
-                dwgFile = Directory.GetFiles(cadDirectory, "*.dwg").FirstOrDefault();
+                string fileName = Path.GetFileName(dwgFile);
+                Result cadResult = RhinoGet.GetBool($"Import CAD file: {fileName}?", true, "No", "Yes", ref importCad);
+                if (cadResult != Result.Success)
+                    return cadResult;
             }
 
-            // Step 3: Begin setup command
+            // Step 3: Ask for number of floorplates
+            int floorplateCount = 2; // Default
+            Result countResult = RhinoGet.GetInteger("Number of floorplates", false, ref floorplateCount, 1, 20);
+            if (countResult != Result.Success)
+                return countResult;
+
+
+            // Step 5: Begin setup command
             RhinoApp.RunScript("_-Command _Pause", false);
 
             try
             {
                 // Create layer structure
-                var setupLayer = CreateLayerStructure(doc);
+                var setupLayer = CreateLayerStructure(doc, floorplateCount);
 
                 // Create dummy geometry
-                CreateDummyGeometry(doc, setupLayer);
+                CreateDummyGeometry(doc, setupLayer, floorplateCount);
 
-                // Import CAD file if found
-                if (!string.IsNullOrEmpty(dwgFile))
+                // Import CAD file if requested
+                if (importCad && !string.IsNullOrEmpty(dwgFile))
                 {
                     ImportDwgFile(doc, dwgFile, setupLayer);
                 }
@@ -78,64 +91,73 @@ namespace StructuralSetup.Commands
             return null;
         }
 
-        private LayerStructure CreateLayerStructure(RhinoDoc doc)
+        private LayerStructure CreateLayerStructure(RhinoDoc doc, int floorplateCount)
         {
             // Create the main setup layer
             int setupLayerIndex = GetOrCreateLayer(doc, "z-setup");
 
-            // Create first floorplate layer
-            int floorplate1Index = GetOrCreateLayer(doc, "z-floorplate1", setupLayerIndex);
-            int floors1Index = GetOrCreateLayer(doc, "z-floors", floorplate1Index);
-
-            // Create second floorplate layer
-            int floorplate2Index = GetOrCreateLayer(doc, "z-floorplate2", setupLayerIndex);
-            int floors2Index = GetOrCreateLayer(doc, "z-floors", floorplate2Index);
-
-            return new LayerStructure
+            var layers = new LayerStructure
             {
                 SetupLayerIndex = setupLayerIndex,
-                Floorplate1LayerIndex = floorplate1Index,
-                Floors1LayerIndex = floors1Index,
-                Floorplate2LayerIndex = floorplate2Index,
-                Floors2LayerIndex = floors2Index
+                FloorplateLayers = new Dictionary<int, int>(),
+                FloorsLayers = new Dictionary<int, int>()
             };
+
+            // Create floorplate and floors layers
+            for (int i = 1; i <= floorplateCount; i++)
+            {
+                string floorplateName = $"z-floorplate{i}";
+                string floorsName = $"z-floors{i}";
+
+                int floorplateIndex = GetOrCreateLayer(doc, floorplateName, setupLayerIndex);
+                int floorsIndex = GetOrCreateLayer(doc, floorsName, floorplateIndex);
+
+                layers.FloorplateLayers[i] = floorplateIndex;
+                layers.FloorsLayers[i] = floorsIndex;
+            }
+
+            return layers;
         }
 
-        private void CreateDummyGeometry(RhinoDoc doc, LayerStructure layers)
+        private void CreateDummyGeometry(RhinoDoc doc, LayerStructure layers, int floorplateCount)
         {
-            // Create rectangle at elevation 0 for first floorplate
-            Point3d[] rect1Points = new Point3d[]
+            for (int i = 1; i <= floorplateCount; i++)
             {
-                new Point3d(0, 0, 0),
-                new Point3d(100, 0, 0),
-                new Point3d(100, 100, 0),
-                new Point3d(0, 100, 0),
-                new Point3d(0, 0, 0)
-            };
+                // Calculate elevation for this floorplate
+                double elevation = (i - 1) * 100; // Start at 0, increment by 100
 
-            var polyline1 = new Polyline(rect1Points);
-            var curve1 = polyline1.ToNurbsCurve();
+                // Create rectangle at the calculated elevation
+                Point3d[] rectPoints = new Point3d[]
+                {
+            new Point3d(0, 0, elevation),
+            new Point3d(100, 0, elevation),
+            new Point3d(100, 100, elevation),
+            new Point3d(0, 100, elevation),
+            new Point3d(0, 0, elevation)
+                };
 
-            var attr1 = new ObjectAttributes();
-            attr1.LayerIndex = layers.Floors1LayerIndex;
-            doc.Objects.AddCurve(curve1, attr1);
+                var polyline = new Polyline(rectPoints);
+                var curve = polyline.ToNurbsCurve();
 
-            // Create rectangle at elevation 100 inches for second floorplate
-            Point3d[] rect2Points = new Point3d[]
+                var attr = new ObjectAttributes();
+                attr.LayerIndex = layers.FloorsLayers[i];
+                doc.Objects.AddCurve(curve, attr);
+            }
+        }
+
+        private string FindFirstDwgFile(string rootDirectory)
+        {
+            // Check for CAD directory
+            string cadDirectory = Path.Combine(rootDirectory, "CAD");
+
+            if (Directory.Exists(cadDirectory))
             {
-                new Point3d(0, 0, 100),
-                new Point3d(100, 0, 100),
-                new Point3d(100, 100, 100),
-                new Point3d(0, 100, 100),
-                new Point3d(0, 0, 100)
-            };
+                // Get all DWG files and return the first one
+                string[] dwgFiles = Directory.GetFiles(cadDirectory, "*.dwg");
+                return dwgFiles.Length > 0 ? dwgFiles[0] : null;
+            }
 
-            var polyline2 = new Polyline(rect2Points);
-            var curve2 = polyline2.ToNurbsCurve();
-
-            var attr2 = new ObjectAttributes();
-            attr2.LayerIndex = layers.Floors2LayerIndex;
-            doc.Objects.AddCurve(curve2, attr2);
+            return null;
         }
 
         private bool ImportDwgFile(RhinoDoc doc, string filePath, LayerStructure layers)
@@ -185,9 +207,7 @@ namespace StructuralSetup.Commands
     public class LayerStructure
     {
         public int SetupLayerIndex { get; set; }
-        public int Floorplate1LayerIndex { get; set; }
-        public int Floors1LayerIndex { get; set; }
-        public int Floorplate2LayerIndex { get; set; }
-        public int Floors2LayerIndex { get; set; }
+        public Dictionary<int, int> FloorplateLayers { get; set; }
+        public Dictionary<int, int> FloorsLayers { get; set; }
     }
 }

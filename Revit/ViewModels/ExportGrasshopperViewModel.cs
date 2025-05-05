@@ -394,15 +394,15 @@ namespace Revit.ViewModels
         {
             var dialog = new SaveFileDialog
             {
-                Title = "Select Output Location",
-                Filter = "JSON Files (*.json)|*.json",
-                DefaultExt = ".json",
-                FileName = _document?.Title ?? "export"
+                Title = "Select Output Folder",
+                Filter = "Folder Selection|*.folder",
+                FileName = "Select Folder"
             };
 
             if (dialog.ShowDialog() == true)
             {
-                OutputLocation = dialog.FileName;
+                // Extract the folder path from the selected file path
+                OutputLocation = Path.GetDirectoryName(dialog.FileName);
             }
         }
 
@@ -538,7 +538,7 @@ namespace Revit.ViewModels
         {
             if (string.IsNullOrEmpty(OutputLocation))
             {
-                MessageBox.Show("Please select an output location first.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show("Please select an output folder first.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
 
@@ -588,16 +588,21 @@ namespace Revit.ViewModels
                     }
                 }
 
-                // Create export directory
-                string exportFolder = Path.GetDirectoryName(OutputLocation);
-                string baseName = Path.GetFileNameWithoutExtension(OutputLocation);
+                // Get the folder name from the path
+                string exportFolder = OutputLocation;
+                string folderName = Path.GetFileName(exportFolder);
 
-                // Create folder structure
-                string projectFolder = Path.Combine(exportFolder, baseName);
-                Directory.CreateDirectory(projectFolder);
+                // If the user selected a folder but not the final project folder, create it
+                if (string.IsNullOrEmpty(folderName))
+                {
+                    folderName = _document?.Title ?? "GrasshopperExport";
+                    exportFolder = Path.Combine(OutputLocation, folderName);
+                    Directory.CreateDirectory(exportFolder);
+                }
 
-                string jsonPath = Path.Combine(projectFolder, baseName + ".json");
-                string dwgFolder = Path.Combine(projectFolder, "CAD");
+                // Create JSON file path and CAD folder path
+                string jsonPath = Path.Combine(exportFolder, folderName + ".json");
+                string dwgFolder = Path.Combine(exportFolder, "CAD");
                 Directory.CreateDirectory(dwgFolder);
 
                 // Use ONLY the floor types from the UI - no default type
@@ -666,7 +671,7 @@ namespace Revit.ViewModels
                     selectedLevelIds
                 );
 
-                MessageBox.Show($"Export completed successfully to:\n{projectFolder}", "Export Complete", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show($"Export completed successfully to:\n{exportFolder}", "Export Complete", MessageBoxButton.OK, MessageBoxImage.Information);
 
                 // Close the dialog
                 RequestClose?.Invoke();
@@ -676,7 +681,7 @@ namespace Revit.ViewModels
                 MessageBox.Show($"Error during export: {ex.Message}", "Export Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
-        
+
         private bool CanExport(object parameter)
         {
             return !string.IsNullOrEmpty(OutputLocation) &&

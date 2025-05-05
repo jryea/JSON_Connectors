@@ -34,6 +34,7 @@ namespace Revit.Export
 
                 // Setup DWG export options
                 DWGExportOptions options = new DWGExportOptions();
+                options.TargetUnit = ExportUnit.Inch;
 
                 // Export each view to DWG
                 foreach (View view in views)

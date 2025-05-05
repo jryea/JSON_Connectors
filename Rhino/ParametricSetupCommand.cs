@@ -7,6 +7,7 @@ using System;
 using System.IO;
 using System.Linq;
 using Rhino.Input;
+using Rhino.FileIO;
 using System.Collections.Generic;
 
 namespace StructuralSetup.Commands
@@ -33,7 +34,7 @@ namespace StructuralSetup.Commands
             string dwgFile = FindFirstDwgFile(rootDirectory);
 
             // Ask about CAD import if file exists
-            bool importCad = false;
+            bool importCad = true;
             if (!string.IsNullOrEmpty(dwgFile))
             {
                 string fileName = Path.GetFileName(dwgFile);
@@ -96,9 +97,13 @@ namespace StructuralSetup.Commands
             // Create the main setup layer
             int setupLayerIndex = GetOrCreateLayer(doc, "z-setup");
 
+            // Create backgrounds layer
+            int backgroundsLayerIndex = GetOrCreateLayer(doc, "z-backgrounds", setupLayerIndex);
+
             var layers = new LayerStructure
             {
                 SetupLayerIndex = setupLayerIndex,
+                BackgroundsLayerIndex = backgroundsLayerIndex,
                 FloorplateLayers = new Dictionary<int, int>(),
                 FloorsLayers = new Dictionary<int, int>()
             };
@@ -149,12 +154,26 @@ namespace StructuralSetup.Commands
         {
             // Check for CAD directory
             string cadDirectory = Path.Combine(rootDirectory, "CAD");
+            RhinoApp.WriteLine($"Looking for CAD directory: {cadDirectory}");
 
             if (Directory.Exists(cadDirectory))
             {
+                RhinoApp.WriteLine($"CAD directory found: {cadDirectory}");
+
                 // Get all DWG files and return the first one
                 string[] dwgFiles = Directory.GetFiles(cadDirectory, "*.dwg");
+                RhinoApp.WriteLine($"Found {dwgFiles.Length} DWG files");
+
+                for (int i = 0; i < dwgFiles.Length; i++)
+                {
+                    RhinoApp.WriteLine($"File {i + 1}: {dwgFiles[i]}");
+                }
+
                 return dwgFiles.Length > 0 ? dwgFiles[0] : null;
+            }
+            else
+            {
+                RhinoApp.WriteLine($"CAD directory not found at: {cadDirectory}");
             }
 
             return null;
@@ -162,9 +181,25 @@ namespace StructuralSetup.Commands
 
         private bool ImportDwgFile(RhinoDoc doc, string filePath, LayerStructure layers)
         {
-            // Use the command line to import
-            string cmd = $"-_Import \"{filePath}\" _Enter";
-            return RhinoApp.RunScript(cmd, false);
+            try
+            {
+                // Set the current layer to z-backgrounds
+                doc.Layers.SetCurrentLayerIndex(layers.BackgroundsLayerIndex, true);
+
+                var dwgOptions = new FileDwgReadOptions();
+                //dwgOptions.ModelUnits = UnitSystem.Inches;
+                dwgOptions.LayoutUnits = UnitSystem.Inches;
+                dwgOptions.ImportUnreferencedLayers = true;
+
+                bool success = FileDwg.Read(filePath, doc, dwgOptions);
+
+                return success;
+            }
+            catch (Exception ex)
+            {
+                RhinoApp.WriteLine($"Import error: {ex.Message}");
+                return false;
+            }
         }
 
         private int GetOrCreateLayer(RhinoDoc doc, string layerName, int parentIndex = -1)
@@ -207,6 +242,7 @@ namespace StructuralSetup.Commands
     public class LayerStructure
     {
         public int SetupLayerIndex { get; set; }
+        public int BackgroundsLayerIndex { get; set; }
         public Dictionary<int, int> FloorplateLayers { get; set; }
         public Dictionary<int, int> FloorsLayers { get; set; }
     }

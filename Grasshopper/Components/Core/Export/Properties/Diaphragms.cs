@@ -1,8 +1,8 @@
 ﻿using Grasshopper.Kernel;
 using System;
 using System.Collections.Generic;
-using Core.Models.Properties;
 using Grasshopper.Utilities;
+using Core.Models.Properties.Floors;
 
 namespace Grasshopper.Components.Core.Export.Properties
 {

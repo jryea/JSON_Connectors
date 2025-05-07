@@ -93,10 +93,14 @@ namespace RAM
                         // Make sure the frame property mappings are registered
                         ModelMappingUtility.SetFramePropertyMappings(framePropMappings);
 
+                        // Extract floors
+                        FloorExport floorExporter = new FloorExport(modelManager.Model, lengthUnit);
+                        model.Elements.Floors = floorExporter.Export();
+                        Console.WriteLine($"Exported {model.Elements.Floors.Count} floors");
+
                         // Extract wall properties before walls
                         var wallPropertiesExporter = new WallPropertiesExport(modelManager.Model, lengthUnit);
                         model.Properties.WallProperties = wallPropertiesExporter.Export(model.Properties.Materials);
-
 
                         // Now extract structural elements
                         BeamExport beamExporter = new BeamExport(modelManager.Model, lengthUnit);

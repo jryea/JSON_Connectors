@@ -2,6 +2,7 @@
 using Core.Models.Elements;
 using Core.Models.ModelLayout;
 using Core.Models.Properties;
+using Core.Models.Properties.Floors;
 using ETABS.Utilities;
 
 namespace ETABS.Import.Elements

@@ -4,6 +4,7 @@ using Core.Models.Elements;
 using Core.Models.Geometry;
 using Core.Models.ModelLayout;
 using Core.Models.Properties;
+using Core.Models.Properties.Floors;
 using Core.Utilities;
 using ETABS.Utilities;
 

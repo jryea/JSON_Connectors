@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Text;
-using Core.Models.Properties;
+using Core.Models.Properties.Floors;
 
 namespace ETABS.ToETABS.Properties
 {

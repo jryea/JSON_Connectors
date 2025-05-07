@@ -1,10 +1,10 @@
-﻿using System.Collections.Generic;
+﻿using Core.Models.Properties.Materials;
 using Core.Utilities;
 
 namespace Core.Models.Properties
 {
     /// <summary>
-    /// Represents a material in the structural model
+    /// Represents a material in the structural model with type-specific properties
     /// </summary>
     public class Material : IIdentifiable
     {
@@ -19,24 +19,39 @@ namespace Core.Models.Properties
         public string Name { get; set; }
 
         /// <summary>
-        /// Type of material (e.g., "Concrete", "Steel", "Wood")
+        /// Type of material (e.g., "Concrete", "Steel", "Wood", "Masonry", "ColdForm")
         /// </summary>
         public string Type { get; set; }
 
         /// <summary>
-        /// Reinforcing type (if applicable)
+        /// ID of the design code applicable to this material
         /// </summary>
-        public string Reinforcing { get; set; }
+        public string DesignCodeId { get; set; }
 
         /// <summary>
-        /// Directional symmetry type
+        /// Concrete-specific properties (non-null when Type is "Concrete")
         /// </summary>
-        public string DirectionalSymmetryType { get; set; }
+        public ConcreteProperties ConcreteProps { get; set; }
 
         /// <summary>
-        /// Design data specific to the material
+        /// Steel-specific properties (non-null when Type is "Steel")
         /// </summary>
-        public Dictionary<string, object> DesignData { get; set; } = new Dictionary<string, object>();
+        public SteelProperties SteelProps { get; set; }
+
+        /// <summary>
+        /// Wood-specific properties (non-null when Type is "Wood")
+        /// </summary>
+        public WoodProperties WoodProps { get; set; }
+
+        /// <summary>
+        /// Masonry-specific properties (non-null when Type is "Masonry")
+        /// </summary>
+        public MasonryProperties MasonryProps { get; set; }
+
+        /// <summary>
+        /// Cold-formed steel specific properties (non-null when Type is "ColdForm")
+        /// </summary>
+        public ColdFormProperties ColdFormProps { get; set; }
 
         /// <summary>
         /// Creates a new Material with a generated ID
@@ -44,7 +59,6 @@ namespace Core.Models.Properties
         public Material()
         {
             Id = IdGenerator.Generate(IdGenerator.Properties.MATERIAL);
-            DesignData = new Dictionary<string, object>();
         }
 
         /// <summary>
@@ -57,44 +71,43 @@ namespace Core.Models.Properties
             Name = name;
             Type = type;
 
-            // Add default properties based on material type
-            InitializeDefaultProperties();
+            // Initialize type-specific properties
+            InitializeProperties();
         }
 
         /// <summary>
-        /// Initialize default material properties based on type
+        /// Initialize type-specific properties based on material type
         /// </summary>
-        private void InitializeDefaultProperties()
+        public void InitializeProperties()
         {
+            // Reset all type-specific properties
+            ConcreteProps = null;
+            SteelProps = null;
+            WoodProps = null;
+            MasonryProps = null;
+            ColdFormProps = null;
+
+            // Initialize properties based on material type
             switch (Type?.ToLower())
             {
                 case "concrete":
-                    DesignData["fc"] = 4000.0; // psi
-                    DesignData["weightDensity"] = 150.0; // pcf
-                    DesignData["elasticModulus"] = 3600000.0; // psi
-                    DesignData["poissonsRatio"] = 0.2;
+                    ConcreteProps = new ConcreteProperties();
                     break;
 
                 case "steel":
-                    DesignData["fy"] = 50000.0; // psi
-                    DesignData["fu"] = 65000.0; // psi
-                    DesignData["elasticModulus"] = 29000000.0; // psi
-                    DesignData["weightDensity"] = 490.0; // pcf
-                    DesignData["poissonsRatio"] = 0.3;
+                    SteelProps = new SteelProperties();
                     break;
 
                 case "wood":
-                    DesignData["fb"] = 1000.0; // psi
-                    DesignData["elasticModulus"] = 1600000.0; // psi
-                    DesignData["weightDensity"] = 35.0; // pcf
-                    DesignData["poissonsRatio"] = 0.2;
+                    WoodProps = new WoodProperties();
                     break;
 
                 case "masonry":
-                    DesignData["fm"] = 1500.0; // psi
-                    DesignData["elasticModulus"] = 1350000.0; // psi
-                    DesignData["weightDensity"] = 125.0; // pcf
-                    DesignData["poissonsRatio"] = 0.2;
+                    MasonryProps = new MasonryProperties();
+                    break;
+
+                case "coldform":
+                    ColdFormProps = new ColdFormProperties();
                     break;
             }
         }

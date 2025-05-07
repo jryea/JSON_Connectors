@@ -1,10 +1,10 @@
-﻿using System.Collections.Generic;
+﻿using Core.Models.Properties.Floors;
 using Core.Utilities;
 
 namespace Core.Models.Properties
 {
     /// <summary>
-    /// Represents properties for floor elements in the structural model
+    /// Represents properties for floor elements in the structural model with type-specific properties
     /// </summary>
     public class FloorProperties : IIdentifiable
     {
@@ -34,19 +34,24 @@ namespace Core.Models.Properties
         public string MaterialId { get; set; }
 
         /// <summary>
+        /// ID of the design code applicable to this floor
+        /// </summary>
+        public string DesignCodeId { get; set; }
+
+        /// <summary>
         /// Reinforcement information
         /// </summary>
         public string Reinforcement { get; set; }
 
         /// <summary>
-        /// Additional slab-specific properties
+        /// Slab-specific properties (non-null when Type is "Slab")
         /// </summary>
-        public Dictionary<string, object> SlabProperties { get; set; } = new Dictionary<string, object>();
+        public SlabProperties SlabProps { get; set; }
 
         /// <summary>
-        /// Additional deck-specific properties
+        /// Deck-specific properties (non-null when Type is "Composite" or "NonComposite")
         /// </summary>
-        public Dictionary<string, object> DeckProperties { get; set; } = new Dictionary<string, object>();
+        public DeckProperties DeckProps { get; set; }
 
         /// <summary>
         /// Creates a new FloorProperties with a generated ID
@@ -54,8 +59,6 @@ namespace Core.Models.Properties
         public FloorProperties()
         {
             Id = IdGenerator.Generate(IdGenerator.Properties.FLOOR_PROPERTIES);
-            SlabProperties = new Dictionary<string, object>();
-            DeckProperties = new Dictionary<string, object>();
         }
 
         /// <summary>
@@ -72,34 +75,48 @@ namespace Core.Models.Properties
             Thickness = thickness;
             MaterialId = materialId;
 
-            // Initialize default properties based on type
-            InitializeDefaultProperties();
+            // Initialize type-specific properties
+            InitializeProperties();
         }
 
         /// <summary>
-        /// Initializes default properties based on the floor type
+        /// Initializes type-specific properties based on the floor type
         /// </summary>
-        private void InitializeDefaultProperties()
+        public void InitializeProperties()
         {
+            // Reset all type-specific properties
+            SlabProps = null;
+            DeckProps = null;
+
+            // Initialize properties based on floor type
             switch (Type?.ToLower())
             {
                 case "slab":
-                    SlabProperties["isRibbed"] = false;
-                    SlabProperties["isWaffle"] = false;
-                    SlabProperties["isTwoWay"] = true;
+                    SlabProps = new SlabProperties
+                    {
+                        IsRibbed = false,
+                        IsWaffle = false,
+                        IsTwoWay = true
+                    };
                     break;
 
                 case "composite":
-                    DeckProperties["deckType"] = "Composite";
-                    DeckProperties["deckDepth"] = 1.5; // inches
-                    DeckProperties["deckGage"] = 22;
-                    DeckProperties["toppingThickness"] = Thickness - 1.5;
+                    DeckProps = new DeckProperties
+                    {
+                        DeckType = "Composite",
+                        DeckDepth = 1.5, // inches
+                        DeckGage = 22,
+                        ToppingThickness = Thickness - 1.5
+                    };
                     break;
 
                 case "noncomposite":
-                    DeckProperties["deckType"] = "MetalDeck";
-                    DeckProperties["deckDepth"] = Thickness;
-                    DeckProperties["deckGage"] = 22;
+                    DeckProps = new DeckProperties
+                    {
+                        DeckType = "NonComposite",
+                        DeckDepth = Thickness,
+                        DeckGage = 22
+                    };
                     break;
             }
         }

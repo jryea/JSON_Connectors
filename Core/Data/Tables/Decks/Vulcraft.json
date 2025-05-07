@@ -1,0 +1,89 @@
+{
+  "1.5B": [
+    {
+      "Gage": 22,
+      "Thickness": 0.0295,
+      "MomentOfInertia": 0.19,
+      "SectionModulus": 0.23,
+      "Weight": 1.7,
+      "MaximumUnshoreSpan": 7.5,
+      "MaximumShoreSpan": 10.0
+    },
+    {
+      "Gage": 20,
+      "Thickness": 0.0358,
+      "MomentOfInertia": 0.22,
+      "SectionModulus": 0.26,
+      "Weight": 2.0,
+      "MaximumUnshoreSpan": 8.0,
+      "MaximumShoreSpan": 11.0
+    },
+    {
+      "Gage": 18,
+      "Thickness": 0.0474,
+      "MomentOfInertia": 0.28,
+      "SectionModulus": 0.31,
+      "Weight": 2.6,
+      "MaximumUnshoreSpan": 9.0,
+      "MaximumShoreSpan": 12.0
+    }
+  ],
+  "2.0D": [
+    {
+      "Gage": 22,
+      "Thickness": 0.0295,
+      "MomentOfInertia": 0.37,
+      "SectionModulus": 0.34,
+      "Weight": 1.8,
+      "MaximumUnshoreSpan": 9.0,
+      "MaximumShoreSpan": 12.0
+    },
+    {
+      "Gage": 20,
+      "Thickness": 0.0358,
+      "MomentOfInertia": 0.44,
+      "SectionModulus": 0.39,
+      "Weight": 2.1,
+      "MaximumUnshoreSpan": 10.0,
+      "MaximumShoreSpan": 13.0
+    },
+    {
+      "Gage": 18,
+      "Thickness": 0.0474,
+      "MomentOfInertia": 0.56,
+      "SectionModulus": 0.48,
+      "Weight": 2.7,
+      "MaximumUnshoreSpan": 11.0,
+      "MaximumShoreSpan": 14.5
+    }
+  ],
+  "3.0D": [
+    {
+      "Gage": 22,
+      "Thickness": 0.0295,
+      "MomentOfInertia": 0.83,
+      "SectionModulus": 0.52,
+      "Weight": 1.9,
+      "MaximumUnshoreSpan": 11.0,
+      "MaximumShoreSpan": 14.0
+    },
+    {
+      "Gage": 20,
+      "Thickness": 0.0358,
+      "MomentOfInertia": 0.99,
+      "SectionModulus": 0.61,
+      "Weight": 2.3,
+      "MaximumUnshoreSpan": 12.0,
+      "MaximumShoreSpan": 15.5
+    },
+    {
+      "Gage": 18,
+      "Thickness": 0.0474,
+      "MomentOfInertia": 1.27,
+      "SectionModulus": 0.76,
+      "Weight": 3.0,
+      "MaximumUnshoreSpan": 13.5,
+      "MaximumShoreSpan": 17.5
+    }
+  ]
+}

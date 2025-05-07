@@ -62,6 +62,7 @@ namespace RAM.Export.ModelLayout
         }
 
         // Helper method to create a mapping from RAM floor type UIDs to their Core model IDs
+        // In FloorTypeExport.cs
         public Dictionary<int, string> CreateFloorTypeMapping(List<FloorType> floorTypes)
         {
             var mapping = new Dictionary<int, string>();
@@ -74,24 +75,17 @@ namespace RAM.Export.ModelLayout
                     return mapping;
 
                 // Create a lookup by name for quick access
-                Dictionary<string, string> floorTypeIdsByName = new Dictionary<string, string>();
-                string groundFloorTypeId = null;
+                Dictionary<string, string> floorTypeIdsByName = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
                 foreach (var floorType in floorTypes)
                 {
-                    if (!string.IsNullOrEmpty(floorType.Name))
+                    if (!string.IsNullOrEmpty(floorType.Name) && !string.IsNullOrEmpty(floorType.Id))
                     {
                         floorTypeIdsByName[floorType.Name] = floorType.Id;
-
-                        // Remember Ground floor type ID
-                        if (floorType.Name.Equals("Ground", StringComparison.OrdinalIgnoreCase))
-                        {
-                            groundFloorTypeId = floorType.Id;
-                        }
                     }
                 }
 
-                // Map RAM floor types to Core model IDs
+                // Map RAM floor types to Core model IDs by name
                 for (int i = 0; i < ramFloorTypes.GetCount(); i++)
                 {
                     IFloorType ramFloorType = ramFloorTypes.GetAt(i);
@@ -102,12 +96,6 @@ namespace RAM.Export.ModelLayout
                             mapping[ramFloorType.lUID] = floorTypeId;
                         }
                     }
-                }
-
-                // Add a special mapping for the foundation level (using floor type UID 0 as a convention)
-                if (!string.IsNullOrEmpty(groundFloorTypeId))
-                {
-                    mapping[0] = groundFloorTypeId;
                 }
 
                 return mapping;

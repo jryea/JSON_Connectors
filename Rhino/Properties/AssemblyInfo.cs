@@ -17,6 +17,7 @@ using System.Runtime.InteropServices;
 // Icons should be Windows .ico files and contain 32-bit images in the following sizes: 16, 24, 32, 48, and 256.
 [assembly: PlugInDescription(DescriptionType.Icon, "Rhino.EmbeddedResources.plugin-render.ico")]
 
+
 // The following GUID is for the ID of the typelib if this project is exposed to COM
 // This will also be the Guid of the Rhino plug-in
 [assembly: Guid("5f4f572d-b8cd-4e62-9805-719d510270d1")]

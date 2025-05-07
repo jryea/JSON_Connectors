@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using Core.Models.ModelLayout;
 using Core.Utilities;
@@ -18,11 +19,6 @@ namespace RAM.Export.ModelLayout
         {
             _model = model;
             _lengthUnit = lengthUnit;
-        }
-
-        public void SetFloorTypeMapping(Dictionary<int, string> floorTypeMapping)
-        {
-            _floorTypeMapping = floorTypeMapping ?? new Dictionary<int, string>();
         }
 
         public List<Level> Export()
@@ -48,12 +44,16 @@ namespace RAM.Export.ModelLayout
 
                     // Get floor type ID from mapping
                     string floorTypeId = defaultFloorTypeId;
-                    if (_floorTypeMapping.TryGetValue(ramStory.GetFloorType().lUID, out string mappedFloorTypeId))
+                    if (ramStory.GetFloorType() != null)
                     {
-                        floorTypeId = mappedFloorTypeId;
+                        int ramFloorTypeUid = ramStory.GetFloorType().lUID;
+                        if (_floorTypeMapping.TryGetValue(ramFloorTypeUid, out string mappedFloorTypeId))
+                        {
+                            floorTypeId = mappedFloorTypeId;
+                        }
                     }
 
-                    // get elevation
+                    // Get elevation
                     double elevation = ramStory.dElevation;
 
                     // Create level
@@ -71,32 +71,34 @@ namespace RAM.Export.ModelLayout
                 // Add a level at elevation 0 if one doesn't already exist
                 if (!levels.Any(l => Math.Abs(l.Elevation) < 0.001))
                 {
-                    // Get the Ground floor type ID
-                    string groundFloorTypeId = null;
-
-                    // Look for the Ground floor type in the mapping
-                    if (_floorTypeMapping.TryGetValue(0, out groundFloorTypeId))
-                    {
-                        Console.WriteLine($"Found Ground floor type with ID: {groundFloorTypeId}");
-                    }
-                    else if (_floorTypeMapping.Values.Any())
-                    {
-                        // Use the first available floor type if Ground is not found
-                        groundFloorTypeId = _floorTypeMapping.Values.First();
-                        Console.WriteLine($"Using default floor type for level 0: {groundFloorTypeId}");
-                    }
-
                     // Add a level at elevation 0
                     Level zeroLevel = new Level
                     {
                         Id = IdGenerator.Generate(IdGenerator.Layout.LEVEL),
                         Name = "0",
-                        FloorTypeId = groundFloorTypeId,
+                        FloorTypeId = null, // We'll set this below
                         Elevation = 0.0
                     };
 
                     levels.Add(zeroLevel);
                     Console.WriteLine("Added level 0 at elevation 0");
+                }
+
+                // Find all levels at elevation 0 and assign the Ground floor type ID
+                foreach (var level in levels.Where(l => Math.Abs(l.Elevation) < 0.001))
+                {
+                    // Use the special mapping for Ground floor type if available
+                    if (_floorTypeMapping.TryGetValue(0, out string groundTypeId))
+                    {
+                        level.FloorTypeId = groundTypeId;
+                        Console.WriteLine($"Assigned Ground floor type ID {groundTypeId} to level 0");
+                    }
+                    else
+                    {
+                        // Otherwise use the default
+                        level.FloorTypeId = defaultFloorTypeId;
+                        Console.WriteLine($"Assigned default floor type ID {defaultFloorTypeId} to level 0");
+                    }
                 }
 
                 // Sort levels by elevation for consistent ordering
@@ -108,6 +110,19 @@ namespace RAM.Export.ModelLayout
                 return levels;
             }
         }
+
+        public void SetFloorTypeMapping(Dictionary<int, string> floorTypeMapping, string groundFloorTypeId = null)
+        {
+            _floorTypeMapping = floorTypeMapping ?? new Dictionary<int, string>();
+
+            // Store the Ground floor type ID with a special key (0)
+            if (!string.IsNullOrEmpty(groundFloorTypeId))
+            {
+                _floorTypeMapping[0] = groundFloorTypeId;
+            }
+        }
+
+
 
         // Removes "Story" prefix if present to normalize names
         private string CleanStoryName(string storyName)

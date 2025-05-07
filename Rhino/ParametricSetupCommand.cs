@@ -3,12 +3,17 @@ using Rhino.Commands;
 using Rhino.UI;
 using Rhino.Geometry;
 using Rhino.DocObjects;
+using Rhino.Input;
+using Rhino.Input.Custom;
+using Rhino.FileIO;
 using System;
 using System.IO;
 using System.Linq;
-using Rhino.Input;
-using Rhino.FileIO;
 using System.Collections.Generic;
+using Core.Models;
+using Core.Models.Elements;
+using Core.Models.ModelLayout;
+using Core.Converters;
 
 namespace StructuralSetup.Commands
 {
@@ -25,46 +30,76 @@ namespace StructuralSetup.Commands
 
         protected override Result RunCommand(RhinoDoc doc, RunMode mode)
         {
-            // Step 1: Prompt for directory selection using dialog
-            string rootDirectory = SelectDirectory();
-            if (string.IsNullOrEmpty(rootDirectory))
+            // Step 1: Prompt for JSON file selection
+            string jsonFilePath = SelectJsonFile();
+            if (string.IsNullOrEmpty(jsonFilePath))
                 return Result.Cancel;
 
-            // Find DWG file
-            string dwgFile = FindFirstDwgFile(rootDirectory);
-
-            // Ask about CAD import if file exists
-            bool importCad = true;
-            if (!string.IsNullOrEmpty(dwgFile))
+            // Step 2: Deserialize the JSON file
+            BaseModel model;
+            try
             {
-                string fileName = Path.GetFileName(dwgFile);
-                Result cadResult = RhinoGet.GetBool($"Import CAD file: {fileName}?", true, "No", "Yes", ref importCad);
-                if (cadResult != Result.Success)
-                    return cadResult;
+                model = JsonConverter.LoadFromFile(jsonFilePath);
+                if (model == null)
+                {
+                    RhinoApp.WriteLine("Failed to load model from JSON file.");
+                    return Result.Failure;
+                }
+                RhinoApp.WriteLine($"Successfully loaded model: {model.Metadata?.ProjectInfo?.ProjectName ?? "Unnamed Project"}");
             }
+            catch (Exception ex)
+            {
+                RhinoApp.WriteLine($"Error deserializing JSON: {ex.Message}");
+                return Result.Failure;
+            }
+            // Step 3: Prompt for point selection
+            GetPoint gp = new GetPoint();
+            gp.SetCommandPrompt("Select origin point for model import (or press Enter to use origin)");
+            gp.AcceptNothing(true);
 
-            // Step 3: Ask for number of floorplates
-            int floorplateCount = 2; // Default
-            Result countResult = RhinoGet.GetInteger("Number of floorplates", false, ref floorplateCount, 1, 20);
-            if (countResult != Result.Success)
-                return countResult;
+            // Get the result without casting
+            var getResult = gp.Get();
 
+            // Convert GetResult to Result appropriately
+            if (getResult == GetResult.Cancel)
+                return Result.Cancel;
 
-            // Step 5: Begin setup command
+            Point3d originPoint = (getResult == GetResult.Point) ? gp.Point() : Point3d.Origin;
+
+            // Debug output
+            RhinoApp.WriteLine($"DEBUG - User point selection: {getResult}, Point: X={originPoint.X}, Y={originPoint.Y}, Z={originPoint.Z}");
+
+            // Step 4: Begin setup
             RhinoApp.RunScript("_-Command _Pause", false);
 
             try
             {
-                // Create layer structure
-                var setupLayer = CreateLayerStructure(doc, floorplateCount);
+                // Create layer structure based on floor types in the model
+                var layerStructure = CreateLayerStructure(doc, model);
 
-                // Create dummy geometry
-                CreateDummyGeometry(doc, setupLayer, floorplateCount);
+                // Import grids from the model
+                ImportGrids(doc, model, layerStructure, originPoint);
 
-                // Import CAD file if requested
-                if (importCad && !string.IsNullOrEmpty(dwgFile))
+                // Import floors from the model
+                ImportFloors(doc, model, layerStructure, originPoint);
+
+                // Optional: Import CAD reference if available
+                string projectDirectory = Path.GetDirectoryName(jsonFilePath);
+                string cadFolder = Path.Combine(projectDirectory, "CAD");
+                if (Directory.Exists(cadFolder))
                 {
-                    ImportDwgFile(doc, dwgFile, setupLayer);
+                    string dwgFile = Directory.GetFiles(cadFolder, "*.dwg").FirstOrDefault();
+                    if (!string.IsNullOrEmpty(dwgFile))
+                    {
+                        bool importCad = true;
+                        string fileName = Path.GetFileName(dwgFile);
+                        Result cadResult = RhinoGet.GetBool($"Import CAD file: {fileName}?", true, "No", "Yes", ref importCad);
+
+                        if (cadResult == Result.Success && importCad)
+                        {
+                            ImportDwgFile(doc, dwgFile, layerStructure);
+                        }
+                    }
                 }
 
                 RhinoApp.RunScript("_-Command _Resume", false);
@@ -73,26 +108,27 @@ namespace StructuralSetup.Commands
             catch (Exception ex)
             {
                 RhinoApp.WriteLine("Error during setup: {0}", ex.Message);
-                Rhino.RhinoApp.RunScript("_-Command _Cancel", false);
+                RhinoApp.RunScript("_-Command _Cancel", false);
                 return Result.Failure;
             }
         }
 
-        string SelectDirectory()
+        private string SelectJsonFile()
         {
-            using (var dialog = new Eto.Forms.SelectFolderDialog
+            using (var dialog = new Eto.Forms.OpenFileDialog
             {
-                Title = "Select Project Root Directory"
+                Title = "Select JSON Model File",
+                Filters = { new Eto.Forms.FileFilter("JSON Files", "*.json") }
             })
             {
                 var result = dialog.ShowDialog(RhinoEtoApp.MainWindow);
                 if (result == Eto.Forms.DialogResult.Ok)
-                    return dialog.Directory;
+                    return dialog.FileName;
             }
             return null;
         }
 
-        private LayerStructure CreateLayerStructure(RhinoDoc doc, int floorplateCount)
+        private LayerStructure CreateLayerStructure(RhinoDoc doc, BaseModel model)
         {
             // Create the main setup layer
             int setupLayerIndex = GetOrCreateLayer(doc, "z-setup");
@@ -100,83 +136,161 @@ namespace StructuralSetup.Commands
             // Create backgrounds layer
             int backgroundsLayerIndex = GetOrCreateLayer(doc, "z-backgrounds", setupLayerIndex);
 
+            // Create grids layer
+            int gridsLayerIndex = GetOrCreateLayer(doc, "z-grids", setupLayerIndex);
+
             var layers = new LayerStructure
             {
                 SetupLayerIndex = setupLayerIndex,
                 BackgroundsLayerIndex = backgroundsLayerIndex,
-                FloorplateLayers = new Dictionary<int, int>(),
-                FloorsLayers = new Dictionary<int, int>()
+                GridsLayerIndex = gridsLayerIndex,
+                FloorplateLayers = new Dictionary<string, int>(),
+                FloorTypeLayers = new Dictionary<string, int>(),
+                LevelElevations = new Dictionary<string, double>()
             };
 
-            // Create floorplate and floors layers
-            for (int i = 1; i <= floorplateCount; i++)
+            // Store level elevations
+            if (model.ModelLayout?.Levels != null)
             {
-                string floorplateName = $"z-floorplate{i}";
-                string floorsName = $"z-floors{i}";
+                foreach (var level in model.ModelLayout.Levels)
+                {
+                    // Store level elevations in feet (convert from inches if needed)
+                    layers.LevelElevations[level.Id] = level.Elevation / 12.0;
+                    RhinoApp.WriteLine($"Level {level.Name}: {layers.LevelElevations[level.Id]} ft");
+                }
+            }
 
-                int floorplateIndex = GetOrCreateLayer(doc, floorplateName, setupLayerIndex);
-                int floorsIndex = GetOrCreateLayer(doc, floorsName, floorplateIndex);
+            // Create floorplate layers based on model's floor types
+            if (model.ModelLayout?.FloorTypes != null)
+            {
+                int floorplateCounter = 1;
+                foreach (var floorType in model.ModelLayout.FloorTypes)
+                {
+                    string floorplateName = $"z-floorplate{floorplateCounter}";
+                    int floorplateIndex = GetOrCreateLayer(doc, floorplateName, setupLayerIndex);
 
-                layers.FloorplateLayers[i] = floorplateIndex;
-                layers.FloorsLayers[i] = floorsIndex;
+                    // Store both mappings for reference
+                    layers.FloorplateLayers[floorType.Id] = floorplateIndex;
+                    layers.FloorTypeLayers[floorType.Id] = floorplateIndex;
+
+                    floorplateCounter++;
+                }
             }
 
             return layers;
         }
 
-        private void CreateDummyGeometry(RhinoDoc doc, LayerStructure layers, int floorplateCount)
+        private void ImportGrids(RhinoDoc doc, BaseModel model, LayerStructure layers, Point3d originPoint)
         {
-            for (int i = 1; i <= floorplateCount; i++)
+            if (model?.ModelLayout?.Grids == null || model.ModelLayout.Grids.Count == 0)
             {
-                // Calculate elevation for this floorplate
-                double elevation = (i - 1) * 100; // Start at 0, increment by 100
+                RhinoApp.WriteLine("No grids found in the model.");
+                return;
+            }
 
-                // Create rectangle at the calculated elevation
-                Point3d[] rectPoints = new Point3d[]
+            RhinoApp.WriteLine($"Importing {model.ModelLayout.Grids.Count} grids...");
+
+            foreach (var grid in model.ModelLayout.Grids)
+            {
+                if (grid.StartPoint == null || grid.EndPoint == null)
                 {
-            new Point3d(0, 0, elevation),
-            new Point3d(100, 0, elevation),
-            new Point3d(100, 100, elevation),
-            new Point3d(0, 100, elevation),
-            new Point3d(0, 0, elevation)
-                };
+                    RhinoApp.WriteLine("Skipping grid with invalid points");
+                    continue;
+                }
 
-                var polyline = new Polyline(rectPoints);
-                var curve = polyline.ToNurbsCurve();
+                // Convert from inches to feet and place at Z=0
+                // Use originPoint as actual 0,0 point in the model
+                Point3d startPoint = new Point3d(
+                    originPoint.X + (grid.StartPoint.X / 12.0),
+                    originPoint.Y + (grid.StartPoint.Y / 12.0),
+                    originPoint.Z);  // Keep Z coordinate from origin point
 
+                Point3d endPoint = new Point3d(
+                    originPoint.X + (grid.EndPoint.X / 12.0),
+                    originPoint.Y + (grid.EndPoint.Y / 12.0),
+                    originPoint.Z);  // Keep Z coordinate from origin point
+
+                // Create a line from the start and end points
+                Line gridLine = new Line(startPoint, endPoint);
+
+                // Add the grid line to the document
                 var attr = new ObjectAttributes();
-                attr.LayerIndex = layers.FloorsLayers[i];
-                doc.Objects.AddCurve(curve, attr);
+                attr.LayerIndex = layers.GridsLayerIndex;
+                attr.Name = grid.Name ?? $"Grid-{grid.Id}";
+
+                doc.Objects.AddLine(gridLine, attr);
             }
         }
 
-        private string FindFirstDwgFile(string rootDirectory)
+        private void ImportFloors(RhinoDoc doc, BaseModel model, LayerStructure layers, Point3d originPoint)
         {
-            // Check for CAD directory
-            string cadDirectory = Path.Combine(rootDirectory, "CAD");
-            RhinoApp.WriteLine($"Looking for CAD directory: {cadDirectory}");
-
-            if (Directory.Exists(cadDirectory))
+            if (model?.Elements?.Floors == null || model.Elements.Floors.Count == 0)
             {
-                RhinoApp.WriteLine($"CAD directory found: {cadDirectory}");
+                RhinoApp.WriteLine("No floors found in the model.");
+                return;
+            }
 
-                // Get all DWG files and return the first one
-                string[] dwgFiles = Directory.GetFiles(cadDirectory, "*.dwg");
-                RhinoApp.WriteLine($"Found {dwgFiles.Length} DWG files");
+            RhinoApp.WriteLine($"Importing {model.Elements.Floors.Count} floors...");
 
-                for (int i = 0; i < dwgFiles.Length; i++)
+            foreach (var floor in model.Elements.Floors)
+            {
+                // Skip if no level ID or not enough points
+                if (string.IsNullOrEmpty(floor.LevelId) || floor.Points == null || floor.Points.Count < 3)
                 {
-                    RhinoApp.WriteLine($"File {i + 1}: {dwgFiles[i]}");
+                    RhinoApp.WriteLine("Skipping invalid floor (no level or insufficient points)");
+                    continue;
                 }
 
-                return dwgFiles.Length > 0 ? dwgFiles[0] : null;
-            }
-            else
-            {
-                RhinoApp.WriteLine($"CAD directory not found at: {cadDirectory}");
-            }
+                // Get elevation for this floor's level
+                if (!layers.LevelElevations.TryGetValue(floor.LevelId, out double elevation))
+                {
+                    RhinoApp.WriteLine($"Skipping floor with unknown level ID: {floor.LevelId}");
+                    continue;
+                }
 
-            return null;
+                // Find the right layer for this floor based on level's floor type
+                Level level = model.ModelLayout?.Levels?.FirstOrDefault(l => l.Id == floor.LevelId);
+                if (level == null || string.IsNullOrEmpty(level.FloorTypeId))
+                {
+                    RhinoApp.WriteLine($"Skipping floor with missing floor type");
+                    continue;
+                }
+
+                // Set layer index based on floor type
+                int layerIndex;
+                if (!layers.FloorTypeLayers.TryGetValue(level.FloorTypeId, out layerIndex))
+                {
+                    RhinoApp.WriteLine($"No layer found for floor type: {level.FloorTypeId}, using setup layer");
+                    layerIndex = layers.SetupLayerIndex;
+                }
+
+                // Create polyline from points
+                var polylinePoints = new List<Point3d>();
+                foreach (var point in floor.Points)
+                {
+                    // Convert from inches to feet and offset by origin point
+                    polylinePoints.Add(new Point3d(
+                        originPoint.X + (point.X / 12.0),
+                        originPoint.Y + (point.Y / 12.0),
+                        originPoint.Z + elevation));
+                }
+
+                // Close the polyline if not already closed
+                if (polylinePoints.Count > 2 &&
+                    (polylinePoints[0] != polylinePoints[polylinePoints.Count - 1]))
+                {
+                    polylinePoints.Add(polylinePoints[0]);
+                }
+
+                var polyline = new Polyline(polylinePoints);
+                var curve = polyline.ToNurbsCurve();
+
+                // Add the curve to the document
+                var attr = new ObjectAttributes();
+                attr.LayerIndex = layerIndex;
+                attr.Name = $"Floor-{floor.Id}";
+                doc.Objects.AddCurve(curve, attr);
+            }
         }
 
         private bool ImportDwgFile(RhinoDoc doc, string filePath, LayerStructure layers)
@@ -187,12 +301,10 @@ namespace StructuralSetup.Commands
                 doc.Layers.SetCurrentLayerIndex(layers.BackgroundsLayerIndex, true);
 
                 var dwgOptions = new FileDwgReadOptions();
-                //dwgOptions.ModelUnits = UnitSystem.Inches;
                 dwgOptions.LayoutUnits = UnitSystem.Inches;
                 dwgOptions.ImportUnreferencedLayers = true;
 
                 bool success = FileDwg.Read(filePath, doc, dwgOptions);
-
                 return success;
             }
             catch (Exception ex)
@@ -238,12 +350,14 @@ namespace StructuralSetup.Commands
         }
     }
 
-    // Simple class to hold layer indices
+    // Extended layer structure to handle floor types and level elevations
     public class LayerStructure
     {
         public int SetupLayerIndex { get; set; }
         public int BackgroundsLayerIndex { get; set; }
-        public Dictionary<int, int> FloorplateLayers { get; set; }
-        public Dictionary<int, int> FloorsLayers { get; set; }
+        public int GridsLayerIndex { get; set; }
+        public Dictionary<string, int> FloorplateLayers { get; set; } // Maps floor type ID to layer index
+        public Dictionary<string, int> FloorTypeLayers { get; set; } // Maps floor type ID to layer index
+        public Dictionary<string, double> LevelElevations { get; set; } // Maps level ID to elevation
     }
 }

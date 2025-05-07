@@ -3,6 +3,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Core.Models.Properties;
+using Core.Models.Properties.Floors;
+using Core.Models.Properties.Materials; 
 using Core.Utilities;
 using RAM.Utilities;
 using RAMDATAACCESSLib;

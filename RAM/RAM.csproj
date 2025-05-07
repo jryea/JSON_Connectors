@@ -81,7 +81,7 @@
     <Compile Include="Export\ModelLayout\FloorTypeExport.cs" />
     <Compile Include="Export\ModelLayout\GridExport.cs" />
     <Compile Include="Export\ModelLayout\LevelExport.cs" />
-    <Compile Include="Export\Properties\FloorProperties.cs" />
+    <Compile Include="Export\Properties\FloorPropertiesExport.cs" />
     <Compile Include="Export\Properties\FramePropertiesExport.cs" />
     <Compile Include="Export\Properties\WallProperties.cs" />
     <Compile Include="Import\Elements\BeamImport.cs" />

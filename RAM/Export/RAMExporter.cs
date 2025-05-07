@@ -61,12 +61,16 @@ namespace RAM
                         FloorTypeExport floorTypeExporter = new FloorTypeExport(modelManager.Model);
                         model.ModelLayout.FloorTypes = floorTypeExporter.Export();
 
+                        // Find the Ground floor type ID
+                        string groundFloorTypeId = model.ModelLayout.FloorTypes
+                            .FirstOrDefault(ft => ft.Name.Equals("Ground", StringComparison.OrdinalIgnoreCase))?.Id;
+
                         // Create the mapping from RAM UIDs to generated IDs
                         Dictionary<int, string> floorTypeMapping = floorTypeExporter.CreateFloorTypeMapping(model.ModelLayout.FloorTypes);
 
                         // Set the mapping before extracting levels
                         LevelExport levelExporter = new LevelExport(modelManager.Model, lengthUnit);
-                        levelExporter.SetFloorTypeMapping(floorTypeMapping);
+                        levelExporter.SetFloorTypeMapping(floorTypeMapping, groundFloorTypeId);
                         model.ModelLayout.Levels = levelExporter.Export();
 
                         // Extract grids

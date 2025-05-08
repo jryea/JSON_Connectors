@@ -1,124 +1,109 @@
-﻿using Core.Models.Properties.Floors;
-using Core.Utilities;
+﻿using Core.Utilities;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.Json.Serialization;
 
 namespace Core.Models.Properties
 {
-    /// <summary>
-    /// Represents properties for floor elements in the structural model with type-specific properties
-    /// </summary>
     public class FloorProperties : IIdentifiable
     {
-        /// <summary>
-        /// Unique identifier for the floor properties
-        /// </summary>
         public string Id { get; set; }
-
-        /// <summary>
-        /// Name of the floor properties
-        /// </summary>
         public string Name { get; set; }
 
-        /// <summary>
-        /// Type of floor (e.g., "Slab", "Composite", "NonComposite")
-        /// </summary>
-        public string Type { get; set; }
-
-        /// <summary>
-        /// Thickness of the floor in model units
-        /// </summary>
-        public double Thickness { get; set; }
-
-        /// <summary>
-        /// ID of the material for this floor
-        /// </summary>
+        // Concrete Material Id
         public string MaterialId { get; set; }
 
-        /// <summary>
-        /// ID of the design code applicable to this floor
-        /// </summary>
-        public string DesignCodeId { get; set; }
+        [JsonConverter(typeof(JsonStringEnumConverter))]
+        public FloorType Type { get; set; }
 
-        /// <summary>
-        /// Reinforcement information
-        /// </summary>
-        public string Reinforcement { get; set; }
+        [JsonConverter(typeof(JsonStringEnumConverter))]
+        public ModelingType ModelingType { get; set; } = ModelingType.Membrane;
 
-        /// <summary>
-        /// Slab-specific properties (non-null when Type is "Slab")
-        /// </summary>
-        public SlabProperties SlabProps { get; set; }
+        [JsonConverter(typeof(JsonStringEnumConverter))]
+        public SlabType SlabType { get; set; } = SlabType.Slab;
 
-        /// <summary>
-        /// Deck-specific properties (non-null when Type is "Composite" or "NonComposite")
-        /// </summary>
-        public DeckProperties DeckProps { get; set; }
+        public double Thickness { get; set; }
 
-        /// <summary>
-        /// Creates a new FloorProperties with a generated ID
-        /// </summary>
+        public DeckProperties DeckProperties { get; set; } = new DeckProperties();
+        public ShearStudProperties ShearStudProperties { get; set; } = new ShearStudProperties();
+
         public FloorProperties()
         {
             Id = IdGenerator.Generate(IdGenerator.Properties.FLOOR_PROPERTIES);
         }
 
-        /// <summary>
-        /// Creates a new FloorProperties with specified properties
-        /// </summary>
-        /// <param name="name">Name of the floor properties</param>
-        /// <param name="type">Type of floor</param>
-        /// <param name="thickness">Thickness of the floor in model units</param>
-        /// <param name="materialId">ID of the material for this floor</param>
-        public FloorProperties(string name, string type, double thickness, string materialId) : this()
+        public FloorProperties(string name, FloorType type, double thickness, string materialId) : this()
         {
             Name = name;
             Type = type;
-            Thickness = thickness;
             MaterialId = materialId;
-
-            // Initialize type-specific properties
-            InitializeProperties();
         }
+    }
 
-        /// <summary>
-        /// Initializes type-specific properties based on the floor type
-        /// </summary>
-        public void InitializeProperties()
+    public class ShearStudProperties
+    {
+        public double ShearStudDiameter { get; set; }
+        public double ShearStudHeight { get; set; }
+        public double ShearStudTensileStrength { get; set; }
+
+        public ShearStudProperties() 
         {
-            // Reset all type-specific properties
-            SlabProps = null;
-            DeckProps = null;
-
-            // Initialize properties based on floor type
-            switch (Type?.ToLower())
-            {
-                case "slab":
-                    SlabProps = new SlabProperties
-                    {
-                        IsRibbed = false,
-                        IsWaffle = false,
-                        IsTwoWay = true
-                    };
-                    break;
-
-                case "composite":
-                    DeckProps = new DeckProperties
-                    {
-                        DeckType = "Composite",
-                        DeckDepth = 1.5, // inches
-                        DeckGage = 22,
-                        ToppingThickness = Thickness - 1.5
-                    };
-                    break;
-
-                case "noncomposite":
-                    DeckProps = new DeckProperties
-                    {
-                        DeckType = "NonComposite",
-                        DeckDepth = Thickness,
-                        DeckGage = 22
-                    };
-                    break;
-            }
+            ShearStudDiameter = 0.75; // Default diameter in inches
+            ShearStudHeight = 6.0; // Default height in inches      
+            ShearStudTensileStrength = 65000; // Default tensile strength in psi  
         }
+    }
+
+    public class DeckProperties
+    {
+        public string DeckType { get; set; } = "VULCRAFT 2VL"; 
+
+        // Deck Material ID for ETABS
+        public string MaterialID { get; set; }  
+
+        public double RibDepth { get; set; }
+
+        public double RibWidthTop { get; set; }  
+        public double RibWidthBottom { get; set; }
+        public double RibSpacing { get; set; }
+        public double DeckShearThickness { get; set; }
+        public double DeckUnitWeight { get; set; }
+
+        public DeckProperties()
+        {
+            RibDepth = 3.0; // Default rib depth in inches
+            RibWidthTop = 7.0; // Default top width in inches
+            RibWidthBottom = 5.0; // Default bottom width in inches
+            RibSpacing = 12.0; // Default spacing in inches
+            DeckShearThickness = 0.035; // Default shear thickness in inches
+            DeckUnitWeight = 2.3; // Default unit weight in pcf
+        }
+    }
+
+    public enum FloorType
+    {
+        Slab,
+        FilledDeck,
+        UnfilledDeck,
+        SolidSlabDeck
+    }
+
+    public enum ModelingType
+    {
+        ShellThin,
+        ShellThick,
+        Membrane,
+        Layered
+    }
+
+    public enum  SlabType
+    {
+        Slab,
+        Drop,
+        Stiff,
+        Ribbed,
+        Waffle,
+        Mat,
+        Footing
     }
 }

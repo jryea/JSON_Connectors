@@ -57,7 +57,7 @@ namespace Revit.Export
                     string jsonContent = File.ReadAllText(tempJsonPath);
 
                     // Create the converter and process the model
-                    var converter = new GrasshopperToETABS();
+                    var converter = new ETABSImport();
                     string e2kContent = converter.ProcessModel(jsonContent, null, null);
 
                     // Save the E2K content to file

@@ -1,10 +1,8 @@
-﻿// FramePropertiesExport.cs
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Core.Models.Properties;
-using Core.Models.Properties.Floors;
-using Core.Models.Properties.Materials; 
+using Core.Models.Properties.Materials;
 using Core.Utilities;
 using RAM.Utilities;
 using RAMDATAACCESSLib;
@@ -15,91 +13,57 @@ namespace RAM.Export.Properties
     {
         private IModel _model;
         private string _lengthUnit;
-        // This is the key addition - maintain the mappings as a class field
-        private Dictionary<string, string> _framePropMappings;
+        private RAMExporter _exporter;
+        private Dictionary<string, string> _framePropMappings = new Dictionary<string, string>();
 
-        public FramePropertiesExport(IModel model, string lengthUnit = "inches")
+        public FramePropertiesExport(IModel model, RAMExporter exporter, string lengthUnit = "inches")
         {
             _model = model;
+            _exporter = exporter;
             _lengthUnit = lengthUnit;
-            _framePropMappings = new Dictionary<string, string>();
         }
 
-        public (List<FrameProperties> Properties, Dictionary<string, string> Mapping) Export(List<Material> materials)
+        public List<FrameProperties> Export()
         {
             var frameProperties = new List<FrameProperties>();
             var processedSections = new HashSet<string>(); // Avoid duplicate sections
 
             try
             {
-                // Find steel material ID
-                string steelMaterialId = materials.FirstOrDefault(m => m.Type.ToLower() == "steel")?.Id;
-                if (string.IsNullOrEmpty(steelMaterialId))
-                {
-                    // If no steel material found, add a default one
-                    var steelMaterial = new Material
-                    {
-                        Id = IdGenerator.Generate(IdGenerator.Properties.MATERIAL),
-                        Name = "Default Steel",
-                        Type = "Steel"
-                    };
-                    materials.Add(steelMaterial);
-                    steelMaterialId = steelMaterial.Id;
-                }
-
-                // Find concrete material ID
-                string concreteMaterialId = materials.FirstOrDefault(m => m.Type.ToLower() == "concrete")?.Id;
-                if (string.IsNullOrEmpty(concreteMaterialId))
-                {
-                    // If no concrete material found, add a default one
-                    var concreteMaterial = new Material
-                    {
-                        Id = IdGenerator.Generate(IdGenerator.Properties.MATERIAL),
-                        Name = "Concrete",
-                        Type = "Concrete"
-                    };
-                    materials.Add(concreteMaterial);
-                    concreteMaterialId = concreteMaterial.Id;
-                }
-
-                // Get all stories from RAM
+                // Process each story to extract beam and column sections
                 IStories ramStories = _model.GetStories();
-                if (ramStories == null || ramStories.GetCount() == 0)
-                    return (frameProperties, _framePropMappings);
-
-                // Process each story
-                for (int i = 0; i < ramStories.GetCount(); i++)
+                if (ramStories != null && ramStories.GetCount() > 0)
                 {
-                    IStory ramStory = ramStories.GetAt(i);
-                    if (ramStory == null)
-                        continue;
-
-                    // Extract beam sections
-                    IBeams storyBeams = ramStory.GetBeams();
-                    if (storyBeams != null && storyBeams.GetCount() > 0)
+                    for (int i = 0; i < ramStories.GetCount(); i++)
                     {
-                        ExtractSectionsFromBeams(storyBeams, processedSections, frameProperties, steelMaterialId);
-                    }
+                        IStory ramStory = ramStories.GetAt(i);
+                        if (ramStory == null)
+                            continue;
 
-                    // Extract column sections
-                    IColumns storyColumns = ramStory.GetColumns();
-                    if (storyColumns != null && storyColumns.GetCount() > 0)
-                    {
-                        ExtractSectionsFromColumns(storyColumns, processedSections, frameProperties, steelMaterialId);
-                    }
+                        // Extract frame properties from beams
+                        ExtractFramePropertiesFromBeams(ramStory, processedSections, frameProperties);
 
-                    // Add code for braces if needed
+                        // Extract frame properties from columns
+                        ExtractFramePropertiesFromColumns(ramStory, processedSections, frameProperties);
+                    }
                 }
+
+                // Process braces
+                ExtractFramePropertiesFromBraces(processedSections, frameProperties);
+
+                // Update mappings in ModelMappingUtility
+                ModelMappingUtility.SetFramePropertyMappings(_framePropMappings);
 
                 // If no sections were found, add a default one
                 if (frameProperties.Count == 0)
                 {
-                    var defaultProp = CreateDefaultFrameProperties(steelMaterialId);
+                    var defaultProp = CreateDefaultFrameProperties();
                     frameProperties.Add(defaultProp);
                     _framePropMappings["W10X12"] = defaultProp.Id;
+                    ModelMappingUtility.SetFramePropertyMappings(_framePropMappings);
                 }
 
-                return (frameProperties, _framePropMappings);
+                return frameProperties;
             }
             catch (Exception ex)
             {
@@ -108,25 +72,28 @@ namespace RAM.Export.Properties
                 // Return at least a default section in case of error
                 if (frameProperties.Count == 0)
                 {
-                    string defaultMaterialId = materials.FirstOrDefault()?.Id ??
-                        IdGenerator.Generate(IdGenerator.Properties.MATERIAL);
-
-                    var defaultProp = CreateDefaultFrameProperties(defaultMaterialId);
+                    var defaultProp = CreateDefaultFrameProperties();
                     frameProperties.Add(defaultProp);
                     _framePropMappings["W10X12"] = defaultProp.Id;
+                    ModelMappingUtility.SetFramePropertyMappings(_framePropMappings);
                 }
 
-                return (frameProperties, _framePropMappings);
+                return frameProperties;
             }
         }
 
-        private void ExtractSectionsFromBeams(IBeams beams, HashSet<string> processedSections,
-                                             List<FrameProperties> frameProperties,
-                                             string materialId)
+        private void ExtractFramePropertiesFromBeams(IStory story, HashSet<string> processedSections,
+                                                   List<FrameProperties> frameProperties)
         {
-            for (int j = 0; j < beams.GetCount(); j++)
+            // Get beams for this story
+            IBeams storyBeams = story.GetBeams();
+            if (storyBeams == null || storyBeams.GetCount() == 0)
+                return;
+
+            // Process each beam in the story
+            for (int j = 0; j < storyBeams.GetCount(); j++)
             {
-                IBeam beam = beams.GetAt(j);
+                IBeam beam = storyBeams.GetAt(j);
                 if (beam == null || string.IsNullOrEmpty(beam.strSectionLabel))
                     continue;
 
@@ -138,10 +105,13 @@ namespace RAM.Export.Properties
 
                 processedSections.Add(sectionLabel);
 
-                // Extract shape from section label (e.g., "W" from "W14X90")
+                // Get material ID
+                string materialId = _exporter.GetOrCreateMaterialId(beam.lMaterialID, beam.eMaterial, _model);
+
+                // Extract shape from section label
                 string shape = ExtractShapeFromSectionLabel(sectionLabel);
 
-                // Create a frame properties object for this section
+                // Create a frame property for this section
                 var frameProp = new FrameProperties
                 {
                     Id = IdGenerator.Generate(IdGenerator.Properties.FRAME_PROPERTIES),
@@ -150,18 +120,26 @@ namespace RAM.Export.Properties
                     Shape = shape
                 };
 
+                // Extract dimensions from the section label
+                ParseSectionDimensions(frameProp);
+
                 frameProperties.Add(frameProp);
                 _framePropMappings[sectionLabel] = frameProp.Id;
             }
         }
 
-        private void ExtractSectionsFromColumns(IColumns columns, HashSet<string> processedSections,
-                                               List<FrameProperties> frameProperties,
-                                               string materialId)
+        private void ExtractFramePropertiesFromColumns(IStory story, HashSet<string> processedSections,
+                                                    List<FrameProperties> frameProperties)
         {
-            for (int j = 0; j < columns.GetCount(); j++)
+            // Get columns for this story
+            IColumns storyColumns = story.GetColumns();
+            if (storyColumns == null || storyColumns.GetCount() == 0)
+                return;
+
+            // Process each column in the story
+            for (int j = 0; j < storyColumns.GetCount(); j++)
             {
-                IColumn column = columns.GetAt(j);
+                IColumn column = storyColumns.GetAt(j);
                 if (column == null || string.IsNullOrEmpty(column.strSectionLabel))
                     continue;
 
@@ -173,10 +151,13 @@ namespace RAM.Export.Properties
 
                 processedSections.Add(sectionLabel);
 
-                // Extract shape from section label (e.g., "W" from "W14X90")
+                // Get material ID
+                string materialId = _exporter.GetOrCreateMaterialId(column.lMaterialID, column.eMaterial, _model);
+
+                // Extract shape from section label
                 string shape = ExtractShapeFromSectionLabel(sectionLabel);
 
-                // Create a frame properties object for this section
+                // Create a frame property for this section
                 var frameProp = new FrameProperties
                 {
                     Id = IdGenerator.Generate(IdGenerator.Properties.FRAME_PROPERTIES),
@@ -185,8 +166,124 @@ namespace RAM.Export.Properties
                     Shape = shape
                 };
 
+                // Extract dimensions from the section label
+                ParseSectionDimensions(frameProp);
+
                 frameProperties.Add(frameProp);
                 _framePropMappings[sectionLabel] = frameProp.Id;
+            }
+        }
+
+        private void ExtractFramePropertiesFromBraces(HashSet<string> processedSections,
+                                                    List<FrameProperties> frameProperties)
+        {
+            // Get vertical braces
+            IVerticalBraces verticalBraces = _model.GetVerticalBraces();
+            if (verticalBraces != null)
+            {
+                for (int i = 0; i < verticalBraces.GetCount(); i++)
+                {
+                    IVerticalBrace brace = verticalBraces.GetAt(i);
+                    if (brace == null || string.IsNullOrEmpty(brace.strSectionLabel))
+                        continue;
+
+                    string sectionLabel = brace.strSectionLabel;
+
+                    // Skip if we've already processed this section
+                    if (processedSections.Contains(sectionLabel))
+                        continue;
+
+                    processedSections.Add(sectionLabel);
+
+                    // Get material ID
+                    string materialId = _exporter.GetOrCreateMaterialId(brace.lMaterialID, brace.eMaterial, _model);
+
+                    // Extract shape from section label
+                    string shape = ExtractShapeFromSectionLabel(sectionLabel);
+
+                    // Create a frame property for this section
+                    var frameProp = new FrameProperties
+                    {
+                        Id = IdGenerator.Generate(IdGenerator.Properties.FRAME_PROPERTIES),
+                        Name = sectionLabel,
+                        MaterialId = materialId,
+                        Shape = shape
+                    };
+
+                    // Extract dimensions from the section label
+                    ParseSectionDimensions(frameProp);
+
+                    frameProperties.Add(frameProp);
+                    _framePropMappings[sectionLabel] = frameProp.Id;
+                }
+            }
+        }
+
+        private void ParseSectionDimensions(FrameProperties frameProp)
+        {
+            try
+            {
+                // Parse dimensions from section names like W14X90, HSS6X6X3/8, etc.
+                string name = frameProp.Name;
+
+                if (frameProp.Shape == "W" && name.Contains("X"))
+                {
+                    // W-shapes: W14X90 means 14" deep, ~90 lbs/ft
+                    string[] parts = name.Substring(1).Split('X');
+                    if (parts.Length >= 2 && double.TryParse(parts[0], out double depth))
+                    {
+                        frameProp.Dimensions["depth"] = depth;
+                        frameProp.Dimensions["width"] = depth * 0.7; // Approximate width based on depth
+                        frameProp.Dimensions["webThickness"] = depth * 0.03; // Approximate web thickness
+                        frameProp.Dimensions["flangeThickness"] = depth * 0.05; // Approximate flange thickness
+                    }
+                }
+                else if (frameProp.Shape == "HSS" && name.Contains("X"))
+                {
+                    // HSS shapes: HSS6X6X3/8 means 6"x6" with 3/8" thickness
+                    string[] parts = name.Substring(3).Split('X');
+                    if (parts.Length >= 2)
+                    {
+                        if (double.TryParse(parts[0], out double depth))
+                            frameProp.Dimensions["depth"] = depth;
+
+                        if (double.TryParse(parts[1], out double width))
+                            frameProp.Dimensions["width"] = width;
+
+                        // If thickness is provided (HSS6X6X3/8)
+                        if (parts.Length >= 3)
+                        {
+                            string thicknessStr = parts[2];
+                            // Handle fractions like 3/8
+                            if (thicknessStr.Contains("/"))
+                            {
+                                string[] fractionParts = thicknessStr.Split('/');
+                                if (fractionParts.Length == 2 &&
+                                    double.TryParse(fractionParts[0], out double numerator) &&
+                                    double.TryParse(fractionParts[1], out double denominator))
+                                {
+                                    frameProp.Dimensions["wallThickness"] = numerator / denominator;
+                                }
+                            }
+                            else if (double.TryParse(thicknessStr, out double thickness))
+                            {
+                                frameProp.Dimensions["wallThickness"] = thickness;
+                            }
+                        }
+                        else
+                        {
+                            // Default thickness if not specified
+                            frameProp.Dimensions["wallThickness"] = 0.25;
+                        }
+                    }
+                }
+                // Add parsing for other shapes as needed
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error parsing section dimensions: {ex.Message}");
+                // Initialize default dimensions
+                frameProp.InitializeDefaultDimensions();
             }
         }
 
@@ -204,15 +301,26 @@ namespace RAM.Export.Properties
             return shape.Trim();
         }
 
-        private FrameProperties CreateDefaultFrameProperties(string materialId)
+        private FrameProperties CreateDefaultFrameProperties()
         {
-            return new FrameProperties
+            // Get the default steel material ID
+            string steelMaterialId = _exporter.GetDefaultSteelMaterialId();
+
+            var defaultProp = new FrameProperties
             {
                 Id = IdGenerator.Generate(IdGenerator.Properties.FRAME_PROPERTIES),
                 Name = "W10X12",
-                MaterialId = materialId,
+                MaterialId = steelMaterialId,
                 Shape = "W"
             };
+
+            // Set standard dimensions for W10X12
+            defaultProp.Dimensions["depth"] = 10.0;      // inches
+            defaultProp.Dimensions["width"] = 4.0;       // inches
+            defaultProp.Dimensions["webThickness"] = 0.19;    // inches
+            defaultProp.Dimensions["flangeThickness"] = 0.3;  // inches
+
+            return defaultProp;
         }
     }
 }

@@ -70,7 +70,7 @@ namespace Grasshopper.Components
                 }
 
                 // Create exporter
-                var converter = new GrasshopperToETABS();
+                var converter = new ETABSImport();
 
                 // Get both outputs from the same source
                 string e2kContent = converter.ProcessModel(jsonInput, customE2K, filePath);

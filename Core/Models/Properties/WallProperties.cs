@@ -3,51 +3,33 @@ using Core.Utilities;
 
 namespace Core.Models.Properties
 {
-    /// <summary>
-    /// Represents properties for wall elements in the structural model
-    /// </summary>
+    // Represents properties for wall elements in the structural model
     public class WallProperties : IIdentifiable
     {
-        /// <summary>
-        /// Unique identifier for the wall properties
-        /// </summary>
+        // Unique identifier for the wall properties
         public string Id { get; set; }
 
-        /// <summary>
-        /// Name of the wall properties
-        /// </summary>
+        // Name of the wall properties
         public string Name { get; set; }
 
-        /// <summary>
-        /// ID of the material for this wall
-        /// </summary>
+        // ID of the material for this wall
         public string MaterialId { get; set; }
 
-        /// <summary>
-        /// Thickness of the wall in model units
-        /// </summary>
+        // Thickness of the wall in model units
         public double Thickness { get; set; }
 
-        /// <summary>
-        /// Additional wall-specific properties
-        /// </summary>
+        // Additional wall-specific properties
         public Dictionary<string, object> Properties { get; set; } = new Dictionary<string, object>();
 
-        /// <summary>
-        /// Creates a new WallProperties with a generated ID
-        /// </summary>
+        // Creates a new WallProperties with a generated ID
         public WallProperties()
         {
             Id = IdGenerator.Generate(IdGenerator.Properties.WALL_PROPERTIES);
             Properties = new Dictionary<string, object>();
         }
 
-        /// <summary>
-        /// Creates a new WallProperties with specified properties
-        /// </summary>
-        /// <param name="name">Name of the wall properties</param>
-        /// <param name="materialId">ID of the material for this wall</param>
-        /// <param name="thickness">Thickness of the wall in model units</param>
+        // Creates a new WallProperties with specified properties
+
         public WallProperties(string name, string materialId, double thickness) : this()
         {
             Name = name;

@@ -54,7 +54,7 @@ namespace StandaloneConverter.Services
 
             // Step 4: Convert JSON to E2K
             logger.Log($"Converting JSON to ETABS E2K format");
-            var etabsConverter = new GrasshopperToETABS();
+            var etabsConverter = new ETABSImport();
             string e2kContent = etabsConverter.ProcessModel(jsonContent, null, null);
 
             // Step 5: Save E2K file

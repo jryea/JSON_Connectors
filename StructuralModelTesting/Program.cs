@@ -846,7 +846,7 @@ namespace StructuralModelTester
                 string jsonContent = File.ReadAllText(jsonPath);
 
                 // Create the converter and process the model
-                var converter = new ETABS.GrasshopperToETABS();
+                var converter = new ETABS.ETABSImport();
                 string e2kContent = converter.ProcessModel(jsonContent, null, null);
 
                 // Save the E2K content to file

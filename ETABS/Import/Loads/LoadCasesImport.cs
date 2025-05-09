@@ -41,14 +41,14 @@ namespace ETABS.Import.Loads
 
                 // Make sure we have EQX and EQY load cases if needed
                 if (!loadContainer.LoadDefinitions.Any(ld =>
-                    ld.Type?.ToLower() == "seismic" &&
-                    (ld.Name?.ToLower() == "eqx" || ld.Name?.ToLower() == "eq-x")))
+                ld.Type == LoadType.Seismic &&
+                (ld.Name?.ToLower() == "eqx" || ld.Name?.ToLower() == "eq-x")))
                 {
                     AddDefaultLoadCase(sb, "EQX", "Linear Static");
                 }
 
                 if (!loadContainer.LoadDefinitions.Any(ld =>
-                    ld.Type?.ToLower() == "seismic" &&
+                    ld.Type == LoadType.Seismic &&
                     (ld.Name?.ToLower() == "eqy" || ld.Name?.ToLower() == "eq-y")))
                 {
                     AddDefaultLoadCase(sb, "EQY", "Linear Static");
@@ -81,33 +81,12 @@ namespace ETABS.Import.Loads
         }
 
         // Determines the appropriate analysis type based on load type
-        private string DetermineAnalysisType(string loadType)
+        private string DetermineAnalysisType(LoadType loadType)
         {
-            if (string.IsNullOrEmpty(loadType))
-                return "Linear Static";
-
-            switch (loadType.ToLower())
+            switch (loadType)
             {
-                case "seismic":
-                case "earthquake":
-                case "eq":
-                case "eqx":
-                case "eqy":
+                case LoadType.Seismic:
                     return "Response Spectrum";
-
-                case "modal":
-                    return "Modal - Eigen";
-
-                case "nonlinear static":
-                case "pushover":
-                    return "Nonlinear Static";
-
-                case "buckling":
-                    return "Buckling";
-
-                case "time history":
-                    return "Linear Direct Integration History";
-
                 default:
                     // For all other load types, use Linear Static
                     return "Linear Static";

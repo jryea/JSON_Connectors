@@ -53,7 +53,8 @@ namespace Core.Models.Properties
 
         [JsonConverter(typeof(JsonStringEnumConverter))]
         public SteelSectionType SectionType { get; set; }
-    }
+        public string SectionName { get; set; }
+}
 
     public class ConcreteFrameProperties
     {
@@ -69,6 +70,10 @@ namespace Core.Models.Properties
             LShaped,
             Custom
         }
+
+        public string SectionName { get; set; }
+
+        public Dictionary<string, string> Dimensions = new Dictionary<string, string>();
     }
     
 }

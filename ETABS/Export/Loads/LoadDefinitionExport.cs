@@ -18,12 +18,7 @@ namespace ETABS.Export.Loads
                 return new List<LoadDefinition>();
 
             // Regular expression to match load pattern definition
-            // Format: LOADPATTERN "SW" TYPE "Dead" SELFWEIGHT 1
             var loadPatternPattern = new Regex(@"^\s*LOADPATTERN\s+""([^""]+)""\s+TYPE\s+""([^""]+)""\s+SELFWEIGHT\s+([\d\.]+)",
-                RegexOptions.Multiline);
-
-            // Pattern for seismic parameters (optional)
-            var seismicPattern = new Regex(@"^\s*SEISMIC\s+""([^""]+)""\s+""([^""]+)""\s+DIR\s+""([^""]+)""",
                 RegexOptions.Multiline);
 
             // Process load pattern definitions
@@ -33,15 +28,15 @@ namespace ETABS.Export.Loads
                 if (match.Groups.Count >= 4)
                 {
                     string name = match.Groups[1].Value;
-                    string type = match.Groups[2].Value;
+                    string typeStr = match.Groups[2].Value;
                     double selfWeight = Convert.ToDouble(match.Groups[3].Value);
 
-                    // Create load definition
+                    // Create load definition with enum LoadType
                     var loadDef = new LoadDefinition
                     {
                         Id = IdGenerator.Generate(IdGenerator.Loads.LOAD_DEFINITION),
                         Name = name,
-                        Type = ConvertLoadType(type),
+                        Type = ConvertToLoadType(typeStr),
                         SelfWeight = selfWeight
                     };
 
@@ -49,49 +44,26 @@ namespace ETABS.Export.Loads
                 }
             }
 
-            // Process seismic parameters
-            var seismicMatches = seismicPattern.Matches(loadPatternsSection);
-            foreach (Match match in seismicMatches)
-            {
-                if (match.Groups.Count >= 4)
-                {
-                    string loadName = match.Groups[1].Value;
-                    string code = match.Groups[2].Value;
-                    string direction = match.Groups[3].Value;
-
-                    // Update existing load definition if it exists
-                    if (loadDefinitions.TryGetValue(loadName, out LoadDefinition loadDef))
-                    {
-                        // Store seismic parameters in extended properties
-                        // We would need to extend the LoadDefinition class to include these properties
-                        // For now, we'll just set the type to ensure it's recognized as seismic
-                        loadDef.Type = "Seismic";
-                    }
-                }
-            }
-
             return new List<LoadDefinition>(loadDefinitions.Values);
         }
 
-        // Converts ETABS load type to model load type
-        private string ConvertLoadType(string etabsType)
+        // Converts ETABS load type string to model LoadType enum
+        private LoadType ConvertToLoadType(string etabsType)
         {
             switch (etabsType.ToLower())
             {
                 case "dead":
-                    return "Dead";
+                    return LoadType.Dead;
                 case "live":
-                    return "Live";
+                    return LoadType.Live;
                 case "wind":
-                    return "Wind";
+                    return LoadType.Wind;
                 case "snow":
-                    return "Snow";
+                    return LoadType.Snow;
                 case "seismic":
-                    return "Seismic";
-                case "temperature":
-                    return "Temperature";
+                    return LoadType.Seismic;
                 default:
-                    return etabsType; // Keep original if not recognized
+                    return LoadType.Other;
             }
         }
     }

@@ -8,29 +8,28 @@ namespace ETABS.Import.Properties
     public class DiaphragmsImport
     {
         // Converts a collection of Diaphragm objects to E2K format text
+        
         public string ConvertToE2K(IEnumerable<Diaphragm> diaphragms)
         {
             StringBuilder sb = new StringBuilder();
-
-            // E2K Diaphragm Section Header
             sb.AppendLine("$ DIAPHRAGM NAMES");
 
-            // Default diaphragm if no diaphragms are defined
             if (diaphragms == null || !HasItems(diaphragms))
             {
                 sb.AppendLine("  DIAPHRAGM \"D1\"    TYPE RIGID");
                 return sb.ToString();
             }
 
-            // Process each diaphragm and add to output
             foreach (var diaphragm in diaphragms)
             {
-                string diaphragmType = GetDiaphragmType(diaphragm.Type);
-                sb.AppendLine($"  DIAPHRAGM \"{diaphragm.Name}\"    TYPE {diaphragmType}");
+                // Convert enum to string representation for ETABS
+                string diaphragmTypeStr = diaphragm.Type == DiaphragmType.Rigid ? "RIGID" : "SEMIRIGID";
+                sb.AppendLine($"  DIAPHRAGM \"{diaphragm.Name}\"    TYPE {diaphragmTypeStr}");
             }
 
             return sb.ToString();
         }
+        
 
         // Determines if an enumerable collection has any items
         private bool HasItems<T>(IEnumerable<T> collection)

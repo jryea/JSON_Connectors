@@ -1,7 +1,7 @@
 ﻿using System.Text;
 using Core.Models.Metadata;
 
-namespace ETABS.Import.Loads
+namespace ETABS.Import.Metadata
 {
     // Converts Core Metadata and Units objects to ETABS E2K format text for the CONTROLS section
     public class ControlsImport

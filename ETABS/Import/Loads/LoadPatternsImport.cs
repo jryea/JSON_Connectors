@@ -53,7 +53,7 @@ namespace ETABS.Import.Loads
 
                 // Add default seismic load patterns if they don't exist
                 if (!loadContainer.LoadDefinitions.Any(ld =>
-                    ld.Type?.ToLower() == "seismic" &&
+                    ld.Type == LoadType.Seismic &&
                     ld.Name?.ToLower() == "eqx"))
                 {
                     sb.AppendLine("  LOADPATTERN \"EQX\"  TYPE  \"Seismic\"  SELFWEIGHT  0");
@@ -66,7 +66,7 @@ namespace ETABS.Import.Loads
                 }
 
                 if (!loadContainer.LoadDefinitions.Any(ld =>
-                    ld.Type?.ToLower() == "seismic" &&
+                    ld.Type == LoadType.Seismic &&
                     ld.Name?.ToLower() == "eqy"))
                 {
                     sb.AppendLine("  LOADPATTERN \"EQY\"  TYPE  \"Seismic\"  SELFWEIGHT  0");
@@ -82,18 +82,15 @@ namespace ETABS.Import.Loads
             return sb.ToString();
         }
 
-        /// <summary>
-        /// Formats a single LoadDefinition as an E2K load pattern
-        /// </summary>
-        /// <param name="loadDef">LoadDefinition to format</param>
-        /// <returns>E2K load pattern line</returns>
+        // Formats a single LoadDefinition as an E2K load pattern
+     
         private string FormatLoadPattern(LoadDefinition loadDef)
         {
             // Get standardized load type 
-            string loadType = GetETABSLoadType(loadDef.Type);
+            string loadTypeStr = GetETABSLoadType(loadDef.Type);
 
             // Format: LOADPATTERN "SW"  TYPE  "Dead"  SELFWEIGHT  1
-            return $"  LOADPATTERN \"{loadDef.Name}\"  TYPE  \"{loadType}\"  SELFWEIGHT  {loadDef.SelfWeight}";
+            return $"  LOADPATTERN \"{loadDef.Name}\"  TYPE  \"{loadTypeStr}\"  SELFWEIGHT  {loadDef.SelfWeight}";
         }
 
         /// <summary>
@@ -101,53 +98,22 @@ namespace ETABS.Import.Loads
         /// </summary>
         /// <param name="modelType">Load type from the model</param>
         /// <returns>Standardized ETABS load type</returns>
-        private string GetETABSLoadType(string modelType)
+        private string GetETABSLoadType(LoadType modelType)
         {
-            if (string.IsNullOrEmpty(modelType))
-                return "Dead"; // Default to dead load
-
-            switch (modelType.ToLower())
+            switch (modelType)
             {
-                case "dead":
-                case "sw":
-                case "selfweight":
+                case LoadType.Dead:
                     return "Dead";
-
-                case "live":
-                case "ll":
-                case "reducible live":
+                case LoadType.Live:
                     return "Live";
-
-                case "sdl":
-                case "superimposed dead":
-                case "superimposed":
-                    return "Dead";
-
-                case "wind":
-                case "wx":
-                case "wy":
+                case LoadType.Wind:
                     return "Wind";
-
-                case "seismic":
-                case "earthquake":
-                case "eq":
-                case "eqx":
-                case "eqy":
-                    return "Seismic";
-
-                case "snow":
+                case LoadType.Snow:
                     return "Snow";
-
-                case "rain":
-                case "rainwater":
-                    return "Rain";
-
-                case "temperature":
-                case "temp":
-                    return "Temperature";
-
+                case LoadType.Seismic:
+                    return "Seismic";
+                case LoadType.Other:
                 default:
-                    // For any unrecognized type, categorize as Other
                     return "Other";
             }
         }

@@ -13,6 +13,9 @@ namespace ETABS.Export.Loads
         // Dictionary to map load pattern names to load definition IDs
         private Dictionary<string, string> _loadDefIdsByName = new Dictionary<string, string>();
 
+        // Store the load definitions collection
+        private IEnumerable<LoadDefinition> _loadDefinitions;
+
         // Dictionary to map floor type names to floor type IDs
         private Dictionary<string, string> _floorTypeIdsByName = new Dictionary<string, string>();
 
@@ -197,6 +200,19 @@ namespace ETABS.Export.Loads
         // Determines if a load pattern name represents a live load
         private bool IsLiveLoadPattern(string loadPatName)
         {
+            // Try to find the load definition by name
+            if (_loadDefIdsByName.TryGetValue(loadPatName, out string loadDefId))
+            {
+                // Check if it's in the load definitions collection
+                var loadDef = _loadDefinitions?.FirstOrDefault(ld => ld.Id == loadDefId);
+                if (loadDef != null)
+                {
+                    // Use the enum type directly
+                    return loadDef.Type == LoadType.Live;
+                }
+            }
+
+            // Fallback to string analysis if not found
             string name = loadPatName.ToLower();
             return name.Contains("live") || name == "ll" || name.Contains("reducible");
         }
@@ -204,6 +220,19 @@ namespace ETABS.Export.Loads
         // Determines if a load pattern name represents a dead load
         private bool IsDeadLoadPattern(string loadPatName)
         {
+            // Try to find the load definition by name
+            if (_loadDefIdsByName.TryGetValue(loadPatName, out string loadDefId))
+            {
+                // Check if it's in the load definitions collection
+                var loadDef = _loadDefinitions?.FirstOrDefault(ld => ld.Id == loadDefId);
+                if (loadDef != null)
+                {
+                    // Use the enum type directly
+                    return loadDef.Type == LoadType.Dead;
+                }
+            }
+
+            // Fallback to string analysis if not found
             string name = loadPatName.ToLower();
             return name.Contains("dead") || name == "dl" || name == "sw" ||
                    name.Contains("self") || name.Contains("weight") || name.Contains("sdl");

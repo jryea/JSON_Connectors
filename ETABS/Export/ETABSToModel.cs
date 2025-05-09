@@ -135,7 +135,7 @@ namespace ETABS.Export
                 // Parse materials
                 if (e2kSections.TryGetValue("MATERIAL PROPERTIES", out string materialsSection))
                 {
-                    model.Properties.Materials = _materialExporter.Import(materialsSection);
+                    model.Properties.Materials = _materialExporter.Export(materialsSection);
 
                     // Set materials for other property importers
                     _framePropertiesExporter.SetMaterials(model.Properties.Materials);
@@ -146,7 +146,7 @@ namespace ETABS.Export
                 // Parse frame properties
                 if (e2kSections.TryGetValue("FRAME SECTIONS", out string frameSectionsSection))
                 {
-                    model.Properties.FrameProperties = _framePropertiesExporter.Import(frameSectionsSection);
+                    model.Properties.FrameProperties = _framePropertiesExporter.Export(frameSectionsSection);
                 }
 
                 // Parse wall properties
@@ -160,7 +160,7 @@ namespace ETABS.Export
                 {
                     string slabSection = e2kSections.TryGetValue("SLAB PROPERTIES", out string slabValue) ? slabValue : "";
                     string deckSection = e2kSections.TryGetValue("DECK PROPERTIES", out string deckValue) ? deckValue : "";
-                    model.Properties.FloorProperties = _floorPropertiesExporter.Import(slabSection, deckSection);
+                    model.Properties.FloorProperties = _floorPropertiesExporter.Export(slabSection, deckSection);
                 }
 
                 // Parse diaphragms

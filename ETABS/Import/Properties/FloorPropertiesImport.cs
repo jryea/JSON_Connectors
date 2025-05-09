@@ -15,29 +15,23 @@ namespace ETABS.Import.Properties
         {
             _materials = materials;
             StringBuilder sb = new StringBuilder();
-
-            // E2K Slab Properties Section Header
             sb.AppendLine("$ SLAB PROPERTIES");
 
             if (floorProperties == null || !floorProperties.Any())
             {
-                // Add a default slab property
                 sb.AppendLine("  SHELLPROP  \"Slab1\"  PROPTYPE  \"Slab\"  MATERIAL \"4000 psi\"  MODELINGTYPE \"ShellThin\"  SLABTYPE \"Slab\"  SLABTHICKNESS 8");
                 return sb.ToString();
             }
 
-            // Process each floor property
             foreach (var floorProp in floorProperties)
             {
                 if (IsDeckProperty(floorProp))
                 {
-                    // Format and append deck property
                     string deckPropertyLine = FormatDeckProperty(floorProp);
                     sb.AppendLine(deckPropertyLine);
                 }
                 else
                 {
-                    // Format and append slab property
                     string slabPropertyLine = FormatSlabProperty(floorProp);
                     sb.AppendLine(slabPropertyLine);
                 }
@@ -60,29 +54,16 @@ namespace ETABS.Import.Properties
 
             // Get Material
             string materialName = _materials.FirstOrDefault(m => m.Id == floorProp.MaterialId)?.Name ?? "4000 psi";
-
-            // Replace Unicode representation of double quote (\u0022) with "inch" in the material name
             materialName = materialName.Replace("\u0022", " inch");
 
-            // Determine modeling type (default to ShellThin)
-            string modelingType = "ShellThin";
-            if (floorProp.SlabProperties != null &&
-                floorProp.SlabProperties.ContainsKey("modelingType") &&
-                floorProp.SlabProperties["modelingType"] is string specifiedType)
-            {
-                modelingType = specifiedType;
-            }
+            // Convert ModelingType enum to ETABS string
+            string modelingTypeStr = GetModelingTypeString(floorProp.ModelingType);
 
-            // Determine slab type (default to "Slab")
-            string slabType = "Slab";
-            if (floorProp.Type?.ToLower() == "waffle")
-                slabType = "Waffle";
-            else if (floorProp.Type?.ToLower() == "ribbed")
-                slabType = "Ribbed";
+            // Convert SlabType enum to ETABS string
+            string slabTypeStr = GetSlabTypeString(floorProp.SlabType);
 
-            // Format: SHELLPROP "Slab1" PROPTYPE "Slab" MATERIAL "4000 psi" MODELINGTYPE "ShellThin" SLABTYPE "Slab" SLABTHICKNESS 8
             return $"  SHELLPROP  \"{floorProp.Name}\"  PROPTYPE  \"Slab\"  MATERIAL \"{materialName}\"  " +
-                   $"MODELINGTYPE \"{modelingType}\"  SLABTYPE \"{slabType}\"  SLABTHICKNESS {floorProp.Thickness}";
+                   $"MODELINGTYPE \"{modelingTypeStr}\"  SLABTYPE \"{slabTypeStr}\"  SLABTHICKNESS {floorProp.Thickness}";
         }
 
         // Formats a single FloorProperties object as E2K shell property for a deck
@@ -94,15 +75,15 @@ namespace ETABS.Import.Properties
                 floorProp.Name = $"{floorProp.Type} Deck {floorProp.Thickness} inch";
             }
 
-            // Replace Unicode representation of double quote (\u0022) with "inch" in the floor property name
-            floorProp.Name = floorProp.Name.Replace("\u0022", " inch");
+            // Replace Unicode representation of double quote with "inch"
+            string formattedName = floorProp.Name.Replace("\u0022", " inch");
 
             // Get Concrete Material (main material for the deck)
             string concMaterial = _materials.FirstOrDefault(m => m.Id == floorProp.MaterialId)?.Name ?? "4000 psi";
             concMaterial = concMaterial.Replace("\u0022", " inch");
 
             // Get Deck Material (default to steel)
-            string deckMaterial = _materials.FirstOrDefault(m => m.Type?.ToLower() == "steel")?.Name ?? "A992Fy50";
+            string deckMaterial = _materials.FirstOrDefault(m => m.Type == MaterialType.Steel)?.Name ?? "A992Fy50";
             deckMaterial = deckMaterial.Replace("\u0022", " inch");
 
             // Get deck properties with defaults
@@ -117,33 +98,82 @@ namespace ETABS.Import.Properties
             // Override with values from DeckProperties if available
             if (floorProp.DeckProperties != null)
             {
-                if (floorProp.DeckProperties.ContainsKey("deckDepth") && floorProp.DeckProperties["deckDepth"] is double depth)
-                    deckRibDepth = depth;
-
-                if (floorProp.DeckProperties.ContainsKey("toppingThickness") && floorProp.DeckProperties["toppingThickness"] is double topping)
-                    deckSlabDepth = topping;
+                deckRibDepth = floorProp.DeckProperties.RibDepth > 0 ? floorProp.DeckProperties.RibDepth : deckRibDepth;
+                deckRibWidthTop = floorProp.DeckProperties.RibWidthTop > 0 ? floorProp.DeckProperties.RibWidthTop : deckRibWidthTop;
+                deckRibWidthBottom = floorProp.DeckProperties.RibWidthBottom > 0 ? floorProp.DeckProperties.RibWidthBottom : deckRibWidthBottom;
+                deckRibSpacing = floorProp.DeckProperties.RibSpacing > 0 ? floorProp.DeckProperties.RibSpacing : deckRibSpacing;
+                deckShearThickness = floorProp.DeckProperties.DeckShearThickness > 0 ? floorProp.DeckProperties.DeckShearThickness : deckShearThickness;
+                deckUnitWeight = floorProp.DeckProperties.DeckUnitWeight > 0 ? floorProp.DeckProperties.DeckUnitWeight : deckUnitWeight;
             }
 
-            // Determine deck type based on floor type
-            string deckType = floorProp.Type?.ToLower() == "composite" ? "Filled" : "Unfilled";
+            // Get shear stud properties with defaults
+            double shearStudDiam = 0.75;
+            double shearStudHeight = 6.0;
+            double shearStudFu = 65000.0;
+
+            // Override with values from ShearStudProperties if available
+            if (floorProp.ShearStudProperties != null)
+            {
+                shearStudDiam = floorProp.ShearStudProperties.ShearStudDiameter > 0 ? floorProp.ShearStudProperties.ShearStudDiameter : shearStudDiam;
+                shearStudHeight = floorProp.ShearStudProperties.ShearStudHeight > 0 ? floorProp.ShearStudProperties.ShearStudHeight : shearStudHeight;
+                shearStudFu = floorProp.ShearStudProperties.ShearStudTensileStrength > 0 ? floorProp.ShearStudProperties.ShearStudTensileStrength : shearStudFu;
+            }
+
+            // Determine deck type based on floor type enum
+            string deckType = floorProp.Type == FloorType.FilledDeck ? "Filled" : "Unfilled";
 
             // Format: SHELLPROP "Deck1" PROPTYPE "Deck" DECKTYPE "Filled" CONCMATERIAL "4000Psi" DECKMATERIAL "A992Fy50" ...
-            return $"  SHELLPROP  \"{floorProp.Name}\"  PROPTYPE  \"Deck\"  DECKTYPE \"{deckType}\"  " +
+            return $"  SHELLPROP  \"{formattedName}\"  PROPTYPE  \"Deck\"  DECKTYPE \"{deckType}\"  " +
                    $"CONCMATERIAL \"{concMaterial}\"  DECKMATERIAL \"{deckMaterial}\"  " +
                    $"DECKSLABDEPTH {deckSlabDepth} DECKRIBDEPTH {deckRibDepth} " +
                    $"DECKRIBWIDTHTOP {deckRibWidthTop} DECKRIBWIDTHBOTTOM {deckRibWidthBottom} " +
                    $"DECKRIBSPACING {deckRibSpacing} DECKSHEARTHICKNESS {deckShearThickness} " +
-                   $"DECKUNITWEIGHT {deckUnitWeight} SHEARSTUDDIAM 0.75 SHEARSTUDHEIGHT 6 SHEARSTUDFU 65000";
+                   $"DECKUNITWEIGHT {deckUnitWeight} SHEARSTUDDIAM {shearStudDiam} SHEARSTUDHEIGHT {shearStudHeight} SHEARSTUDFU {shearStudFu}";
         }
 
         // Checks if floor properties represent a deck type
         private bool IsDeckProperty(FloorProperties floorProp)
         {
-            if (string.IsNullOrEmpty(floorProp.Type))
-                return false;
+            // Check if FloorType enum indicates a deck type
+            return floorProp.Type == FloorType.FilledDeck ||
+                   floorProp.Type == FloorType.UnfilledDeck ||
+                   floorProp.Type == FloorType.SolidSlabDeck;
+        }
 
-            return floorProp.Type.ToLower() == "composite" ||
-                   floorProp.Type.ToLower() == "noncomposite";
+        private string GetModelingTypeString(ModelingType modelingType)
+        {
+            switch (modelingType)
+            {
+                case ModelingType.ShellThick:
+                    return "ShellThick";
+                case ModelingType.Membrane:
+                    return "Membrane";
+                case ModelingType.Layered:
+                    return "Layered";
+                default:
+                    return "ShellThin";
+            }
+        }
+
+        private string GetSlabTypeString(SlabType slabType)
+        {
+            switch (slabType)
+            {
+                case SlabType.Drop:
+                    return "Drop";
+                case SlabType.Stiff:
+                    return "Stiff";
+                case SlabType.Ribbed:
+                    return "Ribbed";
+                case SlabType.Waffle:
+                    return "Waffle";
+                case SlabType.Mat:
+                    return "Mat";
+                case SlabType.Footing:
+                    return "Footing";
+                default:
+                    return "Slab";
+            }
         }
 
         // Converts a single FloorProperties object to E2K format text

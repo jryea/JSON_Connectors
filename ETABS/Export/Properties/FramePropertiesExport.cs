@@ -1,21 +1,26 @@
-﻿using System;
+﻿using Core.Models.Properties;
+using Core.Utilities;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
-using Core.Models.Properties;
-using Core.Utilities;
+using System;
+using System.Linq;
 
 namespace ETABS.Export.Properties
 {
-    // Imports frame section properties from ETABS E2K file
+
     public class FramePropertiesExport
     {
         // Dictionary to map material names to IDs
         private Dictionary<string, string> _materialIdsByName = new Dictionary<string, string>();
 
-        // Sets the material name to ID mapping for reference when creating frame properties
+        // Materials collection for reference
+        private IEnumerable<Material> _materials;
+
         public void SetMaterials(IEnumerable<Material> materials)
         {
+            _materials = materials; // Store the materials collection
             _materialIdsByName.Clear();
+
             foreach (var material in materials)
             {
                 if (!string.IsNullOrEmpty(material.Name))
@@ -25,8 +30,7 @@ namespace ETABS.Export.Properties
             }
         }
 
-        // Imports frame properties from E2K FRAME SECTIONS section
-        public List<FrameProperties> Import(string frameSectionsSection)
+        public List<FrameProperties> Export(string frameSectionsSection)
         {
             var frameProperties = new Dictionary<string, FrameProperties>();
 
@@ -34,28 +38,13 @@ namespace ETABS.Export.Properties
                 return new List<FrameProperties>();
 
             // Regular expression to match frame section definition
-            // Format: FRAMESECTION "W12X26" MATERIAL "A992Fy50" SHAPE "W12X26"
             var basicPattern = new Regex(@"^\s*FRAMESECTION\s+""([^""]+)""\s+MATERIAL\s+""([^""]+)""\s+SHAPE\s+""([^""]+)""",
                 RegexOptions.Multiline);
 
-            // Pattern for I-section properties
-            var iSectionPattern = new Regex(@"^\s*FRAMESECTION\s+""([^""]+)""\s+MATERIAL\s+""([^""]+)""\s+SHAPE\s+""([^""]+)""\s+D\s+([\d\.]+)\s+B\s+([\d\.]+)\s+TF\s+([\d\.]+)\s+TW\s+([\d\.]+)",
-                RegexOptions.Multiline);
-
-            // Pattern for HSS/tube properties
-            var hssPattern = new Regex(@"^\s*FRAMESECTION\s+""([^""]+)""\s+MATERIAL\s+""([^""]+)""\s+SHAPE\s+""([^""]+)""\s+D\s+([\d\.]+)\s+B\s+([\d\.]+)\s+T\s+([\d\.]+)",
-                RegexOptions.Multiline);
-
-            // Pattern for pipe properties
-            var pipePattern = new Regex(@"^\s*FRAMESECTION\s+""([^""]+)""\s+MATERIAL\s+""([^""]+)""\s+SHAPE\s+""([^""]+)""\s+OD\s+([\d\.]+)\s+T\s+([\d\.]+)",
-                RegexOptions.Multiline);
-
-            // Pattern for rectangular properties
-            var rectPattern = new Regex(@"^\s*FRAMESECTION\s+""([^""]+)""\s+MATERIAL\s+""([^""]+)""\s+SHAPE\s+""([^""]+)""\s+D\s+([\d\.]+)\s+B\s+([\d\.]+)",
-                RegexOptions.Multiline);
-
-            // Process basic frame section definitions first
+            // Get all matches
             var basicMatches = basicPattern.Matches(frameSectionsSection);
+
+            // Process each match
             foreach (Match match in basicMatches)
             {
                 if (match.Groups.Count >= 4)
@@ -64,10 +53,6 @@ namespace ETABS.Export.Properties
                     string materialName = match.Groups[2].Value;
                     string shape = match.Groups[3].Value;
 
-                    // Skip if already processed with more detailed pattern
-                    if (frameProperties.ContainsKey(name))
-                        continue;
-
                     // Look up material ID
                     string materialId = null;
                     if (_materialIdsByName.TryGetValue(materialName, out string id))
@@ -75,46 +60,8 @@ namespace ETABS.Export.Properties
                         materialId = id;
                     }
 
-                    // Create frame properties
-                    var frameProp = new FrameProperties
-                    {
-                        Id = IdGenerator.Generate(IdGenerator.Properties.FRAME_PROPERTIES),
-                        Name = name,
-                        MaterialId = materialId,
-                        Shape = shape
-                    };
-
-                    // Extract shape type (W, HSS, etc.) from the shape name
-                    string shapeType = ExtractShapeType(shape);
-                    if (!string.IsNullOrEmpty(shapeType))
-                    {
-                        frameProp.Shape = shapeType;
-                    }
-
-                    frameProperties[name] = frameProp;
-                }
-            }
-
-            // Process I-section properties
-            var iSectionMatches = iSectionPattern.Matches(frameSectionsSection);
-            foreach (Match match in iSectionMatches)
-            {
-                if (match.Groups.Count >= 8)
-                {
-                    string name = match.Groups[1].Value;
-                    string materialName = match.Groups[2].Value;
-                    string shape = match.Groups[3].Value;
-                    double depth = Convert.ToDouble(match.Groups[4].Value);
-                    double width = Convert.ToDouble(match.Groups[5].Value);
-                    double tf = Convert.ToDouble(match.Groups[6].Value);
-                    double tw = Convert.ToDouble(match.Groups[7].Value);
-
-                    // Look up material ID
-                    string materialId = null;
-                    if (_materialIdsByName.TryGetValue(materialName, out string id))
-                    {
-                        materialId = id;
-                    }
+                    // Determine whether it's steel or concrete based on shape or material
+                    FrameProperties.FrameMaterialType materialType = DetermineMaterialType(shape, materialName);
 
                     // Create frame properties
                     var frameProp = new FrameProperties
@@ -122,124 +69,35 @@ namespace ETABS.Export.Properties
                         Id = IdGenerator.Generate(IdGenerator.Properties.FRAME_PROPERTIES),
                         Name = name,
                         MaterialId = materialId,
-                        Shape = ExtractShapeType(shape)
+                        Type = materialType
                     };
 
-                    // Set dimensions
-                    frameProp.Dimensions["depth"] = depth;
-                    frameProp.Dimensions["width"] = width;
-                    frameProp.Dimensions["flangeThickness"] = tf;
-                    frameProp.Dimensions["webThickness"] = tw;
-
-                    frameProperties[name] = frameProp;
-                }
-            }
-
-            // Process HSS/tube properties
-            var hssMatches = hssPattern.Matches(frameSectionsSection);
-            foreach (Match match in hssMatches)
-            {
-                if (match.Groups.Count >= 7)
-                {
-                    string name = match.Groups[1].Value;
-                    string materialName = match.Groups[2].Value;
-                    string shape = match.Groups[3].Value;
-                    double depth = Convert.ToDouble(match.Groups[4].Value);
-                    double width = Convert.ToDouble(match.Groups[5].Value);
-                    double thickness = Convert.ToDouble(match.Groups[6].Value);
-
-                    // Look up material ID
-                    string materialId = null;
-                    if (_materialIdsByName.TryGetValue(materialName, out string id))
+                    // Initialize appropriate properties
+                    if (materialType == FrameProperties.FrameMaterialType.Steel)
                     {
-                        materialId = id;
+                        frameProp.SteelProps = new SteelFrameProperties
+                        {
+                            SectionType = DetermineSteelSectionType(shape),
+                            SectionName = shape
+                        };
                     }
-
-                    // Create frame properties
-                    var frameProp = new FrameProperties
+                    else
                     {
-                        Id = IdGenerator.Generate(IdGenerator.Properties.FRAME_PROPERTIES),
-                        Name = name,
-                        MaterialId = materialId,
-                        Shape = "HSS"
-                    };
+                        frameProp.ConcreteProps = new ConcreteFrameProperties
+                        {
+                            SectionType = DetermineConcreteSectionType(shape),
+                            SectionName = shape,
+                            Dimensions = new Dictionary<string, string>()
+                        };
 
-                    // Set dimensions
-                    frameProp.Dimensions["depth"] = depth;
-                    frameProp.Dimensions["width"] = width;
-                    frameProp.Dimensions["wallThickness"] = thickness;
-
-                    frameProperties[name] = frameProp;
-                }
-            }
-
-            // Process pipe properties
-            var pipeMatches = pipePattern.Matches(frameSectionsSection);
-            foreach (Match match in pipeMatches)
-            {
-                if (match.Groups.Count >= 6)
-                {
-                    string name = match.Groups[1].Value;
-                    string materialName = match.Groups[2].Value;
-                    string shape = match.Groups[3].Value;
-                    double od = Convert.ToDouble(match.Groups[4].Value);
-                    double thickness = Convert.ToDouble(match.Groups[5].Value);
-
-                    // Look up material ID
-                    string materialId = null;
-                    if (_materialIdsByName.TryGetValue(materialName, out string id))
-                    {
-                        materialId = id;
+                        // Parse dimensions
+                        var dimMatches = ExtractDimensions(match.Value);
+                        foreach (var dimMatch in dimMatches)
+                        {
+                            string dimName = GetDimensionName(dimMatch.Key);
+                            frameProp.ConcreteProps.Dimensions[dimName] = dimMatch.Value;
+                        }
                     }
-
-                    // Create frame properties
-                    var frameProp = new FrameProperties
-                    {
-                        Id = IdGenerator.Generate(IdGenerator.Properties.FRAME_PROPERTIES),
-                        Name = name,
-                        MaterialId = materialId,
-                        Shape = "PIPE"
-                    };
-
-                    // Set dimensions
-                    frameProp.Dimensions["outerDiameter"] = od;
-                    frameProp.Dimensions["wallThickness"] = thickness;
-
-                    frameProperties[name] = frameProp;
-                }
-            }
-
-            // Process rectangular properties
-            var rectMatches = rectPattern.Matches(frameSectionsSection);
-            foreach (Match match in rectMatches)
-            {
-                if (match.Groups.Count >= 6 && !iSectionPattern.IsMatch(match.Value) && !hssPattern.IsMatch(match.Value))
-                {
-                    string name = match.Groups[1].Value;
-                    string materialName = match.Groups[2].Value;
-                    string shape = match.Groups[3].Value;
-                    double depth = Convert.ToDouble(match.Groups[4].Value);
-                    double width = Convert.ToDouble(match.Groups[5].Value);
-
-                    // Look up material ID
-                    string materialId = null;
-                    if (_materialIdsByName.TryGetValue(materialName, out string id))
-                    {
-                        materialId = id;
-                    }
-
-                    // Create frame properties
-                    var frameProp = new FrameProperties
-                    {
-                        Id = IdGenerator.Generate(IdGenerator.Properties.FRAME_PROPERTIES),
-                        Name = name,
-                        MaterialId = materialId,
-                        Shape = "RECT"
-                    };
-
-                    // Set dimensions
-                    frameProp.Dimensions["depth"] = depth;
-                    frameProp.Dimensions["width"] = width;
 
                     frameProperties[name] = frameProp;
                 }
@@ -248,37 +106,103 @@ namespace ETABS.Export.Properties
             return new List<FrameProperties>(frameProperties.Values);
         }
 
-        // Extracts the shape type from the shape name
-       
-        private string ExtractShapeType(string shapeName)
+        private FrameProperties.FrameMaterialType DetermineMaterialType(string shape, string materialName)
         {
-            if (string.IsNullOrEmpty(shapeName))
-                return "";
-
-            // For standard shapes like W12X26, extract the first letter or letters
-            var match = Regex.Match(shapeName, @"^([A-Za-z]+)");
-            if (match.Success)
+            // Check if we can find the material in our collection
+            if (_materials != null)
             {
-                return match.Groups[1].Value.ToUpper();
+                var material = _materials.FirstOrDefault(m => m.Name == materialName);
+                if (material != null)
+                {
+                    return material.Type == MaterialType.Steel ?
+                        FrameProperties.FrameMaterialType.Steel :
+                        FrameProperties.FrameMaterialType.Concrete;
+                }
             }
 
-            // For named shapes like "Steel I/Wide Flange"
-            if (shapeName.Contains("I/Wide Flange"))
-                return "W";
-            if (shapeName.Contains("HSS") || shapeName.Contains("Tube"))
-                return "HSS";
-            if (shapeName.Contains("Pipe"))
-                return "PIPE";
-            if (shapeName.Contains("Channel"))
-                return "C";
-            if (shapeName.Contains("Angle"))
-                return "L";
-            if (shapeName.Contains("Rectangular"))
-                return "RECT";
-            if (shapeName.Contains("Circle"))
-                return "CIRCLE";
+            // Fallback: Look for steel keywords
+            if (shape.StartsWith("W") || shape.StartsWith("HSS") || shape.StartsWith("PIPE") ||
+                shape.StartsWith("C") || shape.StartsWith("L") || shape.Contains("Steel") ||
+                materialName.Contains("Steel") || materialName.Contains("A992"))
+            {
+                return FrameProperties.FrameMaterialType.Steel;
+            }
 
-            return shapeName;
+            // Otherwise assume concrete
+            return FrameProperties.FrameMaterialType.Concrete;
+        }
+
+        private SteelFrameProperties.SteelSectionType DetermineSteelSectionType(string shape)
+        {
+            if (shape.StartsWith("W", StringComparison.OrdinalIgnoreCase))
+                return SteelFrameProperties.SteelSectionType.W;
+            else if (shape.StartsWith("HSS", StringComparison.OrdinalIgnoreCase))
+                return SteelFrameProperties.SteelSectionType.HSS;
+            else if (shape.StartsWith("PIPE", StringComparison.OrdinalIgnoreCase))
+                return SteelFrameProperties.SteelSectionType.PIPE;
+            else if (shape.StartsWith("C", StringComparison.OrdinalIgnoreCase))
+                return SteelFrameProperties.SteelSectionType.C;
+            else if (shape.StartsWith("L", StringComparison.OrdinalIgnoreCase))
+                return SteelFrameProperties.SteelSectionType.L;
+            else if (shape.StartsWith("WT", StringComparison.OrdinalIgnoreCase))
+                return SteelFrameProperties.SteelSectionType.WT;
+            else if (shape.StartsWith("ST", StringComparison.OrdinalIgnoreCase))
+                return SteelFrameProperties.SteelSectionType.ST;
+            else if (shape.StartsWith("MC", StringComparison.OrdinalIgnoreCase))
+                return SteelFrameProperties.SteelSectionType.MC;
+            else if (shape.StartsWith("HP", StringComparison.OrdinalIgnoreCase))
+                return SteelFrameProperties.SteelSectionType.HP;
+            else
+                return SteelFrameProperties.SteelSectionType.W; // Default
+        }
+
+        private ConcreteFrameProperties.ConcreteSectionType DetermineConcreteSectionType(string shape)
+        {
+            if (shape.Contains("Rectangular"))
+                return ConcreteFrameProperties.ConcreteSectionType.Rectangular;
+            else if (shape.Contains("Circle") || shape.Contains("Circular"))
+                return ConcreteFrameProperties.ConcreteSectionType.Circular;
+            else if (shape.Contains("Tee") || shape.Contains("T-Shaped"))
+                return ConcreteFrameProperties.ConcreteSectionType.TShaped;
+            else if (shape.Contains("L-Section") || shape.Contains("L-Shaped"))
+                return ConcreteFrameProperties.ConcreteSectionType.LShaped;
+            else
+                return ConcreteFrameProperties.ConcreteSectionType.Custom;
+        }
+
+        private Dictionary<string, string> ExtractDimensions(string sectionText)
+        {
+            var dimensions = new Dictionary<string, string>();
+
+            // Common dimension parameters
+            string[] paramNames = new[] { "D", "B", "TF", "TW", "T", "T1", "T2", "OD" };
+
+            foreach (string param in paramNames)
+            {
+                var match = Regex.Match(sectionText, $@"{param}\s+([\d\.]+)");
+                if (match.Success && match.Groups.Count >= 2)
+                {
+                    dimensions[param] = match.Groups[1].Value;
+                }
+            }
+
+            return dimensions;
+        }
+
+        private string GetDimensionName(string etabsParam)
+        {
+            switch (etabsParam)
+            {
+                case "D": return "depth";
+                case "B": return "width";
+                case "TF": return "flangeThickness";
+                case "TW": return "webThickness";
+                case "T": return "thickness";
+                case "T1": return "thickness1";
+                case "T2": return "thickness2";
+                case "OD": return "diameter";
+                default: return etabsParam.ToLower();
+            }
         }
     }
 }

@@ -216,10 +216,10 @@ namespace RAM
                             if (model.Elements.Beams != null && model.Elements.Beams.Count > 0)
                             {
                                 var beamImporter = new BeamImport(
-                                    modelManager.Model, 
+                                    modelManager.Model,
                                     _materialProvider,
                                     lengthUnit);
-                                    
+
                                 beamCount = beamImporter.Import(
                                     model.Elements.Beams,
                                     validLevels,
@@ -236,7 +236,7 @@ namespace RAM
                                     modelManager.Model,
                                     _materialProvider,
                                     lengthUnit);
-                                    
+
                                 columnCount = columnImporter.Import(
                                     model.Elements.Columns,
                                     validLevels,
@@ -253,7 +253,7 @@ namespace RAM
                                     modelManager.Model,
                                     _materialProvider,
                                     lengthUnit);
-                                    
+
                                 braceCount = braceImporter.Import(
                                     model.Elements.Braces,
                                     validLevels,
@@ -269,7 +269,7 @@ namespace RAM
                                     modelManager.Model,
                                     _materialProvider,
                                     lengthUnit);
-                                    
+
                                 wallCount = wallImporter.Import(
                                     model.Elements.Walls,
                                     validLevels,

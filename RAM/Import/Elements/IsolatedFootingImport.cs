@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using Core.Models.Elements;
 using Core.Models.ModelLayout;
-using Core.Models.Properties;
 using Core.Models.Geometry;
 using RAM.Utilities;
 using Core.Utilities;
@@ -13,12 +12,17 @@ namespace RAM.Import.Elements
 {
     public class IsolatedFootingImport
     {
-        private IModel _model;
-        private string _lengthUnit;
+        private readonly IModel _model;
+        private readonly string _lengthUnit;
+        private readonly MaterialProvider _materialProvider;
 
-        public IsolatedFootingImport(IModel model, string lengthUnit = "inches")
+        public IsolatedFootingImport(
+            IModel model,
+            MaterialProvider materialProvider,
+            string lengthUnit = "inches")
         {
             _model = model;
+            _materialProvider = materialProvider;
             _lengthUnit = lengthUnit;
         }
 
@@ -88,7 +92,7 @@ namespace RAM.Import.Elements
                 ILayoutIsolatedFnds layoutIsolatedFnds = ramFoundationFloorType.GetLayoutIsolatedFnds();
                 if (layoutIsolatedFnds == null)
                 {
-                    Console.WriteLine("Failed to get layout isolated foundations from RAM floor type");
+                    Console.WriteLine($"Failed to get layout isolated foundations from RAM floor type");
                     return 0;
                 }
 
@@ -133,11 +137,11 @@ namespace RAM.Import.Elements
 
                         if (ramFooting != null)
                         {
-                            ramFooting.dTop = footing.Width/2;
-                            ramFooting.dBottom = footing.Width / 2; 
+                            ramFooting.dTop = footing.Width / 2;
+                            ramFooting.dBottom = footing.Width / 2;
                             ramFooting.dRight = footing.Length / 2;
-                            ramFooting.dLeft = footing.Length/2;
-                            ramFooting.dThickness = footing.Thickness;  
+                            ramFooting.dLeft = footing.Length / 2;
+                            ramFooting.dThickness = footing.Thickness;
 
                             count++;
                             Console.WriteLine($"Added isolated footing at ({x}, {y})");

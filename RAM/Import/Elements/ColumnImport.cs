@@ -1,4 +1,4 @@
-﻿// ColumnImport.cs
+﻿// ColumnImport.cs - Update to use MaterialProvider
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,17 +13,22 @@ namespace RAM.Import.Elements
 {
     public class ColumnImport
     {
-        private IModel _model;
-        private string _lengthUnit;
+        private readonly IModel _model;
+        private readonly string _lengthUnit;
+        private readonly MaterialProvider _materialProvider;
 
-        public ColumnImport(IModel model, string lengthUnit = "inches")
+        public ColumnImport(
+            IModel model,
+            MaterialProvider materialProvider,
+            string lengthUnit = "inches")
         {
             _model = model;
+            _materialProvider = materialProvider;
             _lengthUnit = lengthUnit;
         }
+
         public int Import(IEnumerable<Column> columns, IEnumerable<Level> levels,
                   IEnumerable<FrameProperties> frameProperties,
-                  IEnumerable<Material> materials,
                   Dictionary<string, string> levelToFloorTypeMapping)
         {
             try
@@ -125,21 +130,10 @@ namespace RAM.Import.Elements
                         }
                     }
 
-                    // Special log for the "Level 2" top level case
-                    if (topLevel.Name == "2" || topLevel.Name == "Level 2")
-                    {
-                        Console.WriteLine($"SPECIAL CASE: Column with top level 'Level 2' will be created on {levelsForColumns.Count} levels");
-                        foreach (var lvl in levelsForColumns)
-                        {
-                            Console.WriteLine($" - {lvl.Name}");
-                        }
-                    }
-
-                    // Get material type
-                    EMATERIALTYPES columnMaterial = RAMHelpers.GetRAMMaterialType(
+                    // Get material type using MaterialProvider
+                    EMATERIALTYPES columnMaterial = _materialProvider.GetRAMMaterialType(
                         column.FramePropertiesId,
-                        frameProperties,
-                        materials);
+                        frameProperties);
 
                     // Process each level that needs a column
                     foreach (var level in levelsForColumns)
@@ -215,7 +209,5 @@ namespace RAM.Import.Elements
                 throw;
             }
         }
-
     }
-    
 }

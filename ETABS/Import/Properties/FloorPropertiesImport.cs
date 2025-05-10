@@ -120,7 +120,7 @@ namespace ETABS.Import.Properties
             }
 
             // Determine deck type based on floor type enum
-            string deckType = floorProp.Type == FloorType.FilledDeck ? "Filled" : "Unfilled";
+            string deckType = floorProp.Type == StructuralFloorType.FilledDeck ? "Filled" : "Unfilled";
 
             // Format: SHELLPROP "Deck1" PROPTYPE "Deck" DECKTYPE "Filled" CONCMATERIAL "4000Psi" DECKMATERIAL "A992Fy50" ...
             return $"  SHELLPROP  \"{formattedName}\"  PROPTYPE  \"Deck\"  DECKTYPE \"{deckType}\"  " +
@@ -135,9 +135,9 @@ namespace ETABS.Import.Properties
         private bool IsDeckProperty(FloorProperties floorProp)
         {
             // Check if FloorType enum indicates a deck type
-            return floorProp.Type == FloorType.FilledDeck ||
-                   floorProp.Type == FloorType.UnfilledDeck ||
-                   floorProp.Type == FloorType.SolidSlabDeck;
+            return floorProp.Type == StructuralFloorType.FilledDeck ||
+                   floorProp.Type == StructuralFloorType.UnfilledDeck ||
+                   floorProp.Type == StructuralFloorType.SolidSlabDeck;
         }
 
         private string GetModelingTypeString(ModelingType modelingType)

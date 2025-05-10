@@ -21,15 +21,13 @@ namespace Grasshopper.Components.Core.Export.Properties
         {
             pManager.AddTextParameter("Name", "N", "Name for the frame property", GH_ParamAccess.item);
             pManager.AddGenericParameter("Material", "M", "Material for the frame property", GH_ParamAccess.item);
-            pManager.AddTextParameter("Shape", "S", "Shape for the frame property (e.g., 'W', 'HSS', 'Pipe', 'Custom')", GH_ParamAccess.item);
-            pManager.AddNumberParameter("Depth", "D", "Depth (height) for the frame property (in inches)", GH_ParamAccess.item);
-            pManager.AddNumberParameter("Width", "W", "Width for the frame property (in inches)", GH_ParamAccess.item);
-            pManager.AddNumberParameter("Modifier", "MOD", "Optional stiffness modifier (0.0-1.0)", GH_ParamAccess.item, 1.0);
+            pManager.AddTextParameter("Type", "T", "Material type ('Steel' or 'Concrete')", GH_ParamAccess.item, "Steel");
+            pManager.AddTextParameter("Section Type", "ST", "Section type (W, HSS, PIPE for Steel; Rectangular, Circular for Concrete)", GH_ParamAccess.item);
+            pManager.AddTextParameter("Section Name", "SN", "Section name (optional)", GH_ParamAccess.item);
 
-            // Make depth and width optional
-            pManager[3].Optional = true;
+            // Make some parameters optional
+            pManager[2].Optional = true;
             pManager[4].Optional = true;
-            pManager[5].Optional = true;
         }
 
         // Registers all the output parameters for this component.
@@ -38,26 +36,21 @@ namespace Grasshopper.Components.Core.Export.Properties
             pManager.AddGenericParameter("Frame Property", "FP", "Frame property definition for the structural model", GH_ParamAccess.item);
         }
 
-    
         // This is the method that actually does the work.
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             // Retrieve input data
             string name = string.Empty;
             Material material = null;
-            string shape = string.Empty;
-            double depth = 0;
-            double width = 0;
-            double modifier = 1.0;
+            string typeName = "Steel";
+            string sectionTypeName = string.Empty;
+            string sectionName = string.Empty;
 
             if (!DA.GetData(0, ref name)) return;
             if (!DA.GetData(1, ref material)) return;
-            if (!DA.GetData(2, ref shape)) return;
-
-            // Optional parameters
-            bool hasDepth = DA.GetData(3, ref depth);
-            bool hasWidth = DA.GetData(4, ref width);
-            DA.GetData(5, ref modifier);
+            DA.GetData(2, ref typeName);
+            if (!DA.GetData(3, ref sectionTypeName)) return;
+            DA.GetData(4, ref sectionName);
 
             // Basic validation
             if (string.IsNullOrWhiteSpace(name))
@@ -65,13 +58,6 @@ namespace Grasshopper.Components.Core.Export.Properties
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Frame property name cannot be empty");
                 return;
             }
-
-            if (string.IsNullOrWhiteSpace(shape))
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Shape cannot be empty");
-                return;
-            }
-
 
             if (material == null)
             {
@@ -81,36 +67,63 @@ namespace Grasshopper.Components.Core.Export.Properties
 
             try
             {
-                // Create a new frame property
-                FrameProperties frameProperty = new FrameProperties
-                {
-                    Name = name,
-                    MaterialId = material.Id,
-                    Shape = shape
-                };
-
-                // Set dimensions if provided
-                if (hasDepth)
-                    frameProperty.Dimensions["depth"] = depth;
-
-                if (hasWidth)
-                    frameProperty.Dimensions["width"] = width;
-
-                // Set additional dimensions based on shape type
-                SetDefaultDimensions(frameProperty, shape);
-
-                // Set modifier if provided
-                if (modifier >= 0 && modifier <= 1.0)
-                {
-                    frameProperty.Modifiers["axial"] = modifier;
-                    frameProperty.Modifiers["shear"] = modifier;
-                    frameProperty.Modifiers["flexural"] = modifier;
-                    frameProperty.Modifiers["torsional"] = modifier;
-                }
-                else
+                // Parse frame material type
+                FrameProperties.FrameMaterialType materialType;
+                if (!Enum.TryParse(typeName, true, out materialType))
                 {
                     AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
-                        $"Invalid modifier value ({modifier}). Must be between 0.0 and 1.0. Using default of 1.0.");
+                        $"Unknown frame material type: {typeName}, defaulting to Steel");
+                    materialType = FrameProperties.FrameMaterialType.Steel;
+                }
+
+                // Create a new frame property
+                FrameProperties frameProperty = new FrameProperties(name, material.Id, materialType);
+
+                // Set section properties based on material type
+                if (materialType == FrameProperties.FrameMaterialType.Steel)
+                {
+                    frameProperty.SteelProps = new SteelFrameProperties();
+
+                    // Parse steel section type
+                    SteelFrameProperties.SteelSectionType sectionType;
+                    if (!Enum.TryParse(sectionTypeName, true, out sectionType))
+                    {
+                        AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
+                            $"Unknown steel section type: {sectionTypeName}, defaulting to W");
+                        sectionType = SteelFrameProperties.SteelSectionType.W;
+                    }
+
+                    frameProperty.SteelProps.SectionType = sectionType;
+                    frameProperty.SteelProps.SectionName = string.IsNullOrEmpty(sectionName) ?
+                        $"{sectionType}12X26" : sectionName; // Default section name if not provided
+                }
+                else // Concrete
+                {
+                    frameProperty.ConcreteProps = new ConcreteFrameProperties();
+
+                    // Parse concrete section type
+                    ConcreteFrameProperties.ConcreteSectionType sectionType;
+                    if (!Enum.TryParse(sectionTypeName, true, out sectionType))
+                    {
+                        AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
+                            $"Unknown concrete section type: {sectionTypeName}, defaulting to Rectangular");
+                        sectionType = ConcreteFrameProperties.ConcreteSectionType.Rectangular;
+                    }
+
+                    frameProperty.ConcreteProps.SectionType = sectionType;
+                    frameProperty.ConcreteProps.SectionName = string.IsNullOrEmpty(sectionName) ?
+                        "12x12" : sectionName; // Default section name if not provided
+
+                    // Add default dimensions for concrete sections
+                    if (sectionType == ConcreteFrameProperties.ConcreteSectionType.Rectangular)
+                    {
+                        frameProperty.ConcreteProps.Dimensions["width"] = "12";
+                        frameProperty.ConcreteProps.Dimensions["depth"] = "12";
+                    }
+                    else if (sectionType == ConcreteFrameProperties.ConcreteSectionType.Circular)
+                    {
+                        frameProperty.ConcreteProps.Dimensions["diameter"] = "18";
+                    }
                 }
 
                 // Output the frame property
@@ -119,39 +132,6 @@ namespace Grasshopper.Components.Core.Export.Properties
             catch (Exception ex)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
-            }
-        }
-
-        private void SetDefaultDimensions(FrameProperties frameProperty, string shape)
-        {
-            if (shape.StartsWith("W", StringComparison.OrdinalIgnoreCase) ||
-                shape.StartsWith("S", StringComparison.OrdinalIgnoreCase) ||
-                shape.StartsWith("HP", StringComparison.OrdinalIgnoreCase))
-            {
-                // For wide flange shapes, add default web and flange thickness
-                if (!frameProperty.Dimensions.ContainsKey("webThickness"))
-                    frameProperty.Dimensions["webThickness"] = 0.375; // Default web thickness in inches
-
-                if (!frameProperty.Dimensions.ContainsKey("flangeThickness"))
-                    frameProperty.Dimensions["flangeThickness"] = 0.625; // Default flange thickness in inches
-            }
-            else if (shape.StartsWith("HSS", StringComparison.OrdinalIgnoreCase))
-            {
-                // For hollow structural sections, add default wall thickness
-                if (!frameProperty.Dimensions.ContainsKey("wallThickness"))
-                    frameProperty.Dimensions["wallThickness"] = 0.25; // Default wall thickness in inches
-            }
-            else if (shape.StartsWith("Pipe", StringComparison.OrdinalIgnoreCase))
-            {
-                // For pipes, adjust dimensions
-                if (frameProperty.Dimensions.ContainsKey("width"))
-                {
-                    frameProperty.Dimensions["outerDiameter"] = frameProperty.Dimensions["width"];
-                    frameProperty.Dimensions.Remove("width");
-                }
-
-                if (!frameProperty.Dimensions.ContainsKey("wallThickness"))
-                    frameProperty.Dimensions["wallThickness"] = 0.25; // Default wall thickness in inches
             }
         }
 

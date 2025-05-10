@@ -39,21 +39,25 @@ namespace Grasshopper.Components
         {
             // Initialize variables
             string name = string.Empty;
-            string type = string.Empty;
+            string typeString = string.Empty;
             double selfWeight = 0;
 
             // Retrieve input data
             if (!DA.GetData(0, ref name)) return;
-            if (!DA.GetData(1, ref type)) return;
+            if (!DA.GetData(1, ref typeString)) return;
             DA.GetData(2, ref selfWeight);
 
-            // Create the load definition
-            CM.LoadDefinition loadDef = new CM.LoadDefinition
+            // Parse load type enum
+            CM.LoadType loadType;
+            if (!Enum.TryParse(typeString, true, out loadType))
             {
-                Name = name,
-                Type = type,
-                SelfWeight = selfWeight
-            };
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
+                    $"Unknown load type: {typeString}, defaulting to Dead");
+                loadType = CM.LoadType.Dead;
+            }
+
+            // Create the load definition
+            CM.LoadDefinition loadDef = new CM.LoadDefinition(name, loadType, selfWeight);
 
             // Output the load definition wrapped in a Goo object
             DA.SetData(0, new GH_LoadDefinition(loadDef));

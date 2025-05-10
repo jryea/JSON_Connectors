@@ -2,7 +2,7 @@
 using System;
 using System.Collections.Generic;
 using Grasshopper.Utilities;
-using Core.Models.Properties.Floors;
+using Core.Models.Properties;
 
 namespace Grasshopper.Components.Core.Export.Properties
 {
@@ -78,7 +78,6 @@ namespace Grasshopper.Components.Core.Export.Properties
                     Diaphragm diaphragm = new Diaphragm()
                     {
                         Name = name,
-                        Type = type,
                     };
 
                     diaphragms.Add(new GH_Diaphragm(diaphragm));

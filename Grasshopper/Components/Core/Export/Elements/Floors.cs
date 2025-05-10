@@ -9,7 +9,6 @@ using Core.Models.Loads;
 using Grasshopper.Utilities;
 using Grasshopper.Kernel.Types;
 using Core.Models.Geometry;
-using Core.Models.Properties.Floors;
 
 namespace Grasshopper.Components.Core.Export.Elements
 {

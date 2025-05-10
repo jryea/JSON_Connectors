@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using Core.Models.Properties;
-using Core.Models.Properties.Materials;
 using Core.Utilities;
 using RAM.Utilities;
 using RAMDATAACCESSLib;
@@ -11,15 +10,18 @@ namespace RAM.Export.Properties
 {
     public class FramePropertiesExport
     {
-        private IModel _model;
-        private string _lengthUnit;
-        private RAMExporter _exporter;
-        private Dictionary<string, string> _framePropMappings = new Dictionary<string, string>();
+        private readonly IModel _model;
+        private readonly string _lengthUnit;
+        private readonly MaterialProvider _materialProvider;
+        private readonly Dictionary<string, string> _framePropMappings = new Dictionary<string, string>();
 
-        public FramePropertiesExport(IModel model, RAMExporter exporter, string lengthUnit = "inches")
+        public FramePropertiesExport(
+            IModel model,
+            MaterialProvider materialProvider,
+            string lengthUnit = "inches")
         {
             _model = model;
-            _exporter = exporter;
+            _materialProvider = materialProvider;
             _lengthUnit = lengthUnit;
         }
 
@@ -105,23 +107,54 @@ namespace RAM.Export.Properties
 
                 processedSections.Add(sectionLabel);
 
-                // Get material ID
-                string materialId = _exporter.GetOrCreateMaterialId(beam.lMaterialID, beam.eMaterial, _model);
+                // Get material ID based on RAM material type
+                string materialId = _materialProvider.GetMaterialIdByType(beam.eMaterial);
 
-                // Extract shape from section label
-                string shape = ExtractShapeFromSectionLabel(sectionLabel);
-
-                // Create a frame property for this section
+                // Create a frame property with the appropriate type
                 var frameProp = new FrameProperties
                 {
                     Id = IdGenerator.Generate(IdGenerator.Properties.FRAME_PROPERTIES),
                     Name = sectionLabel,
                     MaterialId = materialId,
-                    Shape = shape
+                    Type = beam.eMaterial == EMATERIALTYPES.EConcreteMat ?
+                        FrameProperties.FrameMaterialType.Concrete :
+                        FrameProperties.FrameMaterialType.Steel
                 };
 
-                // Extract dimensions from the section label
-                ParseSectionDimensions(frameProp);
+                // Initialize appropriate property class based on material type
+                if (frameProp.Type == FrameProperties.FrameMaterialType.Steel)
+                {
+                    // Extract shape from section label
+                    string shape = ExtractShapeFromSectionLabel(sectionLabel);
+
+                    frameProp.SteelProps = new SteelFrameProperties
+                    {
+                        SectionName = sectionLabel
+                    };
+
+                    // Try to parse the section type
+                    if (Enum.TryParse(shape, out SteelFrameProperties.SteelSectionType sectionType))
+                    {
+                        frameProp.SteelProps.SectionType = sectionType;
+                    }
+                    else
+                    {
+                        // Default to W section
+                        frameProp.SteelProps.SectionType = SteelFrameProperties.SteelSectionType.W;
+                    }
+                }
+                else
+                {
+                    frameProp.ConcreteProps = new ConcreteFrameProperties
+                    {
+                        SectionType = ConcreteFrameProperties.ConcreteSectionType.Rectangular,
+                        SectionName = sectionLabel
+                    };
+
+                    // Add default dimensions
+                    frameProp.ConcreteProps.Dimensions["width"] = "12";
+                    frameProp.ConcreteProps.Dimensions["depth"] = "12";
+                }
 
                 frameProperties.Add(frameProp);
                 _framePropMappings[sectionLabel] = frameProp.Id;
@@ -151,23 +184,54 @@ namespace RAM.Export.Properties
 
                 processedSections.Add(sectionLabel);
 
-                // Get material ID
-                string materialId = _exporter.GetOrCreateMaterialId(column.lMaterialID, column.eMaterial, _model);
+                // Get material ID based on RAM material type
+                string materialId = _materialProvider.GetMaterialIdByType(column.eMaterial);
 
-                // Extract shape from section label
-                string shape = ExtractShapeFromSectionLabel(sectionLabel);
-
-                // Create a frame property for this section
+                // Create a frame property with the appropriate type
                 var frameProp = new FrameProperties
                 {
                     Id = IdGenerator.Generate(IdGenerator.Properties.FRAME_PROPERTIES),
                     Name = sectionLabel,
                     MaterialId = materialId,
-                    Shape = shape
+                    Type = column.eMaterial == EMATERIALTYPES.EConcreteMat ?
+                        FrameProperties.FrameMaterialType.Concrete :
+                        FrameProperties.FrameMaterialType.Steel
                 };
 
-                // Extract dimensions from the section label
-                ParseSectionDimensions(frameProp);
+                // Initialize appropriate property class based on material type
+                if (frameProp.Type == FrameProperties.FrameMaterialType.Steel)
+                {
+                    // Extract shape from section label
+                    string shape = ExtractShapeFromSectionLabel(sectionLabel);
+
+                    frameProp.SteelProps = new SteelFrameProperties
+                    {
+                        SectionName = sectionLabel
+                    };
+
+                    // Try to parse the section type
+                    if (Enum.TryParse(shape, out SteelFrameProperties.SteelSectionType sectionType))
+                    {
+                        frameProp.SteelProps.SectionType = sectionType;
+                    }
+                    else
+                    {
+                        // Default to W section
+                        frameProp.SteelProps.SectionType = SteelFrameProperties.SteelSectionType.W;
+                    }
+                }
+                else
+                {
+                    frameProp.ConcreteProps = new ConcreteFrameProperties
+                    {
+                        SectionType = ConcreteFrameProperties.ConcreteSectionType.Rectangular,
+                        SectionName = sectionLabel
+                    };
+
+                    // Add default dimensions
+                    frameProp.ConcreteProps.Dimensions["width"] = "24";
+                    frameProp.ConcreteProps.Dimensions["depth"] = "24";
+                }
 
                 frameProperties.Add(frameProp);
                 _framePropMappings[sectionLabel] = frameProp.Id;
@@ -195,95 +259,58 @@ namespace RAM.Export.Properties
 
                     processedSections.Add(sectionLabel);
 
-                    // Get material ID
-                    string materialId = _exporter.GetOrCreateMaterialId(brace.lMaterialID, brace.eMaterial, _model);
+                    // Get material ID based on RAM material type
+                    string materialId = _materialProvider.GetMaterialIdByType(brace.eMaterial);
 
-                    // Extract shape from section label
-                    string shape = ExtractShapeFromSectionLabel(sectionLabel);
-
-                    // Create a frame property for this section
+                    // Create a frame property with the appropriate type
                     var frameProp = new FrameProperties
                     {
                         Id = IdGenerator.Generate(IdGenerator.Properties.FRAME_PROPERTIES),
                         Name = sectionLabel,
                         MaterialId = materialId,
-                        Shape = shape
+                        Type = brace.eMaterial == EMATERIALTYPES.EConcreteMat ?
+                            FrameProperties.FrameMaterialType.Concrete :
+                            FrameProperties.FrameMaterialType.Steel
                     };
 
-                    // Extract dimensions from the section label
-                    ParseSectionDimensions(frameProp);
+                    // Initialize appropriate property class based on material type
+                    if (frameProp.Type == FrameProperties.FrameMaterialType.Steel)
+                    {
+                        // Extract shape from section label
+                        string shape = ExtractShapeFromSectionLabel(sectionLabel);
+
+                        frameProp.SteelProps = new SteelFrameProperties
+                        {
+                            SectionName = sectionLabel
+                        };
+
+                        // Try to parse the section type
+                        if (Enum.TryParse(shape, out SteelFrameProperties.SteelSectionType sectionType))
+                        {
+                            frameProp.SteelProps.SectionType = sectionType;
+                        }
+                        else
+                        {
+                            // Default to HSS section for braces
+                            frameProp.SteelProps.SectionType = SteelFrameProperties.SteelSectionType.HSS;
+                        }
+                    }
+                    else
+                    {
+                        frameProp.ConcreteProps = new ConcreteFrameProperties
+                        {
+                            SectionType = ConcreteFrameProperties.ConcreteSectionType.Rectangular,
+                            SectionName = sectionLabel
+                        };
+
+                        // Add default dimensions
+                        frameProp.ConcreteProps.Dimensions["width"] = "12";
+                        frameProp.ConcreteProps.Dimensions["depth"] = "12";
+                    }
 
                     frameProperties.Add(frameProp);
                     _framePropMappings[sectionLabel] = frameProp.Id;
                 }
-            }
-        }
-
-        private void ParseSectionDimensions(FrameProperties frameProp)
-        {
-            try
-            {
-                // Parse dimensions from section names like W14X90, HSS6X6X3/8, etc.
-                string name = frameProp.Name;
-
-                if (frameProp.Shape == "W" && name.Contains("X"))
-                {
-                    // W-shapes: W14X90 means 14" deep, ~90 lbs/ft
-                    string[] parts = name.Substring(1).Split('X');
-                    if (parts.Length >= 2 && double.TryParse(parts[0], out double depth))
-                    {
-                        frameProp.Dimensions["depth"] = depth;
-                        frameProp.Dimensions["width"] = depth * 0.7; // Approximate width based on depth
-                        frameProp.Dimensions["webThickness"] = depth * 0.03; // Approximate web thickness
-                        frameProp.Dimensions["flangeThickness"] = depth * 0.05; // Approximate flange thickness
-                    }
-                }
-                else if (frameProp.Shape == "HSS" && name.Contains("X"))
-                {
-                    // HSS shapes: HSS6X6X3/8 means 6"x6" with 3/8" thickness
-                    string[] parts = name.Substring(3).Split('X');
-                    if (parts.Length >= 2)
-                    {
-                        if (double.TryParse(parts[0], out double depth))
-                            frameProp.Dimensions["depth"] = depth;
-
-                        if (double.TryParse(parts[1], out double width))
-                            frameProp.Dimensions["width"] = width;
-
-                        // If thickness is provided (HSS6X6X3/8)
-                        if (parts.Length >= 3)
-                        {
-                            string thicknessStr = parts[2];
-                            // Handle fractions like 3/8
-                            if (thicknessStr.Contains("/"))
-                            {
-                                string[] fractionParts = thicknessStr.Split('/');
-                                if (fractionParts.Length == 2 &&
-                                    double.TryParse(fractionParts[0], out double numerator) &&
-                                    double.TryParse(fractionParts[1], out double denominator))
-                                {
-                                    frameProp.Dimensions["wallThickness"] = numerator / denominator;
-                                }
-                            }
-                            else if (double.TryParse(thicknessStr, out double thickness))
-                            {
-                                frameProp.Dimensions["wallThickness"] = thickness;
-                            }
-                        }
-                        else
-                        {
-                            // Default thickness if not specified
-                            frameProp.Dimensions["wallThickness"] = 0.25;
-                        }
-                    }
-                }
-                // Add parsing for other shapes as needed
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error parsing section dimensions: {ex.Message}");
-                // Initialize default dimensions
-                frameProp.InitializeDefaultDimensions();
             }
         }
 
@@ -303,22 +330,23 @@ namespace RAM.Export.Properties
 
         private FrameProperties CreateDefaultFrameProperties()
         {
-            // Get the default steel material ID
-            string steelMaterialId = _exporter.GetDefaultSteelMaterialId();
+            // Get the steel material ID
+            string steelMaterialId = _materialProvider.GetSteelMaterialId();
 
             var defaultProp = new FrameProperties
             {
                 Id = IdGenerator.Generate(IdGenerator.Properties.FRAME_PROPERTIES),
                 Name = "W10X12",
                 MaterialId = steelMaterialId,
-                Shape = "W"
+                Type = FrameProperties.FrameMaterialType.Steel
             };
 
-            // Set standard dimensions for W10X12
-            defaultProp.Dimensions["depth"] = 10.0;      // inches
-            defaultProp.Dimensions["width"] = 4.0;       // inches
-            defaultProp.Dimensions["webThickness"] = 0.19;    // inches
-            defaultProp.Dimensions["flangeThickness"] = 0.3;  // inches
+            // Initialize steel properties
+            defaultProp.SteelProps = new SteelFrameProperties
+            {
+                SectionName = "W10X12",
+                SectionType = SteelFrameProperties.SteelSectionType.W
+            };
 
             return defaultProp;
         }

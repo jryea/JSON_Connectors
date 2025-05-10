@@ -11,12 +11,17 @@ namespace RAM.Export.Elements
 {
     public class IsolatedFootingExport
     {
-        private IModel _model;
-        private string _lengthUnit;
+        private readonly IModel _model;
+        private readonly string _lengthUnit;
+        private readonly MaterialProvider _materialProvider;
 
-        public IsolatedFootingExport(IModel model, string lengthUnit = "inches")
+        public IsolatedFootingExport(
+            IModel model,
+            MaterialProvider materialProvider,
+            string lengthUnit = "inches")
         {
             _model = model;
+            _materialProvider = materialProvider;
             _lengthUnit = lengthUnit;
         }
 
@@ -26,6 +31,9 @@ namespace RAM.Export.Elements
 
             try
             {
+                // Get concrete material ID
+                string concreteMaterialId = _materialProvider.GetConcreteMaterialId();
+
                 // Get all stories from RAM
                 IStories ramStories = _model.GetStories();
                 if (ramStories == null || ramStories.GetCount() == 0)
@@ -90,14 +98,15 @@ namespace RAM.Export.Elements
                     {
                         Id = IdGenerator.Generate(IdGenerator.Elements.ISOLATED_FOOTING),
                         Point = new Point3D(
-                            UnitConversionUtils.ConvertFromInches(location.dXLoc, "inches"),
-                            UnitConversionUtils.ConvertFromInches(location.dYLoc, "inches"),
-                            UnitConversionUtils.ConvertFromInches(location.dZLoc, "inches")
+                            UnitConversionUtils.ConvertFromInches(location.dXLoc, _lengthUnit),
+                            UnitConversionUtils.ConvertFromInches(location.dYLoc, _lengthUnit),
+                            UnitConversionUtils.ConvertFromInches(location.dZLoc, _lengthUnit)
                         ),
-                        Width = UnitConversionUtils.ConvertFromInches(width, "inches"),
-                        Length = UnitConversionUtils.ConvertFromInches(length, "inches"),
-                        Thickness = UnitConversionUtils.ConvertFromInches(thickness, "inches"),
-                        LevelId = foundationLevelId
+                        Width = UnitConversionUtils.ConvertFromInches(width, _lengthUnit),
+                        Length = UnitConversionUtils.ConvertFromInches(length, _lengthUnit),
+                        Thickness = UnitConversionUtils.ConvertFromInches(thickness, _lengthUnit),
+                        LevelId = foundationLevelId,
+                        MaterialId = concreteMaterialId  // Assign the concrete material ID
                     };
 
                     isolatedFootings.Add(isolatedFooting);

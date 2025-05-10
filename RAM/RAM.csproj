@@ -93,12 +93,11 @@
     <Compile Include="Import\ModelLayout\FloorTypeImport.cs" />
     <Compile Include="Import\ModelLayout\GridImport.cs" />
     <Compile Include="Import\ModelLayout\StoryImport.cs" />
-    <Compile Include="Import\Properties\CompositeDeckProperties.cs" />
-    <Compile Include="Import\Properties\NonCompositeDeckProperties.cs" />
-    <Compile Include="Import\Properties\SlabPropertiesImport.cs" />
+    <Compile Include="Import\Properties\FloorPropertiesImport.cs" />
     <Compile Include="Import\RAMImporter.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Export\RAMExporter.cs" />
+    <Compile Include="Utilities\MaterialProvider.cs" />
     <Compile Include="Utilities\RAMHelpers.cs" />
     <Compile Include="Utilities\ModelMappingUtility.cs" />
     <Compile Include="Utilities\RAMModelManager.cs" />

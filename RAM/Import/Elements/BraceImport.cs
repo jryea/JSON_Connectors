@@ -14,16 +14,20 @@ namespace RAM.Import.Elements
     {
         private readonly IModel _model;
         private readonly string _lengthUnit;
+        private readonly MaterialProvider _materialProvider;
 
-        public BraceImport(IModel model, string lengthUnit = "inches")
+        public BraceImport(
+            IModel model,
+            MaterialProvider materialProvider,
+            string lengthUnit = "inches")
         {
             _model = model;
+            _materialProvider = materialProvider;
             _lengthUnit = lengthUnit;
         }
 
         public int Import(IEnumerable<Brace> braces, IEnumerable<Level> levels,
-                         IEnumerable<FrameProperties> frameProperties,
-                         IEnumerable<Material> materials)
+                         IEnumerable<FrameProperties> frameProperties)
         {
             if (braces == null || !braces.Any() || levels == null || !levels.Any())
             {
@@ -99,11 +103,10 @@ namespace RAM.Import.Elements
 
                 processedBraces.Add(braceKey);
 
-                // Get material type
-                EMATERIALTYPES braceMaterial = RAMHelpers.GetRAMMaterialType(
+                // Get material type using the MaterialProvider
+                EMATERIALTYPES braceMaterial = _materialProvider.GetRAMMaterialType(
                     brace.FramePropertiesId,
-                    frameProperties,
-                    materials);
+                    frameProperties);
 
                 try
                 {

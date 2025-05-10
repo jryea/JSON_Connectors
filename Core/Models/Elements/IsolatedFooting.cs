@@ -24,6 +24,9 @@ namespace Core.Models.Elements
         // ID of the level this footing belongs to
         public string LevelId { get; set; }
 
+        // Material Id
+        public string MaterialId { get; set; }  
+
         // Creates a new IsolatedFooting with a generated ID
         public IsolatedFooting()
         {

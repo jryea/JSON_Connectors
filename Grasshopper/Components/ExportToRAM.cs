@@ -2,7 +2,6 @@
 using System.IO;
 using Grasshopper.Kernel;
 using RAM;
-using System.Collections.Generic;
 using Grasshopper.Components.Core;
 
 namespace Grasshopper.Components

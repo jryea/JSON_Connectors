@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using Core.Models.Elements;
 using Core.Models.Geometry;
 using Core.Utilities;

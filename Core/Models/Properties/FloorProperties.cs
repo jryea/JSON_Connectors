@@ -14,7 +14,7 @@ namespace Core.Models.Properties
         public string MaterialId { get; set; }
 
         [JsonConverter(typeof(JsonStringEnumConverter))]
-        public FloorType Type { get; set; }
+        public StructuralFloorType Type { get; set; }
 
         [JsonConverter(typeof(JsonStringEnumConverter))]
         public ModelingType ModelingType { get; set; } = ModelingType.Membrane;
@@ -32,7 +32,7 @@ namespace Core.Models.Properties
             Id = IdGenerator.Generate(IdGenerator.Properties.FLOOR_PROPERTIES);
         }
 
-        public FloorProperties(string name, FloorType type, double thickness, string materialId) : this()
+        public FloorProperties(string name, StructuralFloorType type, double thickness, string materialId) : this()
         {
             Name = name;
             Type = type;
@@ -80,7 +80,7 @@ namespace Core.Models.Properties
         }
     }
 
-    public enum FloorType
+    public enum StructuralFloorType
     {
         Slab,
         FilledDeck,

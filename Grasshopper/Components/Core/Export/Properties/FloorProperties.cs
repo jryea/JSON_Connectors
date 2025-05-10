@@ -5,6 +5,7 @@ using Grasshopper.Kernel;
 using Core.Models.Properties;
 using Grasshopper.Utilities;
 using GH_Type = Grasshopper.Kernel.Types;
+using Core.Models.ModelLayout;
 
 namespace Grasshopper.Components.Core.Export.Properties
 {
@@ -22,38 +23,33 @@ namespace Grasshopper.Components.Core.Export.Properties
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("Names", "N", "Name for each floor property", GH_ParamAccess.list);
-            pManager.AddTextParameter("Types", "T", "Type for floor (e.g., 'Slab', 'Composite', 'NonComposite')", GH_ParamAccess.list);
+            pManager.AddTextParameter("Types", "T", "Type for floor (e.g., 'Slab', 'FilledDeck', 'UnfilledDeck')", GH_ParamAccess.list);
             pManager.AddNumberParameter("Thicknesses", "TH", "Thickness (in inches)", GH_ParamAccess.list);
             pManager.AddGenericParameter("Materials", "M", "Material", GH_ParamAccess.list);
-            pManager.AddTextParameter("Reinforcement", "R", "Reinforcement (optional)", GH_ParamAccess.list);
 
             // Make some parameters optional
-            pManager[4].Optional = true;
+            pManager[1].Optional = true;  // Types
         }
 
-      
         // Registers all the output parameters for this component.
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
         {
             pManager.AddGenericParameter("Floor Properties", "FP", "Floor property definitions for the structural model", GH_ParamAccess.list);
         }
 
-
         // This is the method that actually does the work.
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             // Retrieve input data
             List<string> names = new List<string>();
-            List<string> types = new List<string>();
+            List<string> typeStrings = new List<string>();
             List<double> thicknesses = new List<double>();
             List<object> materialObjs = new List<object>();
-            List<string> reinforcements = new List<string>();
 
             if (!DA.GetDataList(0, names)) return;
-            if (!DA.GetDataList(1, types)) return;
+            DA.GetDataList(1, typeStrings);
             if (!DA.GetDataList(2, thicknesses)) return;
             if (!DA.GetDataList(3, materialObjs)) return;
-            DA.GetDataList(4, reinforcements); // Optional
 
             // Basic validation
             if (names.Count == 0)
@@ -62,12 +58,20 @@ namespace Grasshopper.Components.Core.Export.Properties
                 return;
             }
 
-            // Extend lists to match names length by duplicating the last item
-            if (types.Count > 0 && types.Count < names.Count)
+            // Set default types if not provided
+            if (typeStrings.Count == 0)
             {
-                string lastType = types[types.Count - 1];
-                while (types.Count < names.Count)
-                    types.Add(lastType);
+                typeStrings = new List<string>(new string[names.Count]);
+                for (int i = 0; i < names.Count; i++)
+                    typeStrings[i] = "Slab";
+            }
+
+            // Extend lists to match names length by duplicating the last item
+            if (typeStrings.Count > 0 && typeStrings.Count < names.Count)
+            {
+                string lastType = typeStrings[typeStrings.Count - 1];
+                while (typeStrings.Count < names.Count)
+                    typeStrings.Add(lastType);
             }
 
             if (thicknesses.Count > 0 && thicknesses.Count < names.Count)
@@ -84,19 +88,11 @@ namespace Grasshopper.Components.Core.Export.Properties
                     materialObjs.Add(lastMaterial);
             }
 
-            // Handle optional reinforcements list
-            if (reinforcements.Count > 0 && reinforcements.Count < names.Count)
-            {
-                string lastReinforcement = reinforcements[reinforcements.Count - 1];
-                while (reinforcements.Count < names.Count)
-                    reinforcements.Add(lastReinforcement);
-            }
-
             // Verify list lengths again after extension
-            if (names.Count != types.Count || names.Count != thicknesses.Count || names.Count != materialObjs.Count)
+            if (names.Count != typeStrings.Count || names.Count != thicknesses.Count || names.Count != materialObjs.Count)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
-                    $"Number of names ({names.Count}) must match number of types ({types.Count}), " +
+                    $"Number of names ({names.Count}) must match number of types ({typeStrings.Count}), " +
                     $"thicknesses ({thicknesses.Count}), and materials ({materialObjs.Count})");
                 return;
             }
@@ -109,11 +105,11 @@ namespace Grasshopper.Components.Core.Export.Properties
                 for (int i = 0; i < names.Count; i++)
                 {
                     string name = names[i];
-                    string type = types[i];
+                    string typeString = typeStrings[i];
                     double thickness = thicknesses[i];
                     Material material = ExtractMaterial(materialObjs[i]);
 
-                    if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(type) || material == null)
+                    if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(typeString) || material == null)
                     {
                         AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
                             $"Skipping property at index {i}: Empty name, type, or invalid material");
@@ -128,45 +124,36 @@ namespace Grasshopper.Components.Core.Export.Properties
                         continue;
                     }
 
+                    // Parse floor type enum
+                    StructuralFloorType floorType;
+                    if (!Enum.TryParse(typeString, true, out floorType))
+                    {
+                        AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
+                            $"Unknown floor type: {typeString}, defaulting to Slab");
+                        floorType = StructuralFloorType.Slab;
+                    }
+
                     // Create a new floor property
-                    FloorProperties floorProperties = new FloorProperties
-                    {
-                        Name = name,
-                        Type = type,
-                        Thickness = thickness,
-                        MaterialId = material.Id
-                    };
+                    FloorProperties floorProperties = new FloorProperties(name, floorType, thickness, material.Id);
+                    floorProperties.Thickness = thickness;
 
-                    // Set reinforcement if provided
-                    if (reinforcements.Count > i)
+                    // Configure properties based on floor type
+                    if (floorType == StructuralFloorType.FilledDeck || floorType == StructuralFloorType.UnfilledDeck)
                     {
-                        floorProperties.Reinforcement = reinforcements[i];
-                    }
+                        // Set common deck properties
+                        floorProperties.DeckProperties.RibDepth = 3.0;  // Default in inches
+                        floorProperties.DeckProperties.RibWidthTop = 6.0;
+                        floorProperties.DeckProperties.RibWidthBottom = 5.0;
+                        floorProperties.DeckProperties.RibSpacing = 12.0;
+                        floorProperties.DeckProperties.DeckShearThickness = 0.035;
 
-                    // Add type-specific properties
-                    if (type.Equals("Slab", StringComparison.OrdinalIgnoreCase) ||
-                        type.Equals("Concrete", StringComparison.OrdinalIgnoreCase))
-                    {
-                        // Add concrete slab properties
-                        floorProperties.SlabProperties["isRibbed"] = false;
-                        floorProperties.SlabProperties["isWaffle"] = false;
-                        floorProperties.SlabProperties["isTwoWay"] = true;
-                    }
-                    else if (type.Equals("Composite", StringComparison.OrdinalIgnoreCase))
-                    {
-                        // Add composite deck properties
-                        floorProperties.DeckProperties["deckType"] = "Composite";
-                        floorProperties.DeckProperties["deckDepth"] = 1.5; // Default deck depth in inches
-                        floorProperties.DeckProperties["deckGage"] = 22;   // Default deck gage
-                        floorProperties.DeckProperties["toppingThickness"] = thickness - 1.5;
-                    }
-                    else if (type.Equals("Deck", StringComparison.OrdinalIgnoreCase) ||
-                             type.Equals("NonComposite", StringComparison.OrdinalIgnoreCase))
-                    {
-                        // Add metal deck properties
-                        floorProperties.DeckProperties["deckType"] = "Metal";
-                        floorProperties.DeckProperties["deckDepth"] = thickness;
-                        floorProperties.DeckProperties["deckGage"] = 22;  // Default deck gage
+                        if (floorType == StructuralFloorType.FilledDeck)
+                        {
+                            // For composite decks, set shear stud properties
+                            floorProperties.ShearStudProperties.ShearStudDiameter = 0.75;
+                            floorProperties.ShearStudProperties.ShearStudHeight = 6.0;
+                            floorProperties.ShearStudProperties.ShearStudTensileStrength = 65000;
+                        }
                     }
 
                     floorPropertiesList.Add(new GH_FloorProperties(floorProperties));
@@ -195,12 +182,7 @@ namespace Grasshopper.Components.Core.Export.Properties
             if (materialObj is string materialName && !string.IsNullOrWhiteSpace(materialName))
             {
                 // Create a basic material with the provided name
-                // In a real-world scenario, you might want to look up the material in a repository
-                return new Material
-                {
-                    Name = materialName,
-                    Type = DetermineMaterialTypeFromName(materialName)
-                };
+                return new Material(materialName, MaterialType.Concrete);
             }
 
             // If we have a generic GH_Goo object, try to extract the value
@@ -215,23 +197,6 @@ namespace Grasshopper.Components.Core.Export.Properties
             return null;
         }
 
-        private string DetermineMaterialTypeFromName(string materialName)
-        {
-            // Try to determine material type from name for backward compatibility
-            materialName = materialName.ToLower();
-
-            if (materialName.Contains("concrete") || materialName.Contains("conc"))
-                return "Concrete";
-            else if (materialName.Contains("steel") || materialName.Contains("metal"))
-                return "Steel";
-            else if (materialName.Contains("wood") || materialName.Contains("timber"))
-                return "Wood";
-            else if (materialName.Contains("masonry") || materialName.Contains("brick") || materialName.Contains("cmu"))
-                return "Masonry";
-            else
-                return "Unknown";
-        }
-    
         // Gets the unique ID for this component. Do not change this ID after release.
         public override Guid ComponentGuid => new Guid("5A6B7C8D-9E0F-1A2B-3C4D-5E6F7A8B9C0D");
     }

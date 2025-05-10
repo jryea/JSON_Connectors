@@ -2,32 +2,33 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using CE = Core.Models.Elements;
-using CL = Core.Models.ModelLayout;
-using CP = Core.Models.Properties;
-using RAM.Utilities;
-using RAMDATAACCESSLib;
 using Core.Models.Elements;
 using Core.Models.ModelLayout;
 using Core.Models.Properties;
 using Core.Utilities;
+using RAM.Utilities;
+using RAMDATAACCESSLib;
 
 namespace RAM.Import.Elements
 {
     public class BeamImport
     {
-        private IModel _model;
-        private string _lengthUnit;
+        private readonly IModel _model;
+        private readonly string _lengthUnit;
+        private readonly MaterialProvider _materialProvider;
 
-        public BeamImport(IModel model, string lengthUnit = "inches")
+        public BeamImport(
+            IModel model,
+            MaterialProvider materialProvider,
+            string lengthUnit = "inches")
         {
             _model = model;
+            _materialProvider = materialProvider;
             _lengthUnit = lengthUnit;
         }
 
         public int Import(IEnumerable<Beam> beams, IEnumerable<Level> levels,
                  IEnumerable<FrameProperties> frameProperties,
-                 IEnumerable<Material> materials,
                  Dictionary<string, string> levelToFloorTypeMapping)
         {
             try
@@ -60,7 +61,7 @@ namespace RAM.Import.Elements
 
                 // Import beams
                 int count = 0;
-                foreach (CE.Beam beam in beams)
+                foreach (Beam beam in beams)
                 {
                     if (beam.StartPoint == null || beam.EndPoint == null ||
                         string.IsNullOrEmpty(beam.LevelId))
@@ -108,11 +109,10 @@ namespace RAM.Import.Elements
                         continue;
                     }
 
-                    // Get material type
-                    EMATERIALTYPES beamMaterial = RAMHelpers.GetRAMMaterialType(
+                    // Get material type using MaterialProvider
+                    EMATERIALTYPES beamMaterial = _materialProvider.GetRAMMaterialType(
                         beam.FramePropertiesId,
                         frameProperties,
-                        materials,
                         beam.IsJoist);
 
                     try

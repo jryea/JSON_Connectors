@@ -1,5 +1,4 @@
-﻿// WallImport.cs
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Core.Models.Elements;
@@ -13,12 +12,17 @@ namespace RAM.Import.Elements
 {
     public class WallImport
     {
-        private IModel _model;
-        private string _lengthUnit;
+        private readonly IModel _model;
+        private readonly string _lengthUnit;
+        private readonly MaterialProvider _materialProvider;
 
-        public WallImport(IModel model, string lengthUnit = "inches")
+        public WallImport(
+            IModel model,
+            MaterialProvider materialProvider,
+            string lengthUnit = "inches")
         {
             _model = model;
+            _materialProvider = materialProvider;
             _lengthUnit = lengthUnit;
         }
 
@@ -125,7 +129,7 @@ namespace RAM.Import.Elements
                         if (layoutWalls != null)
                         {
                             ILayoutWall ramWall = layoutWalls.Add(
-                                EMATERIALTYPES.EWallPropConcreteMat, // Assuming concrete material for walls
+                                EMATERIALTYPES.EWallPropConcreteMat, // Always use concrete material for walls
                                 x1, y1, 0, 0,
                                 x2, y2, 0, 0,
                                 thickness);

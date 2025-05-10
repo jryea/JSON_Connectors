@@ -2,7 +2,7 @@
 using System.IO;
 using System.Text;
 using Core.Models;
-using CC =Core.Converters;
+using CC = Core.Converters;
 using RAM.Import.ModelLayout;
 using RAM.Import.Elements;
 using RAM.Import.Loads;
@@ -18,6 +18,13 @@ namespace RAM
     // Provides integration between JSON structural models and RAM
     public class RAMImporter
     {
+        private readonly MaterialProvider _materialProvider;
+
+        public RAMImporter()
+        {
+            _materialProvider = new MaterialProvider();
+        }
+
         // Converts a JSON file to a RAM model
         public (bool Success, string Message) ConvertJSONFileToRAM(string jsonFilePath, string ramFilePath)
         {
@@ -187,11 +194,12 @@ namespace RAM
                         Console.WriteLine("Importing floor properties");
                         if (model.Properties.FloorProperties != null && model.Properties.FloorProperties.Count > 0)
                         {
-                            var slabImporter = new SlabPropertiesImport(modelManager.Model, lengthUnit);
-                            var slabMappings = slabImporter.Import(
-                                model.Properties.FloorProperties,
-                                levelToFloorTypeMapping);
-                            Console.WriteLine($"Imported {slabMappings.Count} slab property mappings");
+                            var floorPropertiesImporter = new FloorPropertiesImport(
+                                modelManager.Model,
+                                _materialProvider,
+                                lengthUnit);
+                            var floorPropertyMappings = floorPropertiesImporter.Import(model.Properties.FloorProperties);
+                            Console.WriteLine($"Imported {floorPropertyMappings.Count} floor property mappings");
                         }
 
                         // Import structural elements
@@ -207,12 +215,15 @@ namespace RAM
                             Console.WriteLine("Importing beams");
                             if (model.Elements.Beams != null && model.Elements.Beams.Count > 0)
                             {
-                                var beamImporter = new BeamImport(modelManager.Model, lengthUnit);
+                                var beamImporter = new BeamImport(
+                                    modelManager.Model, 
+                                    _materialProvider,
+                                    lengthUnit);
+                                    
                                 beamCount = beamImporter.Import(
                                     model.Elements.Beams,
                                     validLevels,
                                     model.Properties.FrameProperties,
-                                    model.Properties.Materials,
                                     levelToFloorTypeMapping);
                                 Console.WriteLine($"Imported {beamCount} beams");
                             }
@@ -221,12 +232,15 @@ namespace RAM
                             Console.WriteLine("Importing columns");
                             if (model.Elements.Columns != null && model.Elements.Columns.Count > 0)
                             {
-                                var columnImporter = new ColumnImport(modelManager.Model, lengthUnit);
+                                var columnImporter = new ColumnImport(
+                                    modelManager.Model,
+                                    _materialProvider,
+                                    lengthUnit);
+                                    
                                 columnCount = columnImporter.Import(
                                     model.Elements.Columns,
                                     validLevels,
                                     model.Properties.FrameProperties,
-                                    model.Properties.Materials,
                                     levelToFloorTypeMapping);
                                 Console.WriteLine($"Imported {columnCount} columns");
                             }
@@ -235,12 +249,15 @@ namespace RAM
                             Console.WriteLine("Importing braces");
                             if (model.Elements.Braces != null && model.Elements.Braces.Count > 0)
                             {
-                                var braceImporter = new BraceImport(modelManager.Model, lengthUnit);
+                                var braceImporter = new BraceImport(
+                                    modelManager.Model,
+                                    _materialProvider,
+                                    lengthUnit);
+                                    
                                 braceCount = braceImporter.Import(
                                     model.Elements.Braces,
                                     validLevels,
-                                    model.Properties.FrameProperties,
-                                    model.Properties.Materials);
+                                    model.Properties.FrameProperties);
                                 Console.WriteLine($"Imported {braceCount} braces");
                             }
 
@@ -248,7 +265,11 @@ namespace RAM
                             Console.WriteLine("Importing walls");
                             if (model.Elements.Walls != null && model.Elements.Walls.Count > 0)
                             {
-                                var wallImporter = new WallImport(modelManager.Model, lengthUnit);
+                                var wallImporter = new WallImport(
+                                    modelManager.Model,
+                                    _materialProvider,
+                                    lengthUnit);
+                                    
                                 wallCount = wallImporter.Import(
                                     model.Elements.Walls,
                                     validLevels,
@@ -261,7 +282,10 @@ namespace RAM
                             Console.WriteLine("Importing isolated footings");
                             if (model.Elements.IsolatedFootings != null && model.Elements.IsolatedFootings.Count > 0)
                             {
-                                var isolatedFootingImporter = new IsolatedFootingImport(modelManager.Model, lengthUnit);
+                                var isolatedFootingImporter = new IsolatedFootingImport(
+                                    modelManager.Model,
+                                    _materialProvider,
+                                    lengthUnit);
                                 try
                                 {
                                     isolatedFootingCount = isolatedFootingImporter.Import(

@@ -1,4 +1,5 @@
-﻿using Grasshopper.Kernel;
+﻿// Grasshopper/Components/Core/Export/Properties/Materials.cs
+using Grasshopper.Kernel;
 using System;
 using System.Collections.Generic;
 using Core.Models.Properties;
@@ -18,9 +19,7 @@ namespace Grasshopper.Components.Core.Export.Properties
         {
             pManager.AddTextParameter("Names", "N", "Names for each material", GH_ParamAccess.list);
             pManager.AddTextParameter("Types", "T", "Material types (Concrete, Steel, etc.)", GH_ParamAccess.list);
-            pManager.AddTextParameter("Reinforcing", "R", "Reinforcing types (optional)", GH_ParamAccess.list);
-
-            pManager[2].Optional = true;
+            pManager[1].Optional = true;
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
@@ -32,11 +31,17 @@ namespace Grasshopper.Components.Core.Export.Properties
         {
             List<string> names = new List<string>();
             List<string> types = new List<string>();
-            List<string> reinforcingTypes = new List<string>();
 
             if (!DA.GetDataList(0, names)) return;
-            if (!DA.GetDataList(1, types)) return;
-            DA.GetDataList(2, reinforcingTypes);
+            DA.GetDataList(1, types);
+
+            // Provide default type if needed
+            if (types.Count == 0)
+            {
+                types = new List<string>(new string[names.Count]);
+                for (int i = 0; i < names.Count; i++)
+                    types[i] = "Concrete";
+            }
 
             if (names.Count != types.Count)
             {
@@ -48,40 +53,22 @@ namespace Grasshopper.Components.Core.Export.Properties
             List<GH_Material> materials = new List<GH_Material>();
             for (int i = 0; i < names.Count; i++)
             {
-                Material material = new Material
+                // Parse material type
+                MaterialType materialType;
+                if (!Enum.TryParse(types[i], true, out materialType))
                 {
-                    Name = names[i],
-                    Type = types[i],
-                    Reinforcing = reinforcingTypes.Count > i ? reinforcingTypes[i] : null
-                };
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
+                        $"Unknown material type: {types[i]}, defaulting to Concrete");
+                    materialType = MaterialType.Concrete;
+                }
 
-                // Add default design data based on material type
-                AddDefaultDesignData(material);
+                Material material = new Material(names[i], materialType);
 
+                // Material properties are now initialized in the constructor
                 materials.Add(new GH_Material(material));
             }
 
             DA.SetDataList(0, materials);
-        }
-
-        private void AddDefaultDesignData(Material material)
-        {
-            switch (material.Type.ToLower())
-            {
-                case "concrete":
-                    material.DesignData["fc"] = 4000.0; // psi
-                    material.DesignData["densityPCF"] = 150.0; // pcf
-                    break;
-                case "steel":
-                    material.DesignData["fy"] = 50000.0; // psi
-                    material.DesignData["fu"] = 65000.0; // psi
-                    material.DesignData["E"] = 29000000.0; // psi
-                    break;
-                case "wood":
-                    material.DesignData["fb"] = 1000.0; // psi
-                    material.DesignData["E"] = 1600000.0; // psi
-                    break;
-            }
         }
 
         public override Guid ComponentGuid => new Guid("E8F2A9B3-D67C-45F1-BA8E-C95D30A2B714");

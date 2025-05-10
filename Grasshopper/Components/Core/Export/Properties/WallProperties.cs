@@ -32,7 +32,6 @@ namespace Grasshopper.Components.Core.Export.Properties
             pManager.AddGenericParameter("Wall Properties", "WP", "Wall property definitions for the structural model", GH_ParamAccess.list);
         }
 
-      
         // This is the method that actually does the work.
         protected override void SolveInstance(IGH_DataAccess DA)
         {
@@ -87,36 +86,19 @@ namespace Grasshopper.Components.Core.Export.Properties
                     }
 
                     // Create a new wall property
-                    WallProperties wallProperties = new WallProperties
-                    {
-                        Name = name,
-                        MaterialId = material.Id,
-                        Thickness = thickness
-                    };
+                    WallProperties wallProperties = new WallProperties(name, material.Id, thickness);
 
                     // Add material-specific properties
-                    if (material.Type.Equals("Concrete", StringComparison.OrdinalIgnoreCase))
+                    if (material.Type == MaterialType.Concrete)
                     {
                         // Add concrete wall properties
-                        wallProperties.Properties["fc"] = 4000.0; // Default concrete strength in psi
+                        wallProperties.Properties["fc"] = material.ConcreteProps?.Fc ?? 4000.0; // Default concrete strength in psi
                         wallProperties.Properties["reinforcementRatio"] = 0.0025; // Default minimum reinforcement ratio
                     }
-                    else if (material.Type.Equals("Masonry", StringComparison.OrdinalIgnoreCase))
-                    {
-                        // Add masonry wall properties
-                        wallProperties.Properties["fm"] = 1500.0; // Default masonry strength in psi
-                        wallProperties.Properties["isGrouted"] = true; // Default to grouted masonry
-                    }
-                    else if (material.Type.Equals("Wood", StringComparison.OrdinalIgnoreCase))
-                    {
-                        // Add wood wall properties
-                        wallProperties.Properties["studSpacing"] = 16.0; // Default stud spacing in inches
-                        wallProperties.Properties["sheathing"] = "Plywood"; // Default sheathing material
-                    }
-                    else if (material.Type.Equals("Steel", StringComparison.OrdinalIgnoreCase))
+                    else if (material.Type == MaterialType.Steel)
                     {
                         // Add steel wall properties
-                        wallProperties.Properties["studGage"] = 18; // Default stud gage
+                        wallProperties.Properties["fy"] = material.SteelProps?.Fy ?? 50000.0; // Default steel yield strength in psi
                         wallProperties.Properties["studSpacing"] = 16.0; // Default stud spacing in inches
                     }
 
@@ -145,12 +127,9 @@ namespace Grasshopper.Components.Core.Export.Properties
             // Try handling string IDs (for compatibility)
             if (obj is string materialName && !string.IsNullOrWhiteSpace(materialName))
             {
-                // Create a basic material with the provided name
-                return new Material
-                {
-                    Name = materialName,
-                    Type = DetermineMaterialTypeFromName(materialName)
-                };
+                // Create a basic material
+                Material material = new Material(materialName, MaterialType.Concrete);
+                return material;
             }
 
             // Handle IGH_Goo objects that can be cast to Material
@@ -164,25 +143,7 @@ namespace Grasshopper.Components.Core.Export.Properties
             return null;
         }
 
-        private string DetermineMaterialTypeFromName(string materialName)
-        {
-            // Try to determine material type from name for backward compatibility
-            materialName = materialName.ToLower();
-
-            if (materialName.Contains("concrete") || materialName.Contains("conc"))
-                return "Concrete";
-            else if (materialName.Contains("steel") || materialName.Contains("metal"))
-                return "Steel";
-            else if (materialName.Contains("wood") || materialName.Contains("timber"))
-                return "Wood";
-            else if (materialName.Contains("masonry") || materialName.Contains("brick") || materialName.Contains("cmu"))
-                return "Masonry";
-            else
-                return "Unknown";
-        }
-
         // Gets the unique ID for this component. Do not change this ID after release.
-     
         public override Guid ComponentGuid => new Guid("2C3D4E5F-6A7B-8C9D-0E1F-2A3B4C5D6E7F");
     }
 }

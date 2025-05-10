@@ -10,38 +10,29 @@ namespace RAM.Export.Properties
 {
     public class WallPropertiesExport
     {
-        private IModel _model;
-        private string _lengthUnit;
+        private readonly IModel _model;
+        private readonly string _lengthUnit;
+        private readonly MaterialProvider _materialProvider;
 
-        public WallPropertiesExport(IModel model, string lengthUnit = "inches")
+        public WallPropertiesExport(
+            IModel model,
+            MaterialProvider materialProvider,
+            string lengthUnit = "inches")
         {
             _model = model;
+            _materialProvider = materialProvider;
             _lengthUnit = lengthUnit;
         }
 
-        public List<WallProperties> Export(List<Material> materials)
+        public List<WallProperties> Export()
         {
             var wallProperties = new List<WallProperties>();
             var processedThicknesses = new HashSet<double>(); // Track unique thicknesses
 
             try
             {
-                // Find concrete material ID (or create one if needed)
-                string concreteMaterialId = materials
-                    .FirstOrDefault(m => m.Type.ToLower() == "concrete")?.Id;
-
-                if (string.IsNullOrEmpty(concreteMaterialId))
-                {
-                    Console.WriteLine("No concrete material found for wall properties");
-                    // If we can't find a concrete material, we'll use the first available material
-                    concreteMaterialId = materials.FirstOrDefault()?.Id;
-
-                    if (string.IsNullOrEmpty(concreteMaterialId))
-                    {
-                        Console.WriteLine("No materials available for wall properties");
-                        return wallProperties;
-                    }
-                }
+                // Get concrete material ID
+                string concreteMaterialId = _materialProvider.GetConcreteMaterialId();
 
                 // Get all stories from RAM
                 IStories ramStories = _model.GetStories();

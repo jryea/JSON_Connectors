@@ -7,7 +7,6 @@ using Core.Models.Metadata;
 using Core.Models.Loads;
 using Core.Models;
 using Core.Models.Geometry;
-using Core.Models.Properties.Floors;
 
 namespace Grasshopper.Utilities
 {
@@ -281,7 +280,7 @@ namespace Grasshopper.Utilities
         public override string ToString()
         {
             if (Value == null) return "Null FrameProperties";
-            return $"FrameProps: {Value.Name}, Mat: {Value.MaterialId}, Shape: {Value.Shape}";
+            return $"FrameProps: {Value.Name}, Mat: {Value.MaterialId}";
         }
     }
 

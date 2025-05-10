@@ -73,7 +73,7 @@ namespace ETABS.Export.Properties
                     {
                         Id = IdGenerator.Generate(IdGenerator.Properties.FLOOR_PROPERTIES),
                         Name = name,
-                        Type = FloorType.Slab,
+                        Type = StructuralFloorType.Slab,
                         Thickness = thickness,
                         MaterialId = materialId,
                         ModelingType = ParseModelingType(modelingTypeStr),
@@ -114,8 +114,8 @@ namespace ETABS.Export.Properties
                     }
 
                     // Determine floor type based on deck type
-                    FloorType floorType = deckType.ToLower() == "filled" ?
-                        FloorType.FilledDeck : FloorType.UnfilledDeck;
+                    StructuralFloorType floorType = deckType.ToLower() == "filled" ?
+                        StructuralFloorType.FilledDeck : StructuralFloorType.UnfilledDeck;
 
                     // Create floor properties
                     var floorProp = new FloorProperties

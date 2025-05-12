@@ -72,10 +72,17 @@ namespace ETABS.Import.Elements.LineAssignment
                     // Create an assignment for this level
                     string storyName = GetStoryName(level);
 
-                    // Format: LINEASSIGN "C1" "Story1" SECTION "W12X26" MINNUMSTA 3 AUTOMESH "YES" MESHATINTERSECTIONS "YES"
-                    sb.AppendLine($"  LINEASSIGN \"{e2kId}\" \"{storyName}\" SECTION \"{sectionName}\" MINNUMSTA 3 AUTOMESH \"YES\" MESHATINTERSECTIONS \"YES\"");
+                    // Format the column assignment, including orientation if not 0
+                    sb.AppendLine(FormatColumnAssign(
+                        lineId: e2kId,
+                        story: storyName,
+                        section: sectionName,
+                        orientation: column.Orientation,
+                        minNumSta: 3,
+                        autoMesh: "YES",
+                        meshAtIntersections: "YES"));
 
-                    Console.WriteLine($"Created column assignment for {e2kId} at story {storyName} with section {sectionName}");
+                    Console.WriteLine($"Created column assignment for {e2kId} at story {storyName} with section {sectionName} and orientation {column.Orientation}");
                 }
             }
 
@@ -94,12 +101,15 @@ namespace ETABS.Import.Elements.LineAssignment
             string lineId,
             string story,
             string section,
-            string release,
-            int minNumSta,
-            string autoMesh,
-            string meshAtIntersections)
+            double orientation = 0.0,
+            int minNumSta = 3,
+            string autoMesh = "YES",
+            string meshAtIntersections = "YES")
         {
-            return $"  LINEASSIGN  \"{lineId}\"  \"{story}\"  SECTION \"{section}\"  MINNUMSTA {minNumSta} AUTOMESH \"{autoMesh}\"  MESHATINTERSECTIONS \"{meshAtIntersections}\"";
+            // Include ANG parameter only if orientation is not 0
+            string orientationPart = Math.Abs(orientation) > 0.001 ? $" ANG {orientation}" : "";
+
+            return $"  LINEASSIGN \"{lineId}\" \"{story}\" SECTION \"{section}\"{orientationPart} MINNUMSTA {minNumSta} AUTOMESH \"{autoMesh}\" MESHATINTERSECTIONS \"{meshAtIntersections}\"";
         }
     }
 }

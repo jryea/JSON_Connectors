@@ -28,14 +28,12 @@ namespace Core.Models.Elements
         public string FramePropertiesId { get; set; }
 
         // Lateral flag for RAM
-        public bool IsLateral { get; set; }
+        public bool IsLateral { get; set; } = false;    
 
         // Creates a new Column with a generated ID
         public Column()
         {
             Id = IdGenerator.Generate(IdGenerator.Elements.COLUMN);
-            IsLateral = false; // Default to not lateral
-            Orientation = 0.0; // Default orientation
         }
 
     

@@ -70,7 +70,6 @@ namespace ETABS.Export.Elements
         }
 
         // Imports columns from E2K data to model
-
         public List<Column> Export()
         {
             var columns = new List<Column>();
@@ -168,6 +167,13 @@ namespace ETABS.Export.Elements
                                 TopLevelId = currentLevel?.Id,
                                 FramePropertiesId = framePropId
                             };
+
+                            // Set column orientation if specified in assignment
+                            if (assignment.ColumnAngle.HasValue)
+                            {
+                                column.Orientation = assignment.ColumnAngle.Value;
+                                logWriter.WriteLine($"Setting column orientation: {column.Orientation} degrees");
+                            }
 
                             // Add to the list
                             columns.Add(column);

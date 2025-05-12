@@ -1,44 +1,39 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Text.RegularExpressions;
-using System.Linq;
 
 namespace ETABS.Utilities
 {
+    // Parses line assignment data from ETABS E2K file
     public class LineAssignmentParser
     {
-        // Change the storage model to allow multiple assignments per line ID
-        public Dictionary<string, List<LineAssignment>> LineAssignments { get; private set; } = new Dictionary<string, List<LineAssignment>>();
+        // Dictionary to store assignments by line ID
+        private Dictionary<string, List<LineAssignment>> _lineAssignments = new Dictionary<string, List<LineAssignment>>();
 
-        // Line assignment information
-        public class LineAssignment
-        {
-            public string LineId { get; set; }
-            public string Story { get; set; }
-            public string Section { get; set; }
-            public string ReleaseCondition { get; set; }
-            public bool IsLateral { get; set; }
-        }
+        // Public accessor for line assignments
+        public Dictionary<string, List<LineAssignment>> LineAssignments => _lineAssignments;
 
-        // Parses the LINE ASSIGNS section from E2K content
+        // Parses line assignments from LINE ASSIGNS section
         public void ParseLineAssignments(string lineAssignsSection)
         {
+            _lineAssignments.Clear();
+
             if (string.IsNullOrWhiteSpace(lineAssignsSection))
                 return;
 
-            LineAssignments.Clear();
-
-            // Regular expression to match line assignment lines
-            // Format: LINEASSIGN "B1" "Story1" SECTION "W10X12" MAXSTASPC 24 AUTOMESH "YES" MESHATINTERSECTIONS "YES"
-            var basicPattern = new Regex(@"^\s*LINEASSIGN\s+""([^""]+)""\s+""([^""]+)""\s+SECTION\s+""([^""]+)""",
+            // Regular expression to match line assignment
+            // Example: LINEASSIGN "C1" "Story1" SECTION "Column1" RELEASE "M2I M2J M3I M3J" ANG 90
+            var pattern = new Regex(@"^\s*LINEASSIGN\s+""([^""]+)""\s+""([^""]+)""\s+SECTION\s+""([^""]+)""",
                 RegexOptions.Multiline);
 
-            // Additional pattern for releases
-            var releasePattern = new Regex(@"RELEASE\s+""([^""]+)""", RegexOptions.Singleline);
+            // Regex for ANG parameter
+            var anglePattern = new Regex(@"ANG\s+([\d\.]+)");
 
-            // Pattern for lateral flag
-            var lateralPattern = new Regex(@"ISLATERAL\s+""([^""]+)""", RegexOptions.Singleline);
+            // Regex for RELEASE parameter
+            var releasePattern = new Regex(@"RELEASE\s+""([^""]+)""");
 
-            var matches = basicPattern.Matches(lineAssignsSection);
+            // Find all line assignments
+            var matches = pattern.Matches(lineAssignsSection);
 
             foreach (Match match in matches)
             {
@@ -48,67 +43,59 @@ namespace ETABS.Utilities
                     string story = match.Groups[2].Value;
                     string section = match.Groups[3].Value;
 
+                    // Get the full line text to extract additional parameters
                     string fullLine = match.Value;
 
-                    // Check for release conditions
-                    string release = "";
-                    Match releaseMatch = releasePattern.Match(fullLine);
-                    if (releaseMatch.Success)
-                    {
-                        release = releaseMatch.Groups[1].Value;
-                    }
-
-                    // Check for lateral flag
-                    bool isLateral = false;
-                    Match lateralMatch = lateralPattern.Match(fullLine);
-                    if (lateralMatch.Success)
-                    {
-                        isLateral = lateralMatch.Groups[1].Value.ToUpper() == "YES";
-                    }
-
-                    // Create assignment object
+                    // Create line assignment
                     var assignment = new LineAssignment
                     {
                         LineId = lineId,
                         Story = story,
-                        Section = section,
-                        ReleaseCondition = release,
-                        IsLateral = isLateral
+                        Section = section
                     };
 
-                    // Add to dictionary, creating list if needed
-                    if (!LineAssignments.ContainsKey(lineId))
+                    // Look for release condition
+                    var releaseMatch = releasePattern.Match(fullLine);
+                    if (releaseMatch.Success && releaseMatch.Groups.Count >= 2)
                     {
-                        LineAssignments[lineId] = new List<LineAssignment>();
+                        assignment.ReleaseCondition = releaseMatch.Groups[1].Value;
                     }
 
-                    LineAssignments[lineId].Add(assignment);
+                    // Look for column angle
+                    var angleMatch = anglePattern.Match(fullLine);
+                    if (angleMatch.Success && angleMatch.Groups.Count >= 2)
+                    {
+                        double angle;
+                        if (double.TryParse(angleMatch.Groups[1].Value, out angle))
+                        {
+                            assignment.ColumnAngle = angle;
+                        }
+                    }
+
+                    // Determine if it's a lateral element
+                    assignment.IsLateral = section.Contains("Lat") ||
+                                          section.Contains("LATERAL") ||
+                                          section.Contains("SMRF");
+
+                    // Add to dictionary
+                    if (!_lineAssignments.ContainsKey(lineId))
+                    {
+                        _lineAssignments[lineId] = new List<LineAssignment>();
+                    }
+                    _lineAssignments[lineId].Add(assignment);
                 }
             }
         }
 
-        // Gets the section name for a specific line ID and story
-        public string GetSectionName(string lineId, string story)
+        // Inner class to store line assignment data
+        public class LineAssignment
         {
-            if (LineAssignments.TryGetValue(lineId, out var assignments))
-            {
-                var assignment = assignments.FirstOrDefault(a => a.Story == story);
-                if (assignment != null)
-                {
-                    return assignment.Section;
-                }
-            }
-            return null;
-        }
-
-        // Gets all assignments for a specific line ID
-        public List<LineAssignment> GetAssignments(string lineId)
-        {
-            if (LineAssignments.TryGetValue(lineId, out var assignments))
-            {
-                return assignments;
-            }
-            return new List<LineAssignment>();
+            public string LineId { get; set; }
+            public string Story { get; set; }
+            public string Section { get; set; }
+            public string ReleaseCondition { get; set; }
+            public bool IsLateral { get; set; }
+            public double? ColumnAngle { get; set; }  // Nullable double for column orientation
         }
     }
 }

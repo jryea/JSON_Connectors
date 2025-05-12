@@ -8,6 +8,7 @@ using Core.Models.Properties;
 using Core.Models.Geometry; 
 using Grasshopper.Utilities;
 using System.Linq;
+using System.Windows.Forms;
 
 namespace Grasshopper.Components.Core.Export.Elements
 {
@@ -27,8 +28,10 @@ namespace Grasshopper.Components.Core.Export.Elements
             pManager.AddGenericParameter("Top Level", "TL", "Top level of the column", GH_ParamAccess.list);
             pManager.AddGenericParameter("Frame Properties", "P", "Frame properties for this column", GH_ParamAccess.list);
             pManager.AddBooleanParameter("Is Lateral", "IL", "Is this column lateral?", GH_ParamAccess.list);
+            pManager.AddAngleParameter("Orientation", "R", "Rotation angle of the column (degrees)", GH_ParamAccess.list);
 
             pManager[4].Optional = true;
+            pManager[5].Optional = true;    
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
@@ -42,12 +45,15 @@ namespace Grasshopper.Components.Core.Export.Elements
             List<object> topLevelObjs = new List<object>();
             List<object> framePropObjs = new List<object>();
             List<bool> isLateral = new List<bool>();
+            List<double> orientation = new List<double>();
 
             if (!DA.GetDataList(0, lines)) return;
             if (!DA.GetDataList(1, baseLevelObjs)) return;
             if (!DA.GetDataList(2, topLevelObjs)) return;
             if (!DA.GetDataList(3, framePropObjs)) return;
             DA.GetDataList(4, isLateral);
+            DA.GetDataList(5, orientation);
+
 
             // Extend base level objects list if needed
             if (baseLevelObjs.Count > 0 && baseLevelObjs.Count < lines.Count)
@@ -86,11 +92,25 @@ namespace Grasshopper.Components.Core.Export.Elements
                 isLateral = Enumerable.Repeat(false, lines.Count).ToList();
             }
 
+            // Extend orientation list if needed
+            if (orientation.Count > 0 && orientation.Count < lines.Count)
+            {
+                double lastOrientation = orientation[orientation.Count - 1];
+                while (orientation.Count < lines.Count)
+                    orientation.Add(lastOrientation);
+            }
+            else if (orientation.Count == 0)
+            {
+                // Default to false for all columns if no value was provided
+                orientation = Enumerable.Repeat(0.0, lines.Count).ToList();
+            }
+
             // Check that the number of branches matches after extension
             if (lines.Count != baseLevelObjs.Count ||
                 lines.Count != topLevelObjs.Count ||
                 lines.Count != framePropObjs.Count ||
-                lines.Count != isLateral.Count)
+                lines.Count != isLateral.Count ||
+                lines.Count != orientation.Count)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
                     $"Number of column lines ({lines.Count}) must match number of base levels ({baseLevelObjs.Count}), " +

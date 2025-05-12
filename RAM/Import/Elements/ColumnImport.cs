@@ -172,6 +172,12 @@ namespace RAM.Import.Elements
                                     ramColumn.eFramingType = EFRAMETYPE.MemberIsLateral;
                                 }
                                 count++;
+
+                                if (column.Orientation != 0.0)
+                                {
+                                    ramColumn.dOrientation = column.Orientation;
+                                }
+
                                 Console.WriteLine($"Added column to floor type {ramFloorType.strLabel} for level {column.TopLevelId}");
                             }
                             else

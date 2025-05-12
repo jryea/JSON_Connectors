@@ -100,6 +100,11 @@ namespace RAM.Export.Elements
                             IsLateral = (ramColumn.eFramingType == EFRAMETYPE.MemberIsLateral)
                         };
 
+                        if (ramColumn.dOrientation != 0.0)
+                        {
+                            column.Orientation = ramColumn.dOrientation;
+                        }
+                    
                         columns.Add(column);
                     }
                 }

@@ -7,6 +7,8 @@ using CE = Core.Models.Elements;
 using CG = Core.Models.Geometry;
 using Core.Models;
 using Revit.Utilities;
+using Autodesk.Revit.DB;
+using System.Windows;
 
 namespace Revit.Export.Elements
 {
@@ -209,6 +211,9 @@ namespace Revit.Export.Elements
                     // Determine if column is part of lateral system
                     column.IsLateral = IsColumnLateral(revitColumn);
 
+                    // Determin column orientation
+                    column.Orientation = GetColumnOrientation(revitColumn);
+
                     // Log the column information
                     Debug.WriteLine($"Exporting column at ({point.X:F2}, {point.Y:F2}) with FramePropertiesId: {column.FramePropertiesId ?? "MISSING"}");
 
@@ -224,6 +229,29 @@ namespace Revit.Export.Elements
 
             Debug.WriteLine($"Exported {count} columns successfully");
             return count;
+        }
+
+        private double GetColumnOrientation(FamilyInstance revitColumn)
+        {
+            // Get the column's orientation
+            XYZ vector = revitColumn.HandOrientation;
+
+            // Use absolute values and ignore Z
+            double absX = Math.Abs(vector.X);
+            double absY = Math.Abs(vector.Y);
+
+            // Avoid division by zero
+            if (absX == 0 && absY == 0)
+                return 0.0;
+
+            // Angle from horizontal (X-axis), in radians
+            double angleRad = Math.Atan2(absY, absX);
+
+            // Convert to degrees
+            double angleDeg = angleRad * (180.0 / Math.PI);
+
+            // Clamp to 0–179
+            return angleDeg >= 180.0 ? 0.0 : angleDeg;
         }
 
         // Find the closest level to a target elevation

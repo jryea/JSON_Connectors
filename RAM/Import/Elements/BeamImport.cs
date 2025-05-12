@@ -170,9 +170,15 @@ namespace RAM.Import.Elements
                             ILayoutBeam ramBeam = layoutBeams.Add(beamMaterial, x1, y1, 0, x2, y2, 0);
                             if (ramBeam != null)
                             {
+                                // Set the beam properties
+                                if (beam.IsLateral)
+                                {
+                                    ramBeam.eFramingType = EFRAMETYPE.MemberIsLateral;
+                                }
                                 count++;
                                 Console.WriteLine($"Added beam to floor type {ramFloorType.strLabel} for level {beam.LevelId}");
                             }
+
                         }
                     }
                     catch (Exception ex)

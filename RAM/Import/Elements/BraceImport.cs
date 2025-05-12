@@ -27,136 +27,207 @@ namespace RAM.Import.Elements
         }
 
         public int Import(IEnumerable<Brace> braces, IEnumerable<Level> levels,
-                         IEnumerable<FrameProperties> frameProperties)
+                         IEnumerable<FrameProperties> frameProperties,
+                         Dictionary<string, string> levelToFloorTypeMapping)
         {
-            if (braces == null || !braces.Any() || levels == null || !levels.Any())
+            try
             {
-                Console.WriteLine("No braces or levels provided for import.");
-                return 0;
-            }
-
-            // Get stories from RAM model
-            IStories ramStories = _model.GetStories();
-            if (ramStories == null || ramStories.GetCount() == 0)
-            {
-                Console.WriteLine("No stories found in RAM model.");
-                return 0;
-            }
-
-            // Import braces
-            int count = 0;
-            var processedBraces = new HashSet<string>();
-            foreach (var brace in braces)
-            {
-                if (!IsValidBrace(brace))
+                if (braces == null || !braces.Any() || levels == null || !levels.Any())
                 {
-                    Console.WriteLine("Skipping brace with incomplete data.");
-                    continue;
+                    Console.WriteLine("No braces or levels provided for import.");
+                    return 0;
                 }
 
-                // Map the brace's TopLevelId and BaseLevelId to the corresponding story UIDs
-                string topStoryUid = ModelMappingUtility.GetStoryUidForLevelId(brace.TopLevelId);
-                string baseStoryUid = ModelMappingUtility.GetStoryUidForLevelId(brace.BaseLevelId);
-
-                if (string.IsNullOrEmpty(topStoryUid))
+                // Get RAM stories
+                IStories ramStories = _model.GetStories();
+                if (ramStories == null || ramStories.GetCount() == 0)
                 {
-                    Console.WriteLine($"No RAM story found for top level {brace.TopLevelId}. Skipping brace.");
-                    continue;
+                    Console.WriteLine("No stories found in RAM model.");
+                    return 0;
                 }
 
-                if (string.IsNullOrEmpty(baseStoryUid))
+                Console.WriteLine("Beginning brace import...");
+
+                // Create mappings from Core level IDs to RAM story UIDs
+                Dictionary<string, int> levelIdToStoryUid = new Dictionary<string, int>();
+                Dictionary<string, IStory> levelIdToStory = new Dictionary<string, IStory>();
+                Dictionary<string, Level> levelIdToLevel = new Dictionary<string, Level>();
+
+                // Get all levels sorted by elevation
+                var sortedLevels = levels.OrderBy(l => l.Elevation).ToList();
+
+                // Find the lowest level (ground or foundation level)
+                Level lowestLevel = sortedLevels.FirstOrDefault();
+                string foundationLevelId = lowestLevel?.Id;
+
+                if (lowestLevel != null)
                 {
-                    Console.WriteLine($"No RAM story found for base level {brace.BaseLevelId}. Skipping brace.");
-                    continue;
+                    Console.WriteLine($"Identified foundation level: {lowestLevel.Name} (ID: {lowestLevel.Id}, Elevation: {lowestLevel.Elevation})");
                 }
 
-                // Get the actual RAM stories by UID
-                IStory topStory = RAMHelpers.GetStoryByUid(_model, topStoryUid);
-                IStory baseStory = RAMHelpers.GetStoryByUid(_model, baseStoryUid);
-
-                if (topStory == null)
+                // Build level dictionary for quick lookup
+                foreach (var level in levels)
                 {
-                    Console.WriteLine($"Could not find top story with UID {topStoryUid}. Skipping brace.");
-                    continue;
-                }
-
-                if (baseStory == null)
-                {
-                    Console.WriteLine($"Could not find base story with UID {baseStoryUid}. Skipping brace.");
-                    continue;
-                }
-
-                // Convert coordinates to inches
-                double topX = UnitConversionUtils.ConvertToInches(brace.EndPoint.X, _lengthUnit);
-                double topY = UnitConversionUtils.ConvertToInches(brace.EndPoint.Y, _lengthUnit);
-                double baseX = UnitConversionUtils.ConvertToInches(brace.StartPoint.X, _lengthUnit);
-                double baseY = UnitConversionUtils.ConvertToInches(brace.StartPoint.Y, _lengthUnit);
-
-                // Create a unique key for this brace
-                string braceKey = $"{topX:F2}_{topY:F2}_{baseX:F2}_{baseY:F2}_{brace.TopLevelId}_{brace.BaseLevelId}";
-
-                if (processedBraces.Contains(braceKey))
-                {
-                    Console.WriteLine("Skipping duplicate brace.");
-                    continue;
-                }
-
-                processedBraces.Add(braceKey);
-
-                // Get material type using the MaterialProvider
-                EMATERIALTYPES braceMaterial = _materialProvider.GetRAMMaterialType(
-                    brace.FramePropertiesId,
-                    frameProperties);
-
-                try
-                {
-                    // Get vertical braces interface from the model
-                    IVerticalBraces verticalBraces = _model.GetVerticalBraces();
-                    if (verticalBraces == null)
+                    if (!string.IsNullOrEmpty(level.Id))
                     {
-                        Console.WriteLine("Could not get vertical braces interface from RAM model.");
+                        levelIdToLevel[level.Id] = level;
+                    }
+                }
+
+                // Map levels to stories
+                for (int i = 0; i < ramStories.GetCount(); i++)
+                {
+                    IStory story = ramStories.GetAt(i);
+                    if (story == null) continue;
+
+                    // Find the corresponding level by name or elevation
+                    Level matchingLevel = FindMatchingLevel(story, levels);
+                    if (matchingLevel != null)
+                    {
+                        levelIdToStoryUid[matchingLevel.Id] = story.lUID;
+                        levelIdToStory[matchingLevel.Id] = story;
+                        Console.WriteLine($"Mapped level {matchingLevel.Name} (ID: {matchingLevel.Id}) to story {story.strLabel} (UID: {story.lUID})");
+                    }
+                }
+
+                // Get the vertical braces interface
+                IVerticalBraces verticalBraces = _model.GetVerticalBraces();
+                if (verticalBraces == null)
+                {
+                    Console.WriteLine("Could not get vertical braces interface from RAM model.");
+                    return 0;
+                }
+
+                // Track processed braces to avoid duplicates
+                var processedBraces = new HashSet<string>();
+
+                // Import braces
+                int count = 0;
+                foreach (var brace in braces)
+                {
+                    if (brace.StartPoint == null || brace.EndPoint == null ||
+                        string.IsNullOrEmpty(brace.TopLevelId) || string.IsNullOrEmpty(brace.BaseLevelId))
+                    {
+                        Console.WriteLine("Skipping brace with incomplete data.");
                         continue;
                     }
 
-                    // Add the brace to the RAM model
-                    IVerticalBrace ramBrace = verticalBraces.Add(
-                        braceMaterial,
-                        topStory.lUID,  // Top story ID
-                        topX,           // Top X coordinate
-                        topY,           // Top Y coordinate
-                        0,              // Top offset
-                        baseStory.lUID, // Base story ID
-                        baseX,          // Base X coordinate
-                        baseY,          // Base Y coordinate
-                        0               // Base offset
-                    );
+                    // Get the RAM story UID for the top level
+                    if (!levelIdToStoryUid.TryGetValue(brace.TopLevelId, out int topStoryUid))
+                    {
+                        Console.WriteLine($"No story mapping found for top level {brace.TopLevelId}");
+                        continue;
+                    }
 
-                    if (ramBrace != null)
+                    // Determine if base level is the foundation level
+                    bool isFoundationBrace = (brace.BaseLevelId == foundationLevelId);
+                    int baseStoryUid = -1; // Default to -1 for foundation
+
+                    // If it's not a foundation brace, get the real story UID
+                    if (!isFoundationBrace)
                     {
-                        count++;
-                        Console.WriteLine($"Added brace from story {baseStory.strLabel} to {topStory.strLabel}");
+                        if (!levelIdToStoryUid.TryGetValue(brace.BaseLevelId, out baseStoryUid))
+                        {
+                            Console.WriteLine($"No story mapping found for base level {brace.BaseLevelId}, using foundation (-1)");
+                            isFoundationBrace = true; // Treat as foundation brace
+                        }
                     }
-                    else
+
+                    // Convert coordinates to inches
+                    double topX = Math.Round(UnitConversionUtils.ConvertToInches(brace.EndPoint.X, _lengthUnit), 6);
+                    double topY = Math.Round(UnitConversionUtils.ConvertToInches(brace.EndPoint.Y, _lengthUnit), 6);
+                    double baseX = Math.Round(UnitConversionUtils.ConvertToInches(brace.StartPoint.X, _lengthUnit), 6);
+                    double baseY = Math.Round(UnitConversionUtils.ConvertToInches(brace.StartPoint.Y, _lengthUnit), 6);
+
+                    // Create a unique key for this brace
+                    string braceKey = $"{topX:F2}_{topY:F2}_{baseX:F2}_{baseY:F2}_{topStoryUid}_{baseStoryUid}";
+
+                    if (processedBraces.Contains(braceKey))
                     {
-                        Console.WriteLine("Failed to create brace in RAM.");
+                        Console.WriteLine("Skipping duplicate brace.");
+                        continue;
+                    }
+
+                    processedBraces.Add(braceKey);
+
+                    // Get material type using MaterialProvider
+                    EMATERIALTYPES braceMaterial = _materialProvider.GetRAMMaterialType(
+                        brace.FramePropertiesId,
+                        frameProperties);
+
+                    try
+                    {
+                        // Add the vertical brace to the model
+                        // Special case: lStoryAtBotID can be -1 for foundation braces
+                        IVerticalBrace ramBrace = verticalBraces.Add(
+                            braceMaterial,
+                            topStoryUid,
+                            topX, topY, 0,  // Top point with zero offset
+                            baseStoryUid,   // Will be -1 for foundation braces
+                            baseX, baseY, 0  // Base point with zero offset
+                        );
+
+                        if (ramBrace != null)
+                        {
+                            count++;
+                            string baseStoryDesc = (baseStoryUid == -1) ? "foundation" : $"story {baseStoryUid}";
+                            Console.WriteLine($"Added brace from {baseStoryDesc} to story {topStoryUid}");
+
+                            // Set section label if available via frame properties
+                            if (!string.IsNullOrEmpty(brace.FramePropertiesId))
+                            {
+                                var frameProp = frameProperties?.FirstOrDefault(fp => fp.Id == brace.FramePropertiesId);
+                                if (frameProp != null && !string.IsNullOrEmpty(frameProp.Name))
+                                {
+                                    ramBrace.strSectionLabel = frameProp.Name;
+                                }
+                                else
+                                {
+                                    ramBrace.strSectionLabel = "HSS4X4X1/4"; // Default if not found
+                                }
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine("Failed to create brace in RAM.");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error creating brace: {ex.Message}");
                     }
                 }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error creating brace: {ex.Message}");
-                }
+
+                Console.WriteLine($"Imported {count} braces");
+                return count;
             }
-
-            return count;
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error importing braces: {ex.Message}");
+                throw;
+            }
         }
 
-        private bool IsValidBrace(Brace brace)
+        private Level FindMatchingLevel(IStory story, IEnumerable<Level> levels)
         {
-            return brace != null &&
-                   brace.StartPoint != null &&
-                   brace.EndPoint != null &&
-                   !string.IsNullOrEmpty(brace.BaseLevelId) &&
-                   !string.IsNullOrEmpty(brace.TopLevelId);
+            if (story == null || levels == null)
+                return null;
+
+            // First try to match by name
+            string storyName = story.strLabel;
+            Level matchingLevel = levels.FirstOrDefault(l =>
+                string.Equals(l.Name, storyName, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(l.Name, storyName.Replace("Story ", ""), StringComparison.OrdinalIgnoreCase));
+
+            if (matchingLevel != null)
+                return matchingLevel;
+
+            // If no match by name, try to match by elevation
+            double storyElevation = story.dElevation;
+            matchingLevel = levels.OrderBy(l => Math.Abs(UnitConversionUtils.ConvertToInches(l.Elevation, _lengthUnit) - storyElevation))
+                                 .FirstOrDefault();
+
+            return matchingLevel;
         }
     }
 }

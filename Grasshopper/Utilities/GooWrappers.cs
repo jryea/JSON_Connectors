@@ -228,6 +228,34 @@ namespace Grasshopper.Utilities
         }
     }
 
+    public class GH_ConcreteProperties : GH_ModelGoo<ConcreteProperties>
+    {
+        public GH_ConcreteProperties() { }
+        public GH_ConcreteProperties(ConcreteProperties props) : base(props) { }
+
+        public override IGH_Goo Duplicate() => new GH_ConcreteProperties(Value);
+
+        public override string ToString()
+        {
+            if (Value == null) return "Null ConcreteProperties";
+            return $"ConcreteProps: f'c={Value.Fc} psi, {Value.WeightClass}";
+        }
+    }
+
+    public class GH_SteelProperties : GH_ModelGoo<SteelProperties>
+    {
+        public GH_SteelProperties() { }
+        public GH_SteelProperties(SteelProperties props) : base(props) { }
+
+        public override IGH_Goo Duplicate() => new GH_SteelProperties(Value);
+
+        public override string ToString()
+        {
+            if (Value == null) return "Null SteelProperties";
+            return $"SteelProps: Fy={Value.Fy} psi, Fu={Value.Fu} psi, {Value.Grade}";
+        }
+    }
+
     public class GH_WallProperties : GH_ModelGoo<WallProperties>
     {
         public GH_WallProperties() { }
@@ -253,6 +281,34 @@ namespace Grasshopper.Utilities
         {
             if (Value == null) return "Null FloorProperties";
             return $"FloorProps: {Value.Name}, Type: {Value.Type}, t={Value.Thickness}";
+        }
+    }
+
+    public class GH_DeckProperties : GH_ModelGoo<DeckProperties>
+    {
+        public GH_DeckProperties() { }
+        public GH_DeckProperties(DeckProperties props) : base(props) { }
+
+        public override IGH_Goo Duplicate() => new GH_DeckProperties(Value);
+
+        public override string ToString()
+        {
+            if (Value == null) return "Null DeckProperties";
+            return $"DeckProps: {Value.DeckType}, Depth={Value.RibDepth}\"";
+        }
+    }
+
+    public class GH_ShearStudProperties : GH_ModelGoo<ShearStudProperties>
+    {
+        public GH_ShearStudProperties() { }
+        public GH_ShearStudProperties(ShearStudProperties props) : base(props) { }
+
+        public override IGH_Goo Duplicate() => new GH_ShearStudProperties(Value);
+
+        public override string ToString()
+        {
+            if (Value == null) return "Null ShearStudProperties";
+            return $"ShearStudProps: Ø{Value.ShearStudDiameter}\"×{Value.ShearStudHeight}\"";
         }
     }
 

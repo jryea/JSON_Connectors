@@ -166,6 +166,11 @@ namespace RAM.Import.Elements
                             ILayoutColumn ramColumn = layoutColumns.Add(columnMaterial, x, y, 0, 0);
                             if (ramColumn != null)
                             {
+                                // Set the beam properties
+                                if (column.IsLateral)
+                                {
+                                    ramColumn.eFramingType = EFRAMETYPE.MemberIsLateral;
+                                }
                                 count++;
                                 Console.WriteLine($"Added column to floor type {ramFloorType.strLabel} for level {column.TopLevelId}");
                             }
@@ -184,7 +189,6 @@ namespace RAM.Import.Elements
                         Console.WriteLine($"Error creating column: {ex.Message}");
                     }
                 }
-
                 Console.WriteLine($"Imported {count} columns");
                 return count;
             }

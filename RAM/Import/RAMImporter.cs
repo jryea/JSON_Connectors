@@ -257,7 +257,8 @@ namespace RAM
                                 braceCount = braceImporter.Import(
                                     model.Elements.Braces,
                                     validLevels,
-                                    model.Properties.FrameProperties);
+                                    model.Properties.FrameProperties,
+                                    levelToFloorTypeMapping);
                                 Console.WriteLine($"Imported {braceCount} braces");
                             }
 

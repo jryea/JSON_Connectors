@@ -20,7 +20,7 @@ namespace Grasshopper.Components.Core.Export.Properties
             pManager.AddTextParameter("Deck Type", "DT", "Deck type designation (e.g., 'VULCRAFT 2VL')", GH_ParamAccess.item, "VULCRAFT 2VL");
             pManager.AddGenericParameter("Material", "M", "Material for the deck steel", GH_ParamAccess.item);
             pManager.AddNumberParameter("Rib Depth", "D", "Depth of the deck ribs (in inches)", GH_ParamAccess.item, 3.0);
-            pManager.AddNumberParameter("Rib Width Top", "WT", "Top width of deck ribs (in inches)", GH_ParamAccess.item, 7.0);
+            pManager.AddNumberParameter("Rib Width Top", "WT", "Top width of deck ribs (in inch es)", GH_ParamAccess.item, 7.0);
             pManager.AddNumberParameter("Rib Width Bottom", "WB", "Bottom width of deck ribs (in inches)", GH_ParamAccess.item, 5.0);
             pManager.AddNumberParameter("Rib Spacing", "S", "Spacing between deck ribs (in inches)", GH_ParamAccess.item, 12.0);
             pManager.AddNumberParameter("Shear Thickness", "ST", "Deck shear thickness (in inches)", GH_ParamAccess.item, 0.035);
@@ -109,13 +109,6 @@ namespace Grasshopper.Components.Core.Export.Properties
             // Using GooWrapper
             if (obj is GH_Material ghMaterial)
                 return ghMaterial.Value;
-
-            // String ID based lookup (for backward compatibility)
-            if (obj is string materialName && !string.IsNullOrWhiteSpace(materialName))
-            {
-                // Create a basic material with the provided name
-                return new Material(materialName, MaterialType.Steel); // Assume steel for deck material
-            }
 
             // Handle IGH_Goo objects that can be cast to Material
             if (obj is Grasshopper.Kernel.Types.IGH_Goo goo && goo.CastTo<Material>(out var castMaterial))

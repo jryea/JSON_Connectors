@@ -1,5 +1,6 @@
 ﻿using Core.Models.Geometry;
 using Core.Utilities;
+using System;
 
 namespace Core.Models.Elements
 {
@@ -21,6 +22,8 @@ namespace Core.Models.Elements
         // ID of the top level for this column
         public string TopLevelId { get; set; }
 
+        public double Orientation { get; set; } = 0.0; // Orientation of the column in degrees   
+
         // ID of the section properties for this column
         public string FramePropertiesId { get; set; }
 
@@ -31,6 +34,8 @@ namespace Core.Models.Elements
         public Column()
         {
             Id = IdGenerator.Generate(IdGenerator.Elements.COLUMN);
+            IsLateral = false; // Default to not lateral
+            Orientation = 0.0; // Default orientation
         }
 
     

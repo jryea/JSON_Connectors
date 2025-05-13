@@ -36,11 +36,12 @@ namespace Core.Models
         // Project metadata information
         public MetadataContainer Metadata { get; set; } = new MetadataContainer();
 
+        // OOP delegate pattern
         // Removes duplicate geometry elements from the model
-
-        public void RemoveDuplicateGeometry()
+        public void RemoveDuplicates()
         {
-            DuplicateGeometryHandler.RemoveDuplicateElements(this);
+            // Process the entire model, removing duplicates and updating all references
+            ModelDuplicateHandler.RemoveDuplicates(this); ;
         }
     }
     

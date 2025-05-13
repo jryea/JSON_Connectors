@@ -1,6 +1,7 @@
 ﻿using System;
 using Core.Models.Geometry;
 using Core.Utilities;
+using static Core.Models.SoftwareSpecific.ETABSModifiers;
 
 namespace Core.Models.Elements
 {
@@ -27,6 +28,9 @@ namespace Core.Models.Elements
 
         /// Indicates if this beam is a joist
         public bool IsJoist { get; set; }
+
+        // ETABS-specific properties
+        public ETABSFrameModifiers ETABSModifiers { get; set; } = new ETABSFrameModifiers();
 
         // Creates a new Beam with a generated ID
         public Beam()

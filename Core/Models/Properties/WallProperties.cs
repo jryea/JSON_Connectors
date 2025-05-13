@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using Core.Utilities;
+using static Core.Models.SoftwareSpecific.ETABSModifiers;
 
 namespace Core.Models.Properties
 {
@@ -20,6 +21,9 @@ namespace Core.Models.Properties
 
         // Additional wall-specific properties
         public Dictionary<string, object> Properties { get; set; } = new Dictionary<string, object>();
+
+        // ETABS-specific properties
+        public ETABSShellModifiers ETABSModifiers { get; set; } = new ETABSShellModifiers();
 
         // Creates a new WallProperties with a generated ID
         public WallProperties()

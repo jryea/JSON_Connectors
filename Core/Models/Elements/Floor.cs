@@ -1,61 +1,41 @@
 ﻿using System.Collections.Generic;
 using Core.Models.Geometry;
 using Core.Utilities;
+using static Core.Models.SoftwareSpecific.ETABSModifiers;
 
 namespace Core.Models.Elements
 {
-    /// <summary>
-    /// Represents a floor element in the structural model
-    /// </summary>
+    // Represents a floor element in the structural model
     public class Floor : IIdentifiable
     {
-        /// <summary>
-        /// Unique identifier for the floor
-        /// </summary>
+        // Unique identifier for the floor
         public string Id { get; set; }
 
-        /// <summary>
-        /// ID of the level this floor belongs to
-        /// </summary>
+        // ID of the level this floor belongs to
         public string LevelId { get; set; }
 
-        /// <summary>
-        /// ID of the properties for this floor
-        /// </summary>
+        // ID of the properties for this floor
         public string FloorPropertiesId { get; set; }
 
-        /// <summary>
-        /// Collection of points defining the floor geometry
-        /// </summary>
+        // Collection of points defining the floor geometry
         public List<Point2D> Points { get; set; } = new List<Point2D>();
 
-        /// <summary>
-        /// ID of the diaphragm for this floor
-        /// </summary>
+        // ID of the diaphragm for this floor
         public string DiaphragmId { get; set; }
 
-        /// <summary>
-        /// ID of the surface load for this floor
-        /// </summary>
+        // ID of the surface load for this floor
         public string SurfaceLoadId { get; set; }
 
-        /// <summary>
-        /// Creates a new Floor with a generated ID
-        /// </summary>
+        // ETABS-specific properties
+        public ETABSShellModifiers ETABSModifiers { get; set; } = new ETABSShellModifiers();
+
+        // Creates a new Floor with a generated ID
         public Floor()
         {
             Id = IdGenerator.Generate(IdGenerator.Elements.FLOOR);
             Points = new List<Point2D>();
         }
 
-        /// <summary>
-        /// Creates a new Floor with specified properties
-        /// </summary>
-        /// <param name="levelId">Level ID</param>
-        /// <param name="propertiesId">Properties ID</param>
-        /// <param name="points">Points defining the floor geometry</param>
-        /// <param name="diaphragmId">Diaphragm ID</param>
-        /// <param name="surfaceLoadId">Surface load ID</param>
         public Floor(string levelId, string propertiesId, List<Point2D> points, string diaphragmId = null, string surfaceLoadId = null) : this()
         {
             LevelId = levelId;

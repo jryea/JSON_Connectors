@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Serialization;
+using static Core.Models.SoftwareSpecific.ETABSModifiers;
 
 namespace Core.Models.Properties
 {
@@ -17,6 +18,9 @@ namespace Core.Models.Properties
 
         public ConcreteFrameProperties ConcreteProps { get; set; }
         public SteelFrameProperties SteelProps { get; set; }
+
+        // ETABS-specific properties
+        public ETABSFrameModifiers ETABSModifiers { get; set; } = new ETABSFrameModifiers();
 
         public FrameProperties()
         {

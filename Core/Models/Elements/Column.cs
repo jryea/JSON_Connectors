@@ -1,6 +1,7 @@
 ﻿using Core.Models.Geometry;
 using Core.Utilities;
 using System;
+using static Core.Models.SoftwareSpecific.ETABSModifiers;
 
 namespace Core.Models.Elements
 {
@@ -28,7 +29,10 @@ namespace Core.Models.Elements
         public string FramePropertiesId { get; set; }
 
         // Lateral flag for RAM
-        public bool IsLateral { get; set; } = false;    
+        public bool IsLateral { get; set; } = false;
+
+        // ETABS-specific properties
+        public ETABSFrameModifiers ETABSModifiers { get; set; } = new ETABSFrameModifiers();
 
         // Creates a new Column with a generated ID
         public Column()

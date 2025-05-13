@@ -1,52 +1,38 @@
 ﻿using System.Collections.Generic;
 using Core.Models.Geometry;
 using Core.Utilities;
+using static Core.Models.SoftwareSpecific.ETABSModifiers;
 
 namespace Core.Models.Elements
 {
-    /// <summary>
-    /// Represents a brace element in the structural model
-    /// </summary>
+    // Represents a brace element in the structural model
     public class Brace : IIdentifiable
     {
-        /// <summary>
-        /// Unique identifier for the brace
-        /// </summary>
+        // Unique identifier for the brace
         public string Id { get; set; }
 
-        /// <summary>
-        /// Material ID
-        /// </summary>
+        // Material ID
         public string MaterialId { get; set; }
 
-        /// <summary>
-        /// Frame Section Id
-        /// </summary>
+        // Frame Section Id
         public string FramePropertiesId { get; set; }  
 
-        /// <summary>
-        /// BaseLevel ID
-        /// </summary>
+        // BaseLevel ID
         public string BaseLevelId { get; set; }
 
-        /// <summary>
-        /// BaseLevel ID
-        /// </summary>
+        // BaseLevel ID
         public string TopLevelId { get; set; }
 
-        /// <summary>
-        /// Start point
-        /// </summary>
+        // Start point
         public Point2D StartPoint { get; set; }
 
-        /// <summary>
-        /// End point
-        /// </summary>
+        // End point
         public Point2D EndPoint { get; set; }
 
-        /// <summary>
-        /// Creates a new Brace with a generated ID
-        /// </summary>
+        // ETABS-specific properties
+        public ETABSFrameModifiers ETABSModifiers { get; set; } = new ETABSFrameModifiers();
+
+        // Creates a new Brace with a generated ID
         public Brace()
         {
             Id = IdGenerator.Generate(IdGenerator.Elements.BRACE);

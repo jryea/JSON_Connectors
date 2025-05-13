@@ -28,21 +28,6 @@ namespace Core.Converters
             }
         }
 
-        public static string SerializeWithCleanup(BaseModel baseModel)
-        {
-            if (baseModel == null)
-                return null;
-
-            // Create a deep copy to avoid modifying the original
-            BaseModel cleanModel = DeepCopy(baseModel);
-
-            // Remove duplicates on the copy
-            cleanModel.RemoveDuplicateGeometry();
-
-            // Serialize the clean copy
-            return Serialize(cleanModel);
-        }
-
         private static BaseModel DeepCopy(BaseModel original)
         {
             string json = Serialize(original);
@@ -92,7 +77,7 @@ namespace Core.Converters
                 // Remove duplicate elements
                 if (removeDuplicates && model != null)
                 {
-                    model.RemoveDuplicateGeometry();
+                    model.RemoveDuplicates();
                 }
 
                 return model;
@@ -110,7 +95,7 @@ namespace Core.Converters
                 // remove duplicate elements before saving  
                 if (removeDuplicates && baseModel != null)
                 {
-                    baseModel.RemoveDuplicateGeometry();
+                    baseModel.RemoveDuplicates();
                 }
 
                 string json = Serialize(baseModel);

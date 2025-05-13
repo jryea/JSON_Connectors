@@ -144,6 +144,7 @@ namespace Grasshopper.Components.Core.Export.Elements
                     TopLevelId = topLevel.Id,
                     FramePropertiesId = frameProps.Id,
                     IsLateral = isLateral[i],
+                    Orientation = orientation[i]
                 };
 
                 columns.Add(new GH_Column(column));

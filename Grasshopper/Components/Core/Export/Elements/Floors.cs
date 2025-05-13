@@ -28,9 +28,11 @@ namespace Grasshopper.Components.Core.Export.Elements
             pManager.AddGenericParameter("Properties", "P", "Floor properties", GH_ParamAccess.list);
             pManager.AddGenericParameter("Diaphragm", "D", "Diaphragm (optional)", GH_ParamAccess.list);
             pManager.AddGenericParameter("Surface Load", "SL", "Surface load (optional)", GH_ParamAccess.list);
+            pManager.AddGenericParameter("ETABS Modifiers", "EM", "ETABS-specific shell modifiers", GH_ParamAccess.list);
 
             pManager[3].Optional = true;
             pManager[4].Optional = true;
+            pManager[5].Optional = true;
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
@@ -45,12 +47,14 @@ namespace Grasshopper.Components.Core.Export.Elements
             List<object> propObjs = new List<object>();
             List<object> diaphragmObjs = new List<object>();
             List<object> surfaceLoadObjs = new List<object>();
+            List<object> etabsModObjs = new List<object>();
 
             if (!DA.GetDataTree(0, out pointsTree)) return;
             if (!DA.GetDataList(1, levelObjs)) return;
             if (!DA.GetDataList(2, propObjs)) return;
             DA.GetDataList(3, diaphragmObjs);
             DA.GetDataList(4, surfaceLoadObjs);
+            DA.GetDataList(5, etabsModObjs);
 
             // Extend level objects list if needed
             if (levelObjs.Count > 0 && levelObjs.Count < pointsTree.PathCount)

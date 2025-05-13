@@ -7,6 +7,7 @@ using Core.Models.Metadata;
 using Core.Models.Loads;
 using Core.Models;
 using Core.Models.Geometry;
+using static Core.Models.SoftwareSpecific.ETABSModifiers;
 
 namespace Grasshopper.Utilities
 {
@@ -340,6 +341,7 @@ namespace Grasshopper.Utilities
         }
     }
 
+
     public class GH_PropertiesContainer : GH_ModelGoo<PropertiesContainer>
     {
         public GH_PropertiesContainer() { }
@@ -351,6 +353,35 @@ namespace Grasshopper.Utilities
         {
             if (Value == null) return "Null PropertiesContainer";
             return $"Props: {Value.Materials.Count} materials, {Value.FrameProperties.Count} frames, {Value.FloorProperties.Count} floors, {Value.WallProperties.Count} walls, {Value.Diaphragms.Count} diaphragms";
+        }
+    }
+
+    // ETABS Modifiers GooWrappers
+    public class GH_ETABSFrameModifiers : GH_ModelGoo<ETABSFrameModifiers>
+    {
+        public GH_ETABSFrameModifiers() { }
+        public GH_ETABSFrameModifiers(ETABSFrameModifiers modifiers) : base(modifiers) { }
+
+        public override IGH_Goo Duplicate() => new GH_ETABSFrameModifiers(Value);
+
+        public override string ToString()
+        {
+            if (Value == null) return "Null ETABSFrameModifiers";
+            return $"ETABS Frame Modifiers";
+        }
+    }
+
+    public class GH_ETABSShellModifiers : GH_ModelGoo<ETABSShellModifiers>
+    {
+        public GH_ETABSShellModifiers() { }
+        public GH_ETABSShellModifiers(ETABSShellModifiers modifiers) : base(modifiers) { }
+
+        public override IGH_Goo Duplicate() => new GH_ETABSShellModifiers(Value);
+
+        public override string ToString()
+        {
+            if (Value == null) return "Null ETABSShellModifiers";
+            return $"ETABS Shell Modifiers";
         }
     }
 

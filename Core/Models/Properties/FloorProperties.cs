@@ -1,5 +1,6 @@
 ﻿using Core.Models.SoftwareSpecific;
 using Core.Utilities;
+using Core.Models;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Serialization;
@@ -82,32 +83,5 @@ namespace Core.Models.Properties
             DeckShearThickness = 0.035; // Default shear thickness in inches
             DeckUnitWeight = 2.3; // Default unit weight in pcf
         }
-    }
-
-    public enum StructuralFloorType
-    {
-        Slab,
-        FilledDeck,
-        UnfilledDeck,
-        SolidSlabDeck
-    }
-
-    public enum ModelingType
-    {
-        ShellThin,
-        ShellThick,
-        Membrane,
-        Layered
-    }
-
-    public enum  SlabType
-    {
-        Slab,
-        Drop,
-        Stiff,
-        Ribbed,
-        Waffle,
-        Mat,
-        Footing
     }
 }

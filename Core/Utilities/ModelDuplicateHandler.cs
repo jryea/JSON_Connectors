@@ -707,7 +707,7 @@ namespace Core.Utilities
             wall.BaseLevelId = UpdateId(wall.BaseLevelId, idMappings);
             wall.TopLevelId = UpdateId(wall.TopLevelId, idMappings);
             wall.PropertiesId = UpdateId(wall.PropertiesId, idMappings);
-            wall.PierSpandrelId = UpdateId(wall.PierSpandrelId, idMappings);
+            //wall.PierSpandrelId = UpdateId(wall.PierSpandrelId, idMappings);
         }
 
         private static void UpdateElementReferences(Floor floor, Dictionary<string, string> idMappings)

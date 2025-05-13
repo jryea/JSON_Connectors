@@ -1,6 +1,8 @@
 ﻿using Core.Utilities;
+using Core.Models;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
+using static Core.Models.SoftwareSpecific.ETABSModifiers;   
 
 namespace Core.Models.Properties
 {
@@ -21,6 +23,7 @@ namespace Core.Models.Properties
         public double PoissonsRatio { get; set; } // Poisson's ratio    
         public double CoefficientOfThermalExpansion { get; set; } // Coefficient of thermal expansion (1/°F)    
         public double ShearModulus { get; set; } // Shear modulus (psi) 
+
 
         public ConcreteProperties ConcreteProps { get; set; }
         public SteelProperties SteelProps { get; set; }
@@ -150,24 +153,5 @@ namespace Core.Models.Properties
             Fc = 4000.0;
             ShearStrengthReductionFactor = 1.0;
         }
-    }
-
-    public enum MaterialType
-    {
-        Concrete,
-        Steel,
-    }
-
-    public enum DirectionalSymmetryType
-    {
-        Isotropic,
-        Orthotropic,
-        Anisotropic
-    }
-
-    public enum WeightClass
-    {
-        Normal,
-        Lightweight
     }
 }

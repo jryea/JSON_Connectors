@@ -44,7 +44,7 @@ namespace StandaloneConverter.Services
             // Step 2: Clean the model (always done)
             logger.Log("Cleaning model (removing duplicates)...");
             var model = JsonConverter.Deserialize(jsonContent, false);
-            model.RemoveDuplicateGeometry();
+            //model.RemoveDuplicateGeometry();
             jsonContent = JsonConverter.Serialize(model);
             logger.Log("Model cleaning complete");
 
@@ -78,7 +78,7 @@ namespace StandaloneConverter.Services
             // Step 3: Clean the model (always done)
             logger.Log("Cleaning model (removing duplicates)...");
             var model = JsonConverter.Deserialize(jsonContent, false);
-            model.RemoveDuplicateGeometry();
+            //model.RemoveDuplicateGeometry();
             jsonContent = JsonConverter.Serialize(model);
             logger.Log("Model cleaning complete");
 

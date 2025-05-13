@@ -4,35 +4,22 @@ using System.Text;
 
 namespace Core.Models.Properties
 {
-    /// <summary>
-    /// Container for all property definitions in the structural model
-    /// </summary>
+    // Container for all property definitions in the structural model
     public class PropertiesContainer
     {
-        /// <summary>
-        /// Collection of material definitions
-        /// </summary>
+        // Collection of material definitions
         public List<Material> Materials { get; set; } = new List<Material>();
 
-        /// <summary>
-        /// Collection of wall property definitions
-        /// </summary>
+        // Collection of wall property definitions
         public List<WallProperties> WallProperties { get; set; } = new List<WallProperties>();
 
-        /// <summary>
-        /// Collection of floor property definitions
-        /// </summary>
+        // Collection of floor property definitions
         public List<FloorProperties> FloorProperties { get; set; } = new List<FloorProperties>();
 
-        /// <summary>
-        /// Collection of diaphragm definitions
-        /// </summary>
+        // Collection of diaphragm definitions
         public List<Diaphragm> Diaphragms { get; set; } = new List<Diaphragm>();
 
-        /// <summary>
-        /// Collection of pier/spandrel definitions
-        /// </summary>
-   
+        // Collection of pier/spandrel definitions
         public List<FrameProperties> FrameProperties { get; set; } = new List<FrameProperties>();
     }
 }

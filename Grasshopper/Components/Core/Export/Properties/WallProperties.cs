@@ -39,10 +39,12 @@ namespace Grasshopper.Components.Core.Export.Properties
             List<string> names = new List<string>();
             List<object> materialObjs = new List<object>();
             List<double> thicknesses = new List<double>();
+            List<object> etabsModObjs = new List<object>();
 
             if (!DA.GetDataList(0, names)) return;
             if (!DA.GetDataList(1, materialObjs)) return;
             if (!DA.GetDataList(2, thicknesses)) return;
+            DA.GetDataList(3, etabsModObjs);
 
             // Basic validation
             if (names.Count == 0)

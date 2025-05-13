@@ -26,6 +26,8 @@ namespace Core.Models.Elements
         // ID of the surface load for this floor
         public string SurfaceLoadId { get; set; }
 
+        public double SpanDirection { get; set; } = 0.0; // Span direction in degrees   
+
         // ETABS-specific properties
         public ETABSShellModifiers ETABSModifiers { get; set; } = new ETABSShellModifiers();
 

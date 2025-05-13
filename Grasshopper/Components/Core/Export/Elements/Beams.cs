@@ -3,10 +3,12 @@ using RG = Rhino.Geometry;
 using System;
 using System.Collections.Generic;
 using Core.Models.Elements;
-using Core.Models.Properties;
-using Core.Models.Geometry; 
 using Core.Models.ModelLayout;
+using Core.Models.Properties;
+using Core.Models.Geometry;
 using Grasshopper.Utilities;
+using static Core.Models.SoftwareSpecific.ETABSModifiers;
+using System.Linq;
 
 namespace Grasshopper.Components.Core.Export.Elements
 {
@@ -26,6 +28,8 @@ namespace Grasshopper.Components.Core.Export.Elements
             pManager.AddGenericParameter("Properties", "P", "Frame properties for this beam", GH_ParamAccess.list);
             pManager.AddBooleanParameter("Is Lateral", "IL", "Is beam part of the lateral system", GH_ParamAccess.list);
             pManager.AddBooleanParameter("Is Joist", "IJ", "Is beam a joist", GH_ParamAccess.list);
+            pManager.AddGenericParameter("ETABS Modifiers", "EM", "ETABS-specific frame modifiers", GH_ParamAccess.list);
+
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
@@ -40,14 +44,16 @@ namespace Grasshopper.Components.Core.Export.Elements
             List<object> propObjs = new List<object>();
             List<bool> isLateralList = new List<bool>();
             List<bool> isJoistList = new List<bool>();
+            List<object> etabsModObjs = new List<object>();
 
             if (!DA.GetDataList(0, lines)) return;
             if (!DA.GetDataList(1, levelObjs)) return;
             if (!DA.GetDataList(2, propObjs)) return;
             if (!DA.GetDataList(3, isLateralList)) return;
             if (!DA.GetDataList(4, isJoistList)) return;
+            DA.GetDataList(5, etabsModObjs);
 
-            // Ensure lists have matching lengths by extending levelObjs with the last item
+            // Ensure lists have matching lengths by extending with the last item
             if (levelObjs.Count > 0 && levelObjs.Count < lines.Count)
             {
                 object lastLevel = levelObjs[levelObjs.Count - 1];
@@ -84,26 +90,42 @@ namespace Grasshopper.Components.Core.Export.Elements
             // Check for joist flag list length and extend if needed    
             if (isJoistList.Count < lines.Count)
             {
-                if (isLateralList.Count == 0)
+                if (isJoistList.Count == 0)
                 {
-                    isLateralList.Add(false); // Default value if no input provided
+                    isJoistList.Add(false); // Default value if no input provided
                 }
-                bool lastLateral = isLateralList[isLateralList.Count - 1];
-                while (isLateralList.Count < lines.Count)
+                bool lastJoist = isJoistList[isJoistList.Count - 1];
+                while (isJoistList.Count < lines.Count)
                 {
-                    isLateralList.Add(lastLateral);
+                    isJoistList.Add(lastJoist);
                 }
             }
 
+            // Check for ETABS modifiers list length and extend if needed
+            if (etabsModObjs.Count > 0 && etabsModObjs.Count < lines.Count)
+            {
+                object lastMod = etabsModObjs[etabsModObjs.Count - 1];
+                while (etabsModObjs.Count < lines.Count)
+                {
+                    etabsModObjs.Add(lastMod);
+                }
+            }
 
             List<GH_Beam> beams = new List<GH_Beam>();
             for (int i = 0; i < lines.Count; i++)
             {
                 RG.Line line = lines[i];
                 bool isLateral = isLateralList[i];
-                bool isJoist = isJoistList[i];  
+                bool isJoist = isJoistList[i];
                 Level level = ExtractObject<Level>(levelObjs[i], "Level");
                 FrameProperties frameProps = ExtractObject<FrameProperties>(propObjs[i], "FrameProperties");
+
+                // Extract ETABS modifiers if provided
+                ETABSFrameModifiers etabsModifiers = null;
+                if (etabsModObjs.Count > i && etabsModObjs[i] != null)
+                {
+                    etabsModifiers = ExtractObject<ETABSFrameModifiers>(etabsModObjs[i], "ETABSFrameModifiers");
+                }
 
                 if (level == null || frameProps == null)
                 {
@@ -120,6 +142,12 @@ namespace Grasshopper.Components.Core.Export.Elements
                     IsLateral = isLateral,
                     IsJoist = isJoist
                 };
+
+                // Apply ETABS modifiers if provided
+                if (etabsModifiers != null)
+                {
+                    beam.ETABSModifiers = etabsModifiers;
+                }
 
                 beams.Add(new GH_Beam(beam));
             }
@@ -144,6 +172,14 @@ namespace Grasshopper.Components.Core.Export.Elements
             {
                 FrameProperties props = new FrameProperties { Name = (string)obj };
                 return props as T;
+            }
+
+            // Try to cast from IGH_Goo
+            if (obj is Grasshopper.Kernel.Types.IGH_Goo goo)
+            {
+                T result = null;
+                if (goo.CastTo(out result))
+                    return result;
             }
 
             AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Could not extract {typeName}");

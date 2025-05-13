@@ -25,8 +25,10 @@ namespace Grasshopper.Components.Core.Export.Elements
             pManager.AddGenericParameter("Base Level", "BL", "Base level of the wall", GH_ParamAccess.list);
             pManager.AddGenericParameter("Top Level", "TL", "Top level of the wall", GH_ParamAccess.list);
             pManager.AddGenericParameter("Pier/Spandrel", "PS", "Pier/spandrel configuration (optional)", GH_ParamAccess.list);
+            pManager.AddGenericParameter("ETABS Modifiers", "EM", "ETABS-specific shell modifiers", GH_ParamAccess.list);
 
             pManager[4].Optional = true;
+            pManager[5].Optional = true;
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
@@ -42,31 +44,15 @@ namespace Grasshopper.Components.Core.Export.Elements
             List<object> baseLevelObjs = new List<object>();
             List<object> topLevelObjs = new List<object>();
             List<object> pierSpandrelObjs = new List<object>();
+            List<object> etabsModObjs = new List<object>();
 
             // Check if we have valid inputs
-            if (!DA.GetDataList(0, curves))
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "No curves provided for walls");
-                return;
-            }
-
-            if (!DA.GetDataList(1, propObjs))
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "No properties provided for walls");
-                return;
-            }
-
-            if (!DA.GetDataList(2, baseLevelObjs))
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "No base levels provided for walls");
-                return;
-            }
-
-            if (!DA.GetDataList(3, topLevelObjs))
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "No top levels provided for walls");
-                return;
-            }
+            if (!DA.GetDataList(0, curves)) return;
+            if (!DA.GetDataList(1, propObjs)) return;
+            if (!DA.GetDataList(2, baseLevelObjs)) return;
+            if (!DA.GetDataList(3, topLevelObjs)) return;
+            DA.GetDataList(4, pierSpandrelObjs);
+            DA.GetDataList(5, etabsModObjs);
 
             DA.GetDataList(4, pierSpandrelObjs);
 

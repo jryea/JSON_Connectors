@@ -7,6 +7,7 @@ using Core.Models.ModelLayout;
 using Core.Models.Properties;
 using Core.Models.Geometry;
 using Grasshopper.Utilities;
+using static Core.Models.SoftwareSpecific.ETABSModifiers;
 
 namespace Grasshopper.Components.Core.Export.Elements
 {
@@ -25,6 +26,10 @@ namespace Grasshopper.Components.Core.Export.Elements
             pManager.AddGenericParameter("Base Level", "BL", "Base level of the brace", GH_ParamAccess.list);
             pManager.AddGenericParameter("Top Level", "TL", "Top level of the brace", GH_ParamAccess.list);
             pManager.AddGenericParameter("Frame Properties", "P", "Frame properties for this brace", GH_ParamAccess.list);
+            pManager.AddGenericParameter("ETABS Modifiers", "EM", "ETABS-specific frame modifiers", GH_ParamAccess.list);
+
+            // Make ETABS modifiers optional
+            pManager[4].Optional = true;
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
@@ -38,11 +43,13 @@ namespace Grasshopper.Components.Core.Export.Elements
             List<object> baseLevelObjs = new List<object>();
             List<object> topLevelObjs = new List<object>();
             List<object> framePropObjs = new List<object>();
+            List<object> etabsModObjs = new List<object>();
 
             if (!DA.GetDataList(0, lines)) return;
             if (!DA.GetDataList(1, baseLevelObjs)) return;
             if (!DA.GetDataList(2, topLevelObjs)) return;
             if (!DA.GetDataList(3, framePropObjs)) return;
+            DA.GetDataList(4, etabsModObjs);
 
             if (lines.Count != baseLevelObjs.Count || lines.Count != topLevelObjs.Count || lines.Count != framePropObjs.Count)
             {
@@ -51,13 +58,30 @@ namespace Grasshopper.Components.Core.Export.Elements
                 return;
             }
 
+            // Extend ETABS modifiers list if needed
+            if (etabsModObjs.Count > 0 && etabsModObjs.Count < lines.Count)
+            {
+                object lastMod = etabsModObjs[etabsModObjs.Count - 1];
+                while (etabsModObjs.Count < lines.Count)
+                {
+                    etabsModObjs.Add(lastMod);
+                }
+            }
+
             List<GH_Brace> braces = new List<GH_Brace>();
             for (int i = 0; i < lines.Count; i++)
             {
-                RG. Line line = lines[i];
+                RG.Line line = lines[i];
                 Level baseLevel = ExtractObject<Level>(baseLevelObjs[i], "BaseLevel");
                 Level topLevel = ExtractObject<Level>(topLevelObjs[i], "TopLevel");
                 FrameProperties frameProps = ExtractObject<FrameProperties>(framePropObjs[i], "FrameProperties");
+
+                // Extract ETABS modifiers if provided
+                ETABSFrameModifiers etabsModifiers = null;
+                if (etabsModObjs.Count > i && etabsModObjs[i] != null)
+                {
+                    etabsModifiers = ExtractObject<ETABSFrameModifiers>(etabsModObjs[i], "ETABSFrameModifiers");
+                }
 
                 if (baseLevel == null || topLevel == null || frameProps == null)
                 {
@@ -73,6 +97,12 @@ namespace Grasshopper.Components.Core.Export.Elements
                     TopLevelId = topLevel.Id,
                     FramePropertiesId = frameProps.Id
                 };
+
+                // Apply ETABS modifiers if provided
+                if (etabsModifiers != null)
+                {
+                    brace.ETABSModifiers = etabsModifiers;
+                }
 
                 braces.Add(new GH_Brace(brace));
             }
@@ -97,6 +127,14 @@ namespace Grasshopper.Components.Core.Export.Elements
             {
                 FrameProperties props = new FrameProperties { Name = (string)obj };
                 return props as T;
+            }
+
+            // Try to cast from IGH_Goo
+            if (obj is Grasshopper.Kernel.Types.IGH_Goo goo)
+            {
+                T result = null;
+                if (goo.CastTo(out result))
+                    return result;
             }
 
             AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, $"Could not extract {typeName}");

@@ -26,6 +26,7 @@ namespace Grasshopper.Components.Core.Export.Properties
             pManager.AddTextParameter("Slab Type", "ST", "Slab type (Slab, Drop, Stiff, Ribbed, Waffle, Mat, Footing)", GH_ParamAccess.list, "Slab");
             pManager.AddGenericParameter("Deck Properties", "DP", "Deck properties for filled/unfilled deck types", GH_ParamAccess.item);
             pManager.AddGenericParameter("Shear Stud Properties", "SP", "Shear stud properties for composite decks", GH_ParamAccess.item);
+            
 
             // Make parameters optional
             pManager[1].Optional = true;  // Types

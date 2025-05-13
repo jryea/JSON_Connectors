@@ -9,6 +9,7 @@ using Core.Models.Geometry;
 using Grasshopper.Utilities;
 using System.Linq;
 using System.Windows.Forms;
+using Core.Models.SoftwareSpecific;
 
 namespace Grasshopper.Components.Core.Export.Elements
 {
@@ -29,9 +30,12 @@ namespace Grasshopper.Components.Core.Export.Elements
             pManager.AddGenericParameter("Frame Properties", "P", "Frame properties for this column", GH_ParamAccess.list);
             pManager.AddBooleanParameter("Is Lateral", "IL", "Is this column lateral?", GH_ParamAccess.list);
             pManager.AddAngleParameter("Orientation", "R", "Rotation angle of the column (degrees)", GH_ParamAccess.list);
+            pManager.AddGenericParameter("ETABS Modifiers", "EM", "ETABS-specific frame modifiers", GH_ParamAccess.list);
 
             pManager[4].Optional = true;
-            pManager[5].Optional = true;    
+            pManager[5].Optional = true;
+            pManager[6].Optional = true;
+
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
@@ -46,6 +50,7 @@ namespace Grasshopper.Components.Core.Export.Elements
             List<object> framePropObjs = new List<object>();
             List<bool> isLateral = new List<bool>();
             List<double> orientation = new List<double>();
+            List<object> etabsModObjs = new List<object>();
 
             if (!DA.GetDataList(0, lines)) return;
             if (!DA.GetDataList(1, baseLevelObjs)) return;
@@ -53,7 +58,7 @@ namespace Grasshopper.Components.Core.Export.Elements
             if (!DA.GetDataList(3, framePropObjs)) return;
             DA.GetDataList(4, isLateral);
             DA.GetDataList(5, orientation);
-
+            DA.GetDataList(6, etabsModObjs);
 
             // Extend base level objects list if needed
             if (baseLevelObjs.Count > 0 && baseLevelObjs.Count < lines.Count)
@@ -146,6 +151,7 @@ namespace Grasshopper.Components.Core.Export.Elements
                     IsLateral = isLateral[i],
                     Orientation = orientation[i]
                 };
+               
 
                 columns.Add(new GH_Column(column));
             }

@@ -1,4 +1,5 @@
 ﻿using Core.Utilities;
+using Core.Models;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Serialization;
@@ -33,27 +34,10 @@ namespace Core.Models.Properties
             MaterialId = materialId;
             Type = materialType;
         }
-        public enum FrameMaterialType
-        {
-            Steel,
-            Concrete,
-        }
     }
 
     public class SteelFrameProperties
     {
-        public enum SteelSectionType
-        {
-            W,
-            HSS,
-            PIPE,
-            C,
-            L,
-            WT,
-            ST,
-            MC,
-            HP
-        }
 
         [JsonConverter(typeof(JsonStringEnumConverter))]
         public SteelSectionType SectionType { get; set; }
@@ -65,15 +49,6 @@ namespace Core.Models.Properties
 
         [JsonConverter(typeof(JsonStringEnumConverter))]
         public ConcreteSectionType SectionType { get; set; }
-
-        public enum ConcreteSectionType
-        {
-            Rectangular,
-            Circular,
-            TShaped,
-            LShaped,
-            Custom
-        }
 
         public string SectionName { get; set; }
 

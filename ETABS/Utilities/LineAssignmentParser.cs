@@ -16,24 +16,22 @@ namespace ETABS.Utilities
         // Parses line assignments from LINE ASSIGNS section
         public void ParseLineAssignments(string lineAssignsSection)
         {
-            _lineAssignments.Clear();
-
             if (string.IsNullOrWhiteSpace(lineAssignsSection))
                 return;
 
-            // Regular expression to match line assignment
-            // Example: LINEASSIGN "C1" "Story1" SECTION "Column1" RELEASE "M2I M2J M3I M3J" ANG 90
-            var pattern = new Regex(@"^\s*LINEASSIGN\s+""([^""]+)""\s+""([^""]+)""\s+SECTION\s+""([^""]+)""",
+            LineAssignments.Clear();
+
+            // Regular expression to match line assignment lines - making the RELEASE pattern more robust
+            var basicPattern = new Regex(@"^\s*LINEASSIGN\s+""([^""]+)""\s+""([^""]+)""\s+SECTION\s+""([^""]+)""",
                 RegexOptions.Multiline);
 
-            // Regex for ANG parameter
-            var anglePattern = new Regex(@"ANG\s+([\d\.]+)");
+            // Updated pattern for releases - make it more flexible
+            var releasePattern = new Regex(@"RELEASE\s+""([^""]+)""", RegexOptions.Singleline);
 
-            // Regex for RELEASE parameter
-            var releasePattern = new Regex(@"RELEASE\s+""([^""]+)""");
+            // Pattern for lateral flag
+            var lateralPattern = new Regex(@"ISLATERAL\s+""([^""]+)""", RegexOptions.Singleline);
 
-            // Find all line assignments
-            var matches = pattern.Matches(lineAssignsSection);
+            var matches = basicPattern.Matches(lineAssignsSection);
 
             foreach (Match match in matches)
             {
@@ -43,46 +41,47 @@ namespace ETABS.Utilities
                     string story = match.Groups[2].Value;
                     string section = match.Groups[3].Value;
 
-                    // Get the full line text to extract additional parameters
                     string fullLine = match.Value;
 
-                    // Create line assignment
+                    // Get the full line from the original section to ensure we capture everything
+                    int lineStart = match.Index;
+                    int lineEnd = lineAssignsSection.IndexOf('\n', lineStart);
+                    if (lineEnd == -1) lineEnd = lineAssignsSection.Length;
+                    string completeLine = lineAssignsSection.Substring(lineStart, lineEnd - lineStart);
+
+                    // Check for release conditions - using the complete line
+                    string release = "";
+                    Match releaseMatch = releasePattern.Match(completeLine);
+                    if (releaseMatch.Success)
+                    {
+                        release = releaseMatch.Groups[1].Value;
+                    }
+
+                    // Check for lateral flag
+                    bool isLateral = false;
+                    Match lateralMatch = lateralPattern.Match(completeLine);
+                    if (lateralMatch.Success)
+                    {
+                        isLateral = lateralMatch.Groups[1].Value.ToUpper() == "YES";
+                    }
+
+                    // Create assignment object
                     var assignment = new LineAssignment
                     {
                         LineId = lineId,
                         Story = story,
-                        Section = section
+                        Section = section,
+                        ReleaseCondition = release,
+                        IsLateral = isLateral
                     };
 
-                    // Look for release condition
-                    var releaseMatch = releasePattern.Match(fullLine);
-                    if (releaseMatch.Success && releaseMatch.Groups.Count >= 2)
+                    // Add to dictionary, creating list if needed
+                    if (!LineAssignments.ContainsKey(lineId))
                     {
-                        assignment.ReleaseCondition = releaseMatch.Groups[1].Value;
+                        LineAssignments[lineId] = new List<LineAssignment>();
                     }
 
-                    // Look for column angle
-                    var angleMatch = anglePattern.Match(fullLine);
-                    if (angleMatch.Success && angleMatch.Groups.Count >= 2)
-                    {
-                        double angle;
-                        if (double.TryParse(angleMatch.Groups[1].Value, out angle))
-                        {
-                            assignment.ColumnAngle = angle;
-                        }
-                    }
-
-                    // Determine if it's a lateral element
-                    assignment.IsLateral = section.Contains("Lat") ||
-                                          section.Contains("LATERAL") ||
-                                          section.Contains("SMRF");
-
-                    // Add to dictionary
-                    if (!_lineAssignments.ContainsKey(lineId))
-                    {
-                        _lineAssignments[lineId] = new List<LineAssignment>();
-                    }
-                    _lineAssignments[lineId].Add(assignment);
+                    LineAssignments[lineId].Add(assignment);
                 }
             }
         }

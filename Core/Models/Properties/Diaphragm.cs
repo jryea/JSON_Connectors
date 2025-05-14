@@ -7,12 +7,10 @@ namespace Core.Models.Properties
     public class Diaphragm : IIdentifiable
     {
         public string Id { get; set; }
+
         public string Name { get; set; }
         [JsonConverter(typeof(JsonStringEnumConverter))]
-
         public DiaphragmType Type { get; set; } = DiaphragmType.Rigid;  
-
-        public Dictionary<string, object> Properties { get; set; } = new Dictionary<string, object>();
 
         public Diaphragm()
         {

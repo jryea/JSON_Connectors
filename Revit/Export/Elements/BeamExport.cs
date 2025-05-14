@@ -78,8 +78,9 @@ namespace Revit.Export.Elements
                     beams.Add(beam);
                     count++;
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
+                    System.Diagnostics.Debug.WriteLine($"Error exporting beam: {ex.Message}");
                     // Skip this beam and continue with the next one
                 }
             }
@@ -138,19 +139,6 @@ namespace Revit.Export.Elements
             return false;
         }
 
-        private bool IsValidBeam(CG.Point2D startPoint, CG.Point2D endPoint)
-        {
-            // Calculate distance between points
-            double deltaX = endPoint.X - startPoint.X;
-            double deltaY = endPoint.Y - startPoint.Y;
-            double length = Math.Sqrt(deltaX * deltaX + deltaY * deltaY);
-
-            // Define minimum length (e.g., 0.1 inches)
-            const double minLength = 0.1;
-
-            return length >= minLength;
-        }
-
         private Dictionary<DB.ElementId, string> CreateLevelMapping(BaseModel model)
         {
             Dictionary<DB.ElementId, string> levelMap = new Dictionary<DB.ElementId, string>();
@@ -191,7 +179,7 @@ namespace Revit.Export.Elements
             foreach (var symbol in famSymbols)
             {
                 var frameProperty = model.Properties.FrameProperties.FirstOrDefault(fp =>
-                    fp.Name.ToUpper() == symbol.Name.ToUpper());
+                    fp.Name == symbol.Name);
 
                 if (frameProperty != null)
                 {

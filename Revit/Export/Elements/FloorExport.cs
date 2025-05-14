@@ -1,12 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Diagnostics;
 using DB = Autodesk.Revit.DB;
 using CE = Core.Models.Elements;
 using CG = Core.Models.Geometry;
 using Core.Models;
+using Core.Models.Properties;
 using Revit.Utilities;
+using System.Diagnostics;
 
 namespace Revit.Export.Elements
 {
@@ -19,8 +20,7 @@ namespace Revit.Export.Elements
             _doc = doc;
         }
 
-        // Modified to support filtering by level names
-        public int Export(List<CE.Floor> floors, BaseModel model, HashSet<string> selectedLevelNames = null)
+        public int Export(List<CE.Floor> floors, BaseModel model)
         {
             int count = 0;
 
@@ -45,23 +45,6 @@ namespace Revit.Export.Elements
 
                     if (!isStructural)
                         continue;
-
-                    // Get level name for filtering
-                    DB.Element levelElement = null;
-                    if (revitFloor.LevelId != null && revitFloor.LevelId != DB.ElementId.InvalidElementId)
-                    {
-                        levelElement = _doc.GetElement(revitFloor.LevelId);
-                    }
-
-                    // Filter by level name if requested
-                    if (selectedLevelNames != null && selectedLevelNames.Count > 0)
-                    {
-                        if (levelElement == null || !selectedLevelNames.Contains(levelElement.Name))
-                        {
-                            Debug.WriteLine($"Skipping floor as it's not on a selected level");
-                            continue; // Skip this floor as it's not on a selected level
-                        }
-                    }
 
                     // Create floor object
                     CE.Floor floor = new CE.Floor();
@@ -120,9 +103,8 @@ namespace Revit.Export.Elements
                             continue;
                         }
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
-                        Debug.WriteLine($"Error getting floor geometry: {ex.Message}");
                         // Skip floors with errors
                         continue;
                     }
@@ -134,11 +116,9 @@ namespace Revit.Export.Elements
                     // Add floor to model
                     floors.Add(floor);
                     count++;
-                    Debug.WriteLine($"Exported floor on level: {levelElement?.Name}");
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                    Debug.WriteLine($"Error exporting floor: {ex.Message}");
                     // Skip this floor and continue with the next one
                 }
             }

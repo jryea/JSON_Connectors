@@ -58,8 +58,8 @@ namespace RAM.Import.Properties
             catch (Exception ex)
             {
                 Console.WriteLine($"Error importing floor properties: {ex.Message}");
-                return idMapping;
             }
+                return idMapping;
         }
 
         // Import concrete slab properties
@@ -139,22 +139,36 @@ namespace RAM.Import.Properties
                     // Default stud properties
                     double studLength = 4.0; // Default stud length in inches
 
-                    // Create the composite deck property in RAM
-                    ICompDeckProp compDeckProp = compDeckProps.Add2(
-                        floorProp.Name ?? $"CompDeck {toppingThickness}\"",
-                        deckType,
-                        toppingThickness,
-                        studLength);
-
-                    if (compDeckProp != null)
+                    try
                     {
-                        // Set additional properties
-                        double selfWeight = floorProp.DeckProperties?.DeckUnitWeight ?? 2.0;
-                        compDeckProp.dSelfWtDeck = selfWeight;
+                        // Create the composite deck property in RAM
+                        ICompDeckProp compDeckProp = compDeckProps.Add2(
+                            floorProp.Name ?? $"CompDeck {toppingThickness}\"",
+                            deckType,
+                            toppingThickness,
+                            studLength);
 
-                        // Store the mapping
-                        idMapping[floorProp.Id] = compDeckProp.lUID;
-                        Console.WriteLine($"Created composite deck property: {floorProp.Name}, ID: {compDeckProp.lUID}");
+                        if (compDeckProp != null)
+                        {
+                            // Set additional properties
+                            double selfWeight = floorProp.DeckProperties?.DeckUnitWeight ?? 2.0;
+                            compDeckProp.dSelfWtDeck = selfWeight;
+
+                            // Store the mapping
+                            idMapping[floorProp.Id] = compDeckProp.lUID;
+                            Console.WriteLine($"Created composite deck property: {floorProp.Name}, ID: {compDeckProp.lUID}");
+                        }
+                        else
+                        {
+                            Console.WriteLine(
+                                $"Failed to create composite deck property for '{floorProp.Name ?? floorProp.Id}'. " +
+                                $"Parameters: deckType='{deckType}', toppingThickness={toppingThickness}, studLength={studLength}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(
+                            $"Exception while creating composite deck property for '{floorProp.Name ?? floorProp.Id}': {ex.Message}");
                     }
                 }
             }

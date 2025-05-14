@@ -138,8 +138,8 @@ namespace ETABS.Export.Elements
                                 EndPoint = endPoint,
                                 LevelId = level?.Id,
                                 FramePropertiesId = framePropId,
-                                IsLateral = assignment.IsLateral,
                                 IsJoist = DetermineIfJoist(assignment)
+                                // IsLateral property removed - will use default value from model class
                             };
 
                             // Add to the list

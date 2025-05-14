@@ -5,6 +5,7 @@ using DB = Autodesk.Revit.DB;
 using CE = Core.Models.Elements;
 using CG = Core.Models.Geometry;
 using Core.Models;
+using Core.Models.Properties;
 using Revit.Utilities;
 
 namespace Revit.Export.Elements

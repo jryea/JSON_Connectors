@@ -70,6 +70,7 @@ namespace ETABS.Export.Elements
         }
 
         // Imports columns from E2K data to model
+        // In ColumnExport.cs - removing isLateral references
         public List<Column> Export()
         {
             var columns = new List<Column>();
@@ -166,14 +167,8 @@ namespace ETABS.Export.Elements
                                 BaseLevelId = baseLevel?.Id,
                                 TopLevelId = currentLevel?.Id,
                                 FramePropertiesId = framePropId
+                                // IsLateral property removed - will use default value from model class
                             };
-
-                            // Set column orientation if specified in assignment
-                            if (assignment.ColumnAngle.HasValue)
-                            {
-                                column.Orientation = assignment.ColumnAngle.Value;
-                                logWriter.WriteLine($"Setting column orientation: {column.Orientation} degrees");
-                            }
 
                             // Add to the list
                             columns.Add(column);

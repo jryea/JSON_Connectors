@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using DB = Autodesk.Revit.DB;
 using Core.Models.Properties;
+using Core.Models;
 using System.Diagnostics;
 
 namespace Revit.Export.Properties
@@ -10,12 +11,12 @@ namespace Revit.Export.Properties
     public class FramePropertiesExport
     {
         private readonly DB.Document _doc;
-        private Dictionary<string, string> _materialTypeToIdMap;
+        private Dictionary<MaterialType, string> _materialTypeToIdMap;
 
         public FramePropertiesExport(DB.Document doc)
         {
             _doc = doc;
-            _materialTypeToIdMap = new Dictionary<string, string>();
+            _materialTypeToIdMap = new Dictionary<MaterialType, string>();
         }
 
         // This method should be called after materials have been exported
@@ -26,23 +27,23 @@ namespace Revit.Export.Properties
 
             foreach (var material in exportedMaterials)
             {
-                if (material.Type == "Steel" || material.Type == "Concrete")
+                if (material.Type == MaterialType.Steel || material.Type == MaterialType.Concrete)
                 {
                     _materialTypeToIdMap[material.Type] = material.Id;
                 }
             }
 
             // Ensure we have defaults even if they weren't in the exported materials
-            if (!_materialTypeToIdMap.ContainsKey("Steel"))
+            if (!_materialTypeToIdMap.ContainsKey(MaterialType.Steel))
             {
-                _materialTypeToIdMap["Steel"] = "MAT-Steel";
+                _materialTypeToIdMap[MaterialType.Steel] = "MAT-Steel";
             }
-            if (!_materialTypeToIdMap.ContainsKey("Concrete"))
+            if (!_materialTypeToIdMap.ContainsKey(MaterialType.Concrete))
             {
-                _materialTypeToIdMap["Concrete"] = "MAT-Concrete";
+                _materialTypeToIdMap[MaterialType.Concrete] = "MAT-Concrete";
             }
 
-            Debug.WriteLine($"Material mapping set up: Steel ID = {_materialTypeToIdMap["Steel"]}, Concrete ID = {_materialTypeToIdMap["Concrete"]}");
+            Debug.WriteLine($"Material mapping set up: Steel ID = {_materialTypeToIdMap[MaterialType.Steel]}, Concrete ID = {_materialTypeToIdMap[MaterialType.Concrete]}");
         }
 
         public int Export(List<FrameProperties> frameProperties, List<Material> exportedMaterials)
@@ -61,9 +62,6 @@ namespace Revit.Export.Properties
 
             Debug.WriteLine($"Found {structuralFrameTypeIds.Count} frame types used by structural elements");
 
-            // Keep track of processed section names to avoid duplicates
-            HashSet<string> processedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
             // Export only the family symbols that are used by structural elements
             foreach (var typeId in structuralFrameTypeIds)
             {
@@ -78,30 +76,17 @@ namespace Revit.Export.Properties
                     }
 
                     // Determine material type and get corresponding material ID
-                    string materialType = DetermineMaterialType(famSymbol);
+                    MaterialType materialType = DetermineMaterialType(famSymbol);
                     string materialId = _materialTypeToIdMap[materialType];
 
                     // Determine shape type
-                    string shape = DetermineShapeType(famSymbol);
+                    FrameShapeType shapeType = DetermineShapeType(famSymbol);
 
-                    // Capitalize any lowercase 'x' between numbers in the name
-                    string capitalizedName = CapitalizeXBetweenNumbers(famSymbol.Name);
-
-                    // Skip if we've already processed this section name
-                    if (processedNames.Contains(capitalizedName))
-                    {
-                        Debug.WriteLine($"Skipping duplicate frame section: {capitalizedName}");
-                        continue;
-                    }
-
-                    processedNames.Add(capitalizedName);
-
-                    // Create frame property with full name as shape for ETABS compatibility
+                    // Create frame property
                     FrameProperties frameProperty = new FrameProperties(
-                        capitalizedName,
+                        famSymbol.Name,
                         materialId,
-                        // For steel shapes, use the full capitalized name as the shape
-                        materialType == "Steel" ? capitalizedName : shape
+                        shapeType
                     );
 
                     // Get dimensions
@@ -110,7 +95,7 @@ namespace Revit.Export.Properties
                     frameProperties.Add(frameProperty);
                     count++;
 
-                    Debug.WriteLine($"Exported frame type: {frameProperty.Name}, Material: {materialType}, MaterialID: {materialId}, Shape: {frameProperty.Shape}");
+                    Debug.WriteLine($"Exported frame type: {famSymbol.Name}, Material: {materialType}, MaterialID: {materialId}, Shape: {shapeType}");
                 }
                 catch (Exception ex)
                 {
@@ -137,48 +122,15 @@ namespace Revit.Export.Properties
                 {
                     // Add the type ID to our collection
                     typeIds.Add(typeId);
-
-                    // Log the element and type for debugging
-                    if (category == DB.BuiltInCategory.OST_StructuralColumns)
-                    {
-                        DB.Element typeElement = _doc.GetElement(typeId);
-                        if (typeElement != null)
-                        {
-                            Debug.WriteLine($"Found structural column of type: {typeElement.Name}");
-                        }
-                    }
                 }
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"Error processing element {element.Id}: {ex.Message}");
                 }
             }
-
-            // If no elements were found, try to collect family symbols directly
-            if (typeIds.Count == 0)
-            {
-                Debug.WriteLine($"No elements found for category {category}. Collecting family symbols directly.");
-
-                DB.FilteredElementCollector symbolCollector = new DB.FilteredElementCollector(_doc);
-                symbolCollector.OfClass(typeof(DB.FamilySymbol))
-                    .OfCategory(category);
-
-                foreach (DB.FamilySymbol symbol in symbolCollector)
-                {
-                    try
-                    {
-                        typeIds.Add(symbol.Id);
-                        Debug.WriteLine($"Added family symbol: {symbol.Name} from family: {symbol.FamilyName}");
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"Error adding family symbol: {ex.Message}");
-                    }
-                }
-            }
         }
 
-        private string DetermineMaterialType(DB.FamilySymbol famSymbol)
+        private MaterialType DetermineMaterialType(DB.FamilySymbol famSymbol)
         {
             // Try to get material from structural material parameter
             DB.Parameter structMatParam = famSymbol.get_Parameter(DB.BuiltInParameter.STRUCTURAL_MATERIAL_PARAM);
@@ -206,21 +158,21 @@ namespace Revit.Export.Properties
                 familyName.Contains("STEEL") || familyName.Contains("METAL") ||
                 symbolName.StartsWith("L") || symbolName.StartsWith("C"))
             {
-                return "Steel";
+                return MaterialType.Steel;
             }
 
             // For concrete shapes
             if (symbolName.Contains("CONCRETE") || symbolName.Contains("CONC") ||
                 familyName.Contains("CONCRETE") || familyName.Contains("CONC"))
             {
-                return "Concrete";
+                return MaterialType.Concrete;
             }
 
             // Default to steel for most structural members if nothing else matches
-            return "Steel";
+            return MaterialType.Steel;
         }
 
-        private string DetermineMaterialTypeFromMaterial(DB.Material material)
+        private MaterialType DetermineMaterialTypeFromMaterial(DB.Material material)
         {
             // Try to determine material type from name first
             string matName = material.Name.ToUpper();
@@ -230,7 +182,7 @@ namespace Revit.Export.Properties
                 matName.Contains("4000") || matName.Contains("5000") ||
                 matName.Contains("6000") || matName.Contains("PSI"))
             {
-                return "Concrete";
+                return MaterialType.Concrete;
             }
             else if (matName.Contains("STEEL") || matName.Contains("METAL") ||
                     matName.Contains("A992") || matName.Contains("A36") ||
@@ -238,7 +190,7 @@ namespace Revit.Export.Properties
                     matName.Contains("FY50") || matName.Contains("FY36") ||
                     (matName.StartsWith("W") && matName.Contains("X")))
             {
-                return "Steel";
+                return MaterialType.Steel;
             }
 
             // If not found by name, try by material class
@@ -248,91 +200,48 @@ namespace Revit.Export.Properties
 
                 if (matClass.Contains("CONCRETE"))
                 {
-                    return "Concrete";
+                    return MaterialType.Concrete;
                 }
                 else if (matClass.Contains("METAL"))
                 {
-                    return "Steel";
+                    return MaterialType.Steel;
                 }
             }
 
             // Default to Steel if nothing else matches
-            return "Steel";
+            return MaterialType.Steel;
         }
 
-        private string DetermineShapeType(DB.FamilySymbol famSymbol)
+        private FrameShapeType DetermineShapeType(DB.FamilySymbol famSymbol)
         {
-            // Capitalize any lowercase 'x' between numbers in the family symbol name
-            string typeName = CapitalizeXBetweenNumbers(famSymbol.Name).ToUpper();
             string famName = famSymbol.FamilyName.ToUpper();
+            string typeName = famSymbol.Name.ToUpper();
             string combinedName = $"{famName} {typeName}";
-
-            // For columns, check the category to ensure proper handling
-            if (famSymbol.Category.Id.IntegerValue == (int)DB.BuiltInCategory.OST_StructuralColumns)
-            {
-                // For columns, check well-known steel shapes first
-                if (typeName.StartsWith("W") && typeName.Contains("X"))
-                    return "W";
-                if (combinedName.Contains("HSS") || combinedName.Contains("TUBE"))
-                    return "HSS";
-                if (typeName.StartsWith("HP") && typeName.Contains("X"))
-                    return "HP";
-
-                // For rectangular/square columns that don't match standard steel shapes
-                return "RECT";
-            }
-
-            // For other structural framing elements (beams, braces)
 
             // Check for W shapes (wide flange)
             if (typeName.StartsWith("W") && typeName.Contains("X"))
-                return "W";
+                return FrameShapeType.W;
 
             // Check for HSS shapes
             if (combinedName.Contains("HSS") || combinedName.Contains("TUBE"))
-                return "HSS";
+                return FrameShapeType.HSS;
 
             // Check for pipe shapes
             if (combinedName.Contains("PIPE"))
-                return "PIPE";
+                return FrameShapeType.PIPE;
 
             // Check for channel shapes
             if (typeName.StartsWith("C") && typeName.Contains("X") ||
                 combinedName.Contains("CHANNEL"))
-                return "C";
+                return FrameShapeType.C;
 
             // Check for angle shapes
             if (typeName.StartsWith("L") && typeName.Contains("X") ||
                 combinedName.Contains("ANGLE"))
-                return "L";
+                return FrameShapeType.L;
 
             // Default to rectangular shape
-            return "RECT";
-        }
-
-        // Helper method to capitalize any lowercase 'x' between numbers
-        private string CapitalizeXBetweenNumbers(string input)
-        {
-            if (string.IsNullOrEmpty(input))
-                return input;
-
-            string result = input;
-
-            // Keep replacing until no more changes occur
-            bool changed;
-            do
-            {
-                string newResult = System.Text.RegularExpressions.Regex.Replace(
-                    result,
-                    @"(\d+)x(\d+)",
-                    m => $"{m.Groups[1].Value}X{m.Groups[2].Value}"
-                );
-
-                changed = newResult != result;
-                result = newResult;
-            } while (changed);
-
-            return result;
+            return FrameShapeType.RECT;
         }
 
         private void PopulateDimensions(FrameProperties frameProperty, DB.FamilySymbol famSymbol)
@@ -384,10 +293,10 @@ namespace Revit.Export.Properties
             }
 
             // If we couldn't get dimensions, try to parse from name for W shapes
-            if ((depth == 0 || width == 0) && frameProperty.Shape == "W")
+            if ((depth == 0 || width == 0) && frameProperty.Shape == FrameShapeType.W)
             {
                 // Parse W-shape name (e.g., W14X90 means 14 inches deep)
-                string name = frameProperty.Name;
+                string name = famSymbol.Name;
                 if (name.StartsWith("W") && name.Contains("X"))
                 {
                     try
@@ -406,29 +315,29 @@ namespace Revit.Export.Properties
             }
 
             // Set dimensions (ensuring non-zero)
-            frameProperty.Dimensions["depth"] = depth > 0 ? depth : 12.0;
-            frameProperty.Dimensions["width"] = width > 0 ? width : 6.0;
+            frameProperty.Depth = depth > 0 ? depth : 12.0;
+            frameProperty.Width = width > 0 ? width : 6.0;
 
             // Set additional dimensions based on shape
             switch (frameProperty.Shape)
             {
-                case "W":
-                    frameProperty.Dimensions["webThickness"] = 0.375;
-                    frameProperty.Dimensions["flangeThickness"] = 0.625;
+                case FrameShapeType.W:
+                    frameProperty.WebThickness = 0.375;
+                    frameProperty.FlangeThickness = 0.625;
                     break;
-                case "HSS":
-                    frameProperty.Dimensions["wallThickness"] = 0.25;
+                case FrameShapeType.HSS:
+                    frameProperty.WallThickness = 0.25;
                     break;
-                case "PIPE":
-                    frameProperty.Dimensions["outerDiameter"] = width > 0 ? width : 6.0;
-                    frameProperty.Dimensions["wallThickness"] = 0.25;
+                case FrameShapeType.PIPE:
+                    frameProperty.OuterDiameter = width > 0 ? width : 6.0;
+                    frameProperty.WallThickness = 0.25;
                     break;
-                case "C":
-                    frameProperty.Dimensions["webThickness"] = 0.375;
-                    frameProperty.Dimensions["flangeThickness"] = 0.5;
+                case FrameShapeType.C:
+                    frameProperty.WebThickness = 0.375;
+                    frameProperty.FlangeThickness = 0.5;
                     break;
-                case "L":
-                    frameProperty.Dimensions["thickness"] = 0.375;
+                case FrameShapeType.L:
+                    frameProperty.Thickness = 0.375;
                     break;
             }
         }

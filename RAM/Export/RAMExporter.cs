@@ -182,8 +182,7 @@ namespace RAM
                 Name = "Rigid Diaphragm",
                 Type = DiaphragmType.Rigid
             };
-            rigidDiaphragm.Properties["StiffnessFactor"] = 1.0;
-            rigidDiaphragm.Properties["MassFactor"] = 1.0;
+
             diaphragms.Add(rigidDiaphragm);
 
             // Add a semi-rigid diaphragm
@@ -193,8 +192,7 @@ namespace RAM
                 Name = "Semi-Rigid Diaphragm",
                 Type = DiaphragmType.SemiRigid
             };
-            semiRigidDiaphragm.Properties["StiffnessFactor"] = 0.5;
-            semiRigidDiaphragm.Properties["MassFactor"] = 1.0;
+
             diaphragms.Add(semiRigidDiaphragm);
 
             return diaphragms;

@@ -38,9 +38,6 @@ namespace ETABS.Export.Properties
                         Name = name,
                     };
 
-                    // Add additional properties
-                    diaphragm.Properties["etabsType"] = type;
-
                     diaphragms.Add(diaphragm);
                 }
             }

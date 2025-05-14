@@ -2,8 +2,10 @@
 using System.Collections.Generic;
 using System.Linq;
 using DB = Autodesk.Revit.DB;
+using Core.Models;
 using Core.Models.Properties;
 using System.Diagnostics;
+using Autodesk.Revit.DB.Mechanical;
 
 namespace Revit.Export.Properties
 {
@@ -72,7 +74,7 @@ namespace Revit.Export.Properties
                         materialId = "MAT-default";
 
                     // Determine floor type
-                    string typeString = DetermineFloorType(floorType);
+                    StructuralFloorType typeEnum = DetermineFloorType(floorType);
 
                     // Get thickness in inches
                     double thickness = cs.GetWidth() * 12.0;
@@ -80,7 +82,7 @@ namespace Revit.Export.Properties
                     // Create floor property
                     FloorProperties floorProperty = new FloorProperties(
                         floorType.Name,
-                        typeString,
+                        typeEnum,
                         thickness,
                         materialId
                     );
@@ -91,7 +93,7 @@ namespace Revit.Export.Properties
                     floorProperties.Add(floorProperty);
                     count++;
 
-                    Debug.WriteLine($"Exported floor type: {floorType.Name}, Material: {materialId}, Type: {typeString}, Thickness: {thickness}");
+                    Debug.WriteLine($"Exported floor type: {floorType.Name}, Material: {materialId}, Type: {typeEnum}, Thickness: {thickness}");
                 }
                 catch (Exception ex)
                 {
@@ -109,15 +111,17 @@ namespace Revit.Export.Properties
             return isStructuralParam != null && isStructuralParam.AsInteger() != 0;
         }
 
-        private string DetermineFloorType(DB.FloorType floorType)
+        private StructuralFloorType DetermineFloorType(DB.FloorType floorType)
         {
             string typeName = floorType.Name.ToUpper();
 
             if (typeName.Contains("METAL DECK") || typeName.Contains("DECK") ||
                 typeName.Contains("COMPOSITE"))
-                return "Composite";
+                return StructuralFloorType.Composite;
+            else if (typeName.Contains("NONCOMPOSITE"))
+                return StructuralFloorType.NonComposite;
             else
-                return "Slab";
+                return StructuralFloorType.Slab;
         }
 
         private string GetMaterialId(DB.CompoundStructure cs)
@@ -136,18 +140,18 @@ namespace Revit.Export.Properties
 
         private void SetFloorSpecificProperties(FloorProperties floorProperty, DB.FloorType floorType, DB.CompoundStructure cs)
         {
-            if (floorProperty.Type == "Slab")
+            if (floorProperty.Type == StructuralFloorType.Slab)
             {
-                floorProperty.SlabProperties["modelingType"] = "ShellThin";
-                floorProperty.SlabProperties["slabType"] = "Slab";
-                floorProperty.SlabProperties["isRibbed"] = false;
-                floorProperty.SlabProperties["isWaffle"] = false;
-                floorProperty.SlabProperties["isTwoWay"] = true;
+                floorProperty.ModelingType = ShellModelingType.ShellThin;
+                floorProperty.IsRibbed = false;
+                floorProperty.IsWaffle = false;
+                floorProperty.IsTwoWay = true;
             }
-            else if (floorProperty.Type == "Composite")
+            else if (floorProperty.Type == StructuralFloorType.Composite ||
+                     floorProperty.Type == StructuralFloorType.NonComposite)
             {
                 // For composite floors, try to determine deck parameters
-                floorProperty.DeckProperties["deckType"] = "Filled";
+                floorProperty.DeckType = DeckType.Filled;
 
                 // Try to get deck depth from name or parameters
                 double deckDepth = 1.5; // Default deck depth in inches
@@ -158,14 +162,14 @@ namespace Revit.Export.Properties
                 else if (floorType.Name.Contains("3"))
                     deckDepth = 3.0;
 
-                floorProperty.DeckProperties["deckDepth"] = deckDepth;
-                floorProperty.DeckProperties["deckGage"] = 22; // Default gage
-                floorProperty.DeckProperties["deckMaterialName"] = "A992Fy50"; // Default deck material
+                floorProperty.DeckDepth = deckDepth;
+                floorProperty.DeckGage = 22; // Default gage
+                floorProperty.DeckMaterialName = "A992Fy50"; // Default deck material
 
                 // Calculate topping thickness
                 double toppingThickness = floorProperty.Thickness - deckDepth;
                 if (toppingThickness > 0)
-                    floorProperty.DeckProperties["toppingThickness"] = toppingThickness;
+                    floorProperty.ToppingThickness = toppingThickness;
             }
         }
     }

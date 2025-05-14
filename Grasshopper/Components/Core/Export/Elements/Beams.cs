@@ -8,7 +8,6 @@ using Core.Models.Properties;
 using Core.Models.Geometry;
 using Grasshopper.Utilities;
 using static Core.Models.SoftwareSpecific.ETABSModifiers;
-using System.Linq;
 
 namespace Grasshopper.Components.Core.Export.Elements
 {
@@ -26,9 +25,13 @@ namespace Grasshopper.Components.Core.Export.Elements
             pManager.AddLineParameter("Lines", "L", "Lines representing beams", GH_ParamAccess.list);
             pManager.AddGenericParameter("Level", "LVL", "Level this beam belongs to", GH_ParamAccess.list);
             pManager.AddGenericParameter("Properties", "P", "Frame properties for this beam", GH_ParamAccess.list);
-            pManager.AddBooleanParameter("Is Lateral", "IL", "Is beam part of the lateral system", GH_ParamAccess.list);
-            pManager.AddBooleanParameter("Is Joist", "IJ", "Is beam a joist", GH_ParamAccess.list);
+            pManager.AddBooleanParameter("Is Lateral", "IL", "Is beam part of the lateral system", GH_ParamAccess.list, false);
+            pManager.AddBooleanParameter("Is Joist", "IJ", "Is beam a joist", GH_ParamAccess.list, false);
             pManager.AddGenericParameter("ETABS Modifiers", "EM", "ETABS-specific frame modifiers", GH_ParamAccess.list);
+
+            pManager[3].Optional = true;
+            pManager[4].Optional = true;
+            pManager[5].Optional = true;
 
         }
 

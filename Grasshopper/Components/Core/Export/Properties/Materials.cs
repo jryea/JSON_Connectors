@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Grasshopper.Kernel;
+using Core.Models;
 using Core.Models.Properties;
 using Grasshopper.Utilities;
 

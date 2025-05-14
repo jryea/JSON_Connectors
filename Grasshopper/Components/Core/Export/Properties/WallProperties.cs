@@ -2,9 +2,11 @@
 using System.Collections.Generic;
 using System.Drawing;
 using Grasshopper.Kernel;
+using Core.Models;
 using Core.Models.Properties;
 using Grasshopper.Utilities;
 using GH_Types = Grasshopper.Kernel.Types;
+using static Core.Models.SoftwareSpecific.ETABSModifiers;
 
 namespace Grasshopper.Components.Core.Export.Properties
 {
@@ -24,6 +26,12 @@ namespace Grasshopper.Components.Core.Export.Properties
             pManager.AddTextParameter("Name", "N", "Names for each wall property", GH_ParamAccess.list);
             pManager.AddGenericParameter("Material", "M", "Materials for each wall property", GH_ParamAccess.list);
             pManager.AddNumberParameter("Thickness", "TH", "Thickness for each wall property (in inches)", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Unit Weight", "UW", "Unit weight for self-weight calculation (pcf)", GH_ParamAccess.list, 150.0);
+            pManager.AddGenericParameter("ETABS Modifiers", "EM", "ETABS-specific shell modifiers", GH_ParamAccess.item);
+
+            // Make some parameters optional
+            pManager[3].Optional = true;  // Unit Weight
+            pManager[4].Optional = true;  // ETABS Modifiers
         }
 
         // Registers all the output parameters for this component.
@@ -39,12 +47,14 @@ namespace Grasshopper.Components.Core.Export.Properties
             List<string> names = new List<string>();
             List<object> materialObjs = new List<object>();
             List<double> thicknesses = new List<double>();
-            List<object> etabsModObjs = new List<object>();
+            List<double> unitWeights = new List<double>();
+            object etabsModifiersObj = null;
 
             if (!DA.GetDataList(0, names)) return;
             if (!DA.GetDataList(1, materialObjs)) return;
             if (!DA.GetDataList(2, thicknesses)) return;
-            DA.GetDataList(3, etabsModObjs);
+            DA.GetDataList(3, unitWeights);
+            DA.GetData(4, ref etabsModifiersObj);
 
             // Basic validation
             if (names.Count == 0)
@@ -61,6 +71,24 @@ namespace Grasshopper.Components.Core.Export.Properties
                 return;
             }
 
+            // Extend unit weights list if needed
+            if (unitWeights.Count > 0 && unitWeights.Count < names.Count)
+            {
+                double lastUnitWeight = unitWeights[unitWeights.Count - 1];
+                while (unitWeights.Count < names.Count)
+                    unitWeights.Add(lastUnitWeight);
+            }
+            else if (unitWeights.Count == 0)
+            {
+                // Default to 150 pcf for all walls
+                unitWeights = new List<double>(new double[names.Count]);
+                for (int i = 0; i < names.Count; i++)
+                    unitWeights[i] = 150.0;
+            }
+
+            // Extract ETABS modifiers
+            ETABSShellModifiers etabsModifiers = ExtractObject<ETABSShellModifiers>(etabsModifiersObj, "ETABSShellModifiers");
+
             try
             {
                 // Create wall properties
@@ -71,6 +99,7 @@ namespace Grasshopper.Components.Core.Export.Properties
                     string name = names[i];
                     Material material = ExtractMaterial(materialObjs[i]);
                     double thickness = thicknesses[i];
+                    double unitWeight = unitWeights[i];
 
                     if (string.IsNullOrWhiteSpace(name) || material == null)
                     {
@@ -90,6 +119,9 @@ namespace Grasshopper.Components.Core.Export.Properties
                     // Create a new wall property
                     WallProperties wallProperties = new WallProperties(name, material.Id, thickness);
 
+                    // Set unit weight for self-weight
+                    wallProperties.UnitWeightForSelfWeight = unitWeight;
+
                     // Add material-specific properties
                     if (material.Type == MaterialType.Concrete)
                     {
@@ -102,6 +134,12 @@ namespace Grasshopper.Components.Core.Export.Properties
                         // Add steel wall properties
                         wallProperties.Properties["fy"] = material.SteelProps?.Fy ?? 50000.0; // Default steel yield strength in psi
                         wallProperties.Properties["studSpacing"] = 16.0; // Default stud spacing in inches
+                    }
+
+                    // Apply ETABS modifiers if provided
+                    if (etabsModifiers != null)
+                    {
+                        wallProperties.ETABSModifiers = etabsModifiers;
                     }
 
                     wallPropertiesList.Add(new GH_WallProperties(wallProperties));
@@ -142,6 +180,27 @@ namespace Grasshopper.Components.Core.Export.Properties
 
             AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
                 $"Could not extract Material from input: {obj?.GetType().Name ?? "null"}");
+            return null;
+        }
+
+        private T ExtractObject<T>(object obj, string typeName) where T : class
+        {
+            if (obj == null) return null;
+
+            // Direct type check
+            if (obj is T directType)
+                return directType;
+
+            // Using GooWrapper
+            if (obj is GH_ModelGoo<T> ghType)
+                return ghType.Value;
+
+            // Handle IGH_Goo objects
+            if (obj is GH_Types.IGH_Goo goo && goo.CastTo<T>(out var castObj))
+            {
+                return castObj;
+            }
+
             return null;
         }
 

@@ -2,7 +2,11 @@
 using System.Collections.Generic;
 using System.Drawing;
 using Grasshopper.Kernel;
+using Core.Models;
 using Core.Models.Properties;
+using Grasshopper.Utilities;
+using GH_Types = Grasshopper.Kernel.Types;
+using static Core.Models.SoftwareSpecific.ETABSModifiers;
 
 namespace Grasshopper.Components.Core.Export.Properties
 {
@@ -24,10 +28,12 @@ namespace Grasshopper.Components.Core.Export.Properties
             pManager.AddTextParameter("Type", "T", "Material type ('Steel' or 'Concrete')", GH_ParamAccess.item, "Steel");
             pManager.AddTextParameter("Section Type", "ST", "Section type (W, HSS, PIPE for Steel; Rectangular, Circular for Concrete)", GH_ParamAccess.item);
             pManager.AddTextParameter("Section Name", "SN", "Section name (optional)", GH_ParamAccess.item);
+            pManager.AddGenericParameter("ETABS Modifiers", "EM", "ETABS-specific frame modifiers", GH_ParamAccess.item);
 
             // Make some parameters optional
             pManager[2].Optional = true;
             pManager[4].Optional = true;
+            pManager[5].Optional = true;
         }
 
         // Registers all the output parameters for this component.
@@ -45,12 +51,14 @@ namespace Grasshopper.Components.Core.Export.Properties
             string typeName = "Steel";
             string sectionTypeName = string.Empty;
             string sectionName = string.Empty;
+            object etabsModObj = null;
 
             if (!DA.GetData(0, ref name)) return;
             if (!DA.GetData(1, ref material)) return;
             DA.GetData(2, ref typeName);
             if (!DA.GetData(3, ref sectionTypeName)) return;
             DA.GetData(4, ref sectionName);
+            DA.GetData(5, ref etabsModObj);
 
             // Basic validation
             if (string.IsNullOrWhiteSpace(name))
@@ -68,29 +76,53 @@ namespace Grasshopper.Components.Core.Export.Properties
             try
             {
                 // Parse frame material type
-                FrameProperties.FrameMaterialType materialType;
+                FrameMaterialType materialType;
                 if (!Enum.TryParse(typeName, true, out materialType))
                 {
                     AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
                         $"Unknown frame material type: {typeName}, defaulting to Steel");
-                    materialType = FrameProperties.FrameMaterialType.Steel;
+                    materialType = FrameMaterialType.Steel;
                 }
 
                 // Create a new frame property
                 FrameProperties frameProperty = new FrameProperties(name, material.Id, materialType);
 
+                // Extract ETABS modifiers if provided
+                ETABSFrameModifiers etabsModifiers = null;
+                if (etabsModObj != null)
+                {
+                    if (etabsModObj is ETABSFrameModifiers directMods)
+                    {
+                        etabsModifiers = directMods;
+                    }
+                    else if (etabsModObj is GH_ETABSFrameModifiers ghMods)
+                    {
+                        etabsModifiers = ghMods.Value;
+                    }
+                    else if (etabsModObj is GH_Types.IGH_Goo goo && goo.CastTo<ETABSFrameModifiers>(out var castedMods))
+                    {
+                        etabsModifiers = castedMods;
+                    }
+                }
+
+                // Apply ETABS modifiers if provided
+                if (etabsModifiers != null)
+                {
+                    frameProperty.ETABSModifiers = etabsModifiers;
+                }
+
                 // Set section properties based on material type
-                if (materialType == FrameProperties.FrameMaterialType.Steel)
+                if (materialType == FrameMaterialType.Steel)
                 {
                     frameProperty.SteelProps = new SteelFrameProperties();
 
                     // Parse steel section type
-                    SteelFrameProperties.SteelSectionType sectionType;
+                    SteelSectionType sectionType;
                     if (!Enum.TryParse(sectionTypeName, true, out sectionType))
                     {
                         AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
                             $"Unknown steel section type: {sectionTypeName}, defaulting to W");
-                        sectionType = SteelFrameProperties.SteelSectionType.W;
+                        sectionType = SteelSectionType.W;
                     }
 
                     frameProperty.SteelProps.SectionType = sectionType;
@@ -102,12 +134,12 @@ namespace Grasshopper.Components.Core.Export.Properties
                     frameProperty.ConcreteProps = new ConcreteFrameProperties();
 
                     // Parse concrete section type
-                    ConcreteFrameProperties.ConcreteSectionType sectionType;
+                    ConcreteSectionType sectionType;
                     if (!Enum.TryParse(sectionTypeName, true, out sectionType))
                     {
                         AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
                             $"Unknown concrete section type: {sectionTypeName}, defaulting to Rectangular");
-                        sectionType = ConcreteFrameProperties.ConcreteSectionType.Rectangular;
+                        sectionType = ConcreteSectionType.Rectangular;
                     }
 
                     frameProperty.ConcreteProps.SectionType = sectionType;
@@ -115,12 +147,12 @@ namespace Grasshopper.Components.Core.Export.Properties
                         "12x12" : sectionName; // Default section name if not provided
 
                     // Add default dimensions for concrete sections
-                    if (sectionType == ConcreteFrameProperties.ConcreteSectionType.Rectangular)
+                    if (sectionType == ConcreteSectionType.Rectangular)
                     {
                         frameProperty.ConcreteProps.Dimensions["width"] = "12";
                         frameProperty.ConcreteProps.Dimensions["depth"] = "12";
                     }
-                    else if (sectionType == ConcreteFrameProperties.ConcreteSectionType.Circular)
+                    else if (sectionType == ConcreteSectionType.Circular)
                     {
                         frameProperty.ConcreteProps.Dimensions["diameter"] = "18";
                     }

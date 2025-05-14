@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Grasshopper.Kernel;
+using Core.Models;
 using Core.Models.Properties;
 using Grasshopper.Utilities;
 
@@ -58,7 +59,6 @@ namespace Grasshopper.Components.Core.Export.Properties
             if (fc > 0)
                 concreteProps.Fc = fc;
 
-            // Always set weight class since it's an enum
             concreteProps.WeightClass = weightClass;
 
             if (shearReduction > 0)

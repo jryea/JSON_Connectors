@@ -9,6 +9,7 @@ using Core.Models.Loads;
 using Grasshopper.Utilities;
 using Grasshopper.Kernel.Types;
 using Core.Models.Geometry;
+using static Core.Models.SoftwareSpecific.ETABSModifiers;
 
 namespace Grasshopper.Components.Core.Export.Elements
 {
@@ -28,11 +29,13 @@ namespace Grasshopper.Components.Core.Export.Elements
             pManager.AddGenericParameter("Properties", "P", "Floor properties", GH_ParamAccess.list);
             pManager.AddGenericParameter("Diaphragm", "D", "Diaphragm (optional)", GH_ParamAccess.list);
             pManager.AddGenericParameter("Surface Load", "SL", "Surface load (optional)", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Span Direction", "SD", "Span direction in degrees (0 = along X axis)", GH_ParamAccess.list, 0.0);
             pManager.AddGenericParameter("ETABS Modifiers", "EM", "ETABS-specific shell modifiers", GH_ParamAccess.list);
 
-            pManager[3].Optional = true;
-            pManager[4].Optional = true;
-            pManager[5].Optional = true;
+            pManager[3].Optional = true; // Diaphragm
+            pManager[4].Optional = true; // Surface Load
+            pManager[5].Optional = true; // Span Direction
+            pManager[6].Optional = true; // ETABS Modifiers
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
@@ -47,6 +50,7 @@ namespace Grasshopper.Components.Core.Export.Elements
             List<object> propObjs = new List<object>();
             List<object> diaphragmObjs = new List<object>();
             List<object> surfaceLoadObjs = new List<object>();
+            List<double> spanDirections = new List<double>();
             List<object> etabsModObjs = new List<object>();
 
             if (!DA.GetDataTree(0, out pointsTree)) return;
@@ -54,7 +58,8 @@ namespace Grasshopper.Components.Core.Export.Elements
             if (!DA.GetDataList(2, propObjs)) return;
             DA.GetDataList(3, diaphragmObjs);
             DA.GetDataList(4, surfaceLoadObjs);
-            DA.GetDataList(5, etabsModObjs);
+            DA.GetDataList(5, spanDirections);
+            DA.GetDataList(6, etabsModObjs);
 
             // Extend level objects list if needed
             if (levelObjs.Count > 0 && levelObjs.Count < pointsTree.PathCount)
@@ -88,25 +93,32 @@ namespace Grasshopper.Components.Core.Export.Elements
                     surfaceLoadObjs.Add(lastSurfaceLoad);
             }
 
+            // Extend span directions list if needed
+            if (spanDirections.Count > 0 && spanDirections.Count < pointsTree.PathCount)
+            {
+                double lastDirection = spanDirections[spanDirections.Count - 1];
+                while (spanDirections.Count < pointsTree.PathCount)
+                    spanDirections.Add(lastDirection);
+            }
+            else if (spanDirections.Count == 0)
+            {
+                // Default to 0 degrees for all floors
+                spanDirections = new List<double>(new double[pointsTree.PathCount]);
+            }
+
+            // Extend ETABS modifiers list if needed
+            if (etabsModObjs.Count > 0 && etabsModObjs.Count < pointsTree.PathCount)
+            {
+                object lastModifier = etabsModObjs[etabsModObjs.Count - 1];
+                while (etabsModObjs.Count < pointsTree.PathCount)
+                    etabsModObjs.Add(lastModifier);
+            }
+
             // Validate list lengths after extension
             if (pointsTree.PathCount != levelObjs.Count || pointsTree.PathCount != propObjs.Count)
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
                     "Number of point sets must match number of levels and properties");
-                return;
-            }
-
-            if (diaphragmObjs.Count > 0 && diaphragmObjs.Count != pointsTree.PathCount)
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
-                    "If provided, number of diaphragms must match number of point sets");
-                return;
-            }
-
-            if (surfaceLoadObjs.Count > 0 && surfaceLoadObjs.Count != pointsTree.PathCount)
-            {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
-                    "If provided, number of surface loads must match number of point sets");
                 return;
             }
 
@@ -130,6 +142,7 @@ namespace Grasshopper.Components.Core.Export.Elements
                 // Get diaphragm and surface load (if available)
                 Diaphragm diaphragm = diaphragmObjs.Count > i ? ExtractObject<Diaphragm>(diaphragmObjs[i], "Diaphragm") : null;
                 SurfaceLoad surfaceLoad = surfaceLoadObjs.Count > i ? ExtractObject<SurfaceLoad>(surfaceLoadObjs[i], "SurfaceLoad") : null;
+                ETABSShellModifiers etabsModifiers = etabsModObjs.Count > i ? ExtractObject<ETABSShellModifiers>(etabsModObjs[i], "ETABSShellModifiers") : null;
 
                 if (level == null || floorProps == null)
                 {
@@ -152,22 +165,31 @@ namespace Grasshopper.Components.Core.Export.Elements
                     }
                 }
 
-                // Create the floor with safe handling of optional properties
+                // Get span direction (if available)
+                double spanDirection = spanDirections.Count > i ? spanDirections[i] : 0.0;
+
+                // Create the floor with all properties
                 Floor floor = new Floor
                 {
                     LevelId = level.Id,
                     FloorPropertiesId = floorProps.Id,
                     Points = floorPoints,
-                    DiaphragmId = diaphragm?.Id,  // Use null conditional operator
-                    SurfaceLoadId = surfaceLoad?.Id  // Use null conditional operator
+                    DiaphragmId = diaphragm?.Id,
+                    SurfaceLoadId = surfaceLoad?.Id,
+                    SpanDirection = spanDirection
                 };
+
+                // Apply ETABS modifiers if provided
+                if (etabsModifiers != null)
+                {
+                    floor.ETABSModifiers = etabsModifiers;
+                }
 
                 floors.Add(new GH_Floor(floor));
             }
 
             DA.SetDataList(0, floors);
         }
-        
 
         private T ExtractObject<T>(object obj, string typeName) where T : class
         {

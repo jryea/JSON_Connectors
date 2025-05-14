@@ -184,7 +184,6 @@ namespace Grasshopper.Components.Core.Export.Elements
                     PropertiesId = wallProps.Id,
                     BaseLevelId = baseLevel.Id,
                     TopLevelId = topLevel.Id,
-                    PierSpandrelId = pierSpandrel?.ToString()
                 };
 
                 walls.Add(new GH_Wall(wall));

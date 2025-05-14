@@ -4,6 +4,8 @@ using Grasshopper.Kernel;
 using Core.Models.Properties;
 using Grasshopper.Utilities;
 using GH_Type = Grasshopper.Kernel.Types;
+using Core.Models;
+using static Core.Models.SoftwareSpecific.ETABSModifiers;
 
 namespace Grasshopper.Components.Core.Export.Properties
 {
@@ -26,7 +28,7 @@ namespace Grasshopper.Components.Core.Export.Properties
             pManager.AddTextParameter("Slab Type", "ST", "Slab type (Slab, Drop, Stiff, Ribbed, Waffle, Mat, Footing)", GH_ParamAccess.list, "Slab");
             pManager.AddGenericParameter("Deck Properties", "DP", "Deck properties for filled/unfilled deck types", GH_ParamAccess.item);
             pManager.AddGenericParameter("Shear Stud Properties", "SP", "Shear stud properties for composite decks", GH_ParamAccess.item);
-            
+            pManager.AddGenericParameter("ETABS Modifiers", "EM", "ETABS-specific shell modifiers", GH_ParamAccess.item);
 
             // Make parameters optional
             pManager[1].Optional = true;  // Types
@@ -34,6 +36,7 @@ namespace Grasshopper.Components.Core.Export.Properties
             pManager[5].Optional = true;  // Slab Type
             pManager[6].Optional = true;  // Deck Properties
             pManager[7].Optional = true;  // Shear Stud Properties
+            pManager[8].Optional = true;  // ETABS Modifiers
         }
 
         protected override void RegisterOutputParams(GH_OutputParamManager pManager)
@@ -50,8 +53,9 @@ namespace Grasshopper.Components.Core.Export.Properties
             List<object> materialObjs = new List<object>();
             List<string> modelingTypeStrings = new List<string>();
             List<string> slabTypeStrings = new List<string>();
-            object deckPropObj = null;
-            object shearStudPropObj = null;
+            object deckPropsObj = null;
+            object shearStudPropsObj = null;
+            object etabsModifiersObj = null;
 
             if (!DA.GetDataList(0, names)) return;
             DA.GetDataList(1, typeStrings);
@@ -59,8 +63,9 @@ namespace Grasshopper.Components.Core.Export.Properties
             if (!DA.GetDataList(3, materialObjs)) return;
             DA.GetDataList(4, modelingTypeStrings);
             DA.GetDataList(5, slabTypeStrings);
-            DA.GetData(6, ref deckPropObj);
-            DA.GetData(7, ref shearStudPropObj);
+            DA.GetData(6, ref deckPropsObj);
+            DA.GetData(7, ref shearStudPropsObj);
+            DA.GetData(8, ref etabsModifiersObj);
 
             // Set default types if not provided
             if (typeStrings.Count == 0)
@@ -84,9 +89,14 @@ namespace Grasshopper.Components.Core.Export.Properties
             EnsureListLength(ref modelingTypeStrings, names.Count, modelingTypeStrings.Count > 0 ? modelingTypeStrings[modelingTypeStrings.Count - 1] : "Membrane");
             EnsureListLength(ref slabTypeStrings, names.Count, slabTypeStrings.Count > 0 ? slabTypeStrings[slabTypeStrings.Count - 1] : "Slab");
 
-            // Extract deck and shear stud properties
-            DeckProperties deckProps = ExtractDeckProperties(deckPropObj);
-            ShearStudProperties shearStudProps = ExtractShearStudProperties(shearStudPropObj);
+            // Extract deck properties
+            DeckProperties deckProps = ExtractObject<DeckProperties>(deckPropsObj, "DeckProperties");
+
+            // Extract shear stud properties
+            ShearStudProperties shearStudProps = ExtractObject<ShearStudProperties>(shearStudPropsObj, "ShearStudProperties");
+
+            // Extract ETABS modifiers
+            ETABSShellModifiers etabsModifiers = ExtractObject<ETABSShellModifiers>(etabsModifiersObj, "ETABSShellModifiers");
 
             try
             {
@@ -156,6 +166,12 @@ namespace Grasshopper.Components.Core.Export.Properties
                         floorProperties.ShearStudProperties = shearStudProps;
                     }
 
+                    // Add ETABS modifiers if provided
+                    if (etabsModifiers != null)
+                    {
+                        floorProperties.ETABSModifiers = etabsModifiers;
+                    }
+
                     floorPropertiesList.Add(new GH_FloorProperties(floorProperties));
                 }
 
@@ -170,6 +186,8 @@ namespace Grasshopper.Components.Core.Export.Properties
 
         private Material ExtractMaterial(object obj)
         {
+            if (obj == null) return null;
+
             // Direct type check
             if (obj is Material directMaterial)
                 return directMaterial;
@@ -197,43 +215,22 @@ namespace Grasshopper.Components.Core.Export.Properties
             return null;
         }
 
-        private DeckProperties ExtractDeckProperties(object obj)
+        private T ExtractObject<T>(object obj, string typeName) where T : class
         {
             if (obj == null) return null;
 
             // Direct type check
-            if (obj is DeckProperties props)
-                return props;
+            if (obj is T directType)
+                return directType;
 
             // Using GooWrapper
-            if (obj is GH_DeckProperties ghProps)
-                return ghProps.Value;
+            if (obj is GH_ModelGoo<T> ghType)
+                return ghType.Value;
 
             // Handle IGH_Goo objects
-            if (obj is GH_Type.IGH_Goo goo && goo.CastTo<DeckProperties>(out var castProps))
+            if (obj is GH_Type.IGH_Goo goo && goo.CastTo<T>(out var castObj))
             {
-                return castProps;
-            }
-
-            return null;
-        }
-
-        private ShearStudProperties ExtractShearStudProperties(object obj)
-        {
-            if (obj == null) return null;
-
-            // Direct type check
-            if (obj is ShearStudProperties props)
-                return props;
-
-            // Using GooWrapper
-            if (obj is GH_ShearStudProperties ghProps)
-                return ghProps.Value;
-
-            // Handle IGH_Goo objects
-            if (obj is GH_Type.IGH_Goo goo && goo.CastTo<ShearStudProperties>(out var castProps))
-            {
-                return castProps;
+                return castObj;
             }
 
             return null;

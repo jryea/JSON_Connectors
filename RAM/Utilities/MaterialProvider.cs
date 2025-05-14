@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using Core.Models;
 using Core.Models.Properties;
-using Core.Utilities;
 using RAMDATAACCESSLib;
 
 namespace RAM.Utilities
@@ -70,7 +70,7 @@ namespace RAM.Utilities
                     if (frameProp.Id == framePropId)
                     {
                         // Check frame material type
-                        return frameProp.Type == FrameProperties.FrameMaterialType.Concrete ?
+                        return frameProp.Type == FrameMaterialType.Concrete ?
                             EMATERIALTYPES.EConcreteMat :
                             EMATERIALTYPES.ESteelMat;
                     }

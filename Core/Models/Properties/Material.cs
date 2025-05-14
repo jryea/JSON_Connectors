@@ -138,6 +138,7 @@ namespace Core.Models.Properties
         }
 
         // Weight density class (Normal, Lightweight)
+        [JsonConverter(typeof(JsonStringEnumConverter))]
         public WeightClass WeightClass { get; set; }
 
         // Shear strength reduction factor

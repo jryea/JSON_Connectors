@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Core.Models;
 using Core.Models.Properties;
 using Core.Utilities;
 using RAM.Utilities;
@@ -117,12 +118,12 @@ namespace RAM.Export.Properties
                     Name = sectionLabel,
                     MaterialId = materialId,
                     Type = beam.eMaterial == EMATERIALTYPES.EConcreteMat ?
-                        FrameProperties.FrameMaterialType.Concrete :
-                        FrameProperties.FrameMaterialType.Steel
+                        FrameMaterialType.Concrete :
+                        FrameMaterialType.Steel
                 };
 
                 // Initialize appropriate property class based on material type
-                if (frameProp.Type == FrameProperties.FrameMaterialType.Steel)
+                if (frameProp.Type == FrameMaterialType.Steel)
                 {
                     // Extract shape from section label
                     string shape = ExtractShapeFromSectionLabel(sectionLabel);
@@ -133,21 +134,21 @@ namespace RAM.Export.Properties
                     };
 
                     // Try to parse the section type
-                    if (Enum.TryParse(shape, out SteelFrameProperties.SteelSectionType sectionType))
+                    if (Enum.TryParse(shape, out SteelSectionType sectionType))
                     {
                         frameProp.SteelProps.SectionType = sectionType;
                     }
                     else
                     {
                         // Default to W section
-                        frameProp.SteelProps.SectionType = SteelFrameProperties.SteelSectionType.W;
+                        frameProp.SteelProps.SectionType = SteelSectionType.W;
                     }
                 }
                 else
                 {
                     frameProp.ConcreteProps = new ConcreteFrameProperties
                     {
-                        SectionType = ConcreteFrameProperties.ConcreteSectionType.Rectangular,
+                        SectionType = ConcreteSectionType.Rectangular,
                         SectionName = sectionLabel
                     };
 
@@ -194,12 +195,12 @@ namespace RAM.Export.Properties
                     Name = sectionLabel,
                     MaterialId = materialId,
                     Type = column.eMaterial == EMATERIALTYPES.EConcreteMat ?
-                        FrameProperties.FrameMaterialType.Concrete :
-                        FrameProperties.FrameMaterialType.Steel
+                        FrameMaterialType.Concrete :
+                        FrameMaterialType.Steel
                 };
 
                 // Initialize appropriate property class based on material type
-                if (frameProp.Type == FrameProperties.FrameMaterialType.Steel)
+                if (frameProp.Type == FrameMaterialType.Steel)
                 {
                     // Extract shape from section label
                     string shape = ExtractShapeFromSectionLabel(sectionLabel);
@@ -210,21 +211,21 @@ namespace RAM.Export.Properties
                     };
 
                     // Try to parse the section type
-                    if (Enum.TryParse(shape, out SteelFrameProperties.SteelSectionType sectionType))
+                    if (Enum.TryParse(shape, out SteelSectionType sectionType))
                     {
                         frameProp.SteelProps.SectionType = sectionType;
                     }
                     else
                     {
                         // Default to W section
-                        frameProp.SteelProps.SectionType = SteelFrameProperties.SteelSectionType.W;
+                        frameProp.SteelProps.SectionType = SteelSectionType.W;
                     }
                 }
                 else
                 {
                     frameProp.ConcreteProps = new ConcreteFrameProperties
                     {
-                        SectionType = ConcreteFrameProperties.ConcreteSectionType.Rectangular,
+                        SectionType = ConcreteSectionType.Rectangular,
                         SectionName = sectionLabel
                     };
 
@@ -269,12 +270,12 @@ namespace RAM.Export.Properties
                         Name = sectionLabel,
                         MaterialId = materialId,
                         Type = brace.eMaterial == EMATERIALTYPES.EConcreteMat ?
-                            FrameProperties.FrameMaterialType.Concrete :
-                            FrameProperties.FrameMaterialType.Steel
+                            FrameMaterialType.Concrete :
+                            FrameMaterialType.Steel
                     };
 
                     // Initialize appropriate property class based on material type
-                    if (frameProp.Type == FrameProperties.FrameMaterialType.Steel)
+                    if (frameProp.Type == FrameMaterialType.Steel)
                     {
                         // Extract shape from section label
                         string shape = ExtractShapeFromSectionLabel(sectionLabel);
@@ -285,21 +286,21 @@ namespace RAM.Export.Properties
                         };
 
                         // Try to parse the section type
-                        if (Enum.TryParse(shape, out SteelFrameProperties.SteelSectionType sectionType))
+                        if (Enum.TryParse(shape, out SteelSectionType sectionType))
                         {
                             frameProp.SteelProps.SectionType = sectionType;
                         }
                         else
                         {
                             // Default to HSS section for braces
-                            frameProp.SteelProps.SectionType = SteelFrameProperties.SteelSectionType.HSS;
+                            frameProp.SteelProps.SectionType = SteelSectionType.HSS;
                         }
                     }
                     else
                     {
                         frameProp.ConcreteProps = new ConcreteFrameProperties
                         {
-                            SectionType = ConcreteFrameProperties.ConcreteSectionType.Rectangular,
+                            SectionType = ConcreteSectionType.Rectangular,
                             SectionName = sectionLabel
                         };
 
@@ -338,14 +339,14 @@ namespace RAM.Export.Properties
                 Id = IdGenerator.Generate(IdGenerator.Properties.FRAME_PROPERTIES),
                 Name = "W10X12",
                 MaterialId = steelMaterialId,
-                Type = FrameProperties.FrameMaterialType.Steel
+                Type = FrameMaterialType.Steel
             };
 
             // Initialize steel properties
             defaultProp.SteelProps = new SteelFrameProperties
             {
                 SectionName = "W10X12",
-                SectionType = SteelFrameProperties.SteelSectionType.W
+                SectionType = SteelSectionType.W
             };
 
             return defaultProp;

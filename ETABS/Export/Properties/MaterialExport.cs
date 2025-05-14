@@ -1,4 +1,5 @@
-﻿using Core.Models.Properties;
+﻿using Core.Models;
+using Core.Models.Properties;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using System;

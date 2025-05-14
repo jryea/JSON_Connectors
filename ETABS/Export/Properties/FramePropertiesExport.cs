@@ -1,4 +1,5 @@
-﻿using Core.Models.Properties;
+﻿using Core.Models;
+using Core.Models.Properties;
 using Core.Utilities;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
@@ -61,7 +62,7 @@ namespace ETABS.Export.Properties
                     }
 
                     // Determine whether it's steel or concrete based on shape or material
-                    FrameProperties.FrameMaterialType materialType = DetermineMaterialType(shape, materialName);
+                    FrameMaterialType materialType = DetermineMaterialType(shape, materialName);
 
                     // Create frame properties
                     var frameProp = new FrameProperties
@@ -73,7 +74,7 @@ namespace ETABS.Export.Properties
                     };
 
                     // Initialize appropriate properties
-                    if (materialType == FrameProperties.FrameMaterialType.Steel)
+                    if (materialType == FrameMaterialType.Steel)
                     {
                         frameProp.SteelProps = new SteelFrameProperties
                         {
@@ -106,7 +107,7 @@ namespace ETABS.Export.Properties
             return new List<FrameProperties>(frameProperties.Values);
         }
 
-        private FrameProperties.FrameMaterialType DetermineMaterialType(string shape, string materialName)
+        private FrameMaterialType DetermineMaterialType(string shape, string materialName)
         {
             // Check if we can find the material in our collection
             if (_materials != null)
@@ -115,8 +116,8 @@ namespace ETABS.Export.Properties
                 if (material != null)
                 {
                     return material.Type == MaterialType.Steel ?
-                        FrameProperties.FrameMaterialType.Steel :
-                        FrameProperties.FrameMaterialType.Concrete;
+                        FrameMaterialType.Steel :
+                        FrameMaterialType.Concrete;
                 }
             }
 
@@ -125,49 +126,49 @@ namespace ETABS.Export.Properties
                 shape.StartsWith("C") || shape.StartsWith("L") || shape.Contains("Steel") ||
                 materialName.Contains("Steel") || materialName.Contains("A992"))
             {
-                return FrameProperties.FrameMaterialType.Steel;
+                return FrameMaterialType.Steel;
             }
 
             // Otherwise assume concrete
-            return FrameProperties.FrameMaterialType.Concrete;
+            return FrameMaterialType.Concrete;
         }
 
-        private SteelFrameProperties.SteelSectionType DetermineSteelSectionType(string shape)
+        private SteelSectionType DetermineSteelSectionType(string shape)
         {
             if (shape.StartsWith("W", StringComparison.OrdinalIgnoreCase))
-                return SteelFrameProperties.SteelSectionType.W;
+                return SteelSectionType.W;
             else if (shape.StartsWith("HSS", StringComparison.OrdinalIgnoreCase))
-                return SteelFrameProperties.SteelSectionType.HSS;
+                return SteelSectionType.HSS;
             else if (shape.StartsWith("PIPE", StringComparison.OrdinalIgnoreCase))
-                return SteelFrameProperties.SteelSectionType.PIPE;
+                return SteelSectionType.PIPE;
             else if (shape.StartsWith("C", StringComparison.OrdinalIgnoreCase))
-                return SteelFrameProperties.SteelSectionType.C;
+                return SteelSectionType.C;
             else if (shape.StartsWith("L", StringComparison.OrdinalIgnoreCase))
-                return SteelFrameProperties.SteelSectionType.L;
+                return SteelSectionType.L;
             else if (shape.StartsWith("WT", StringComparison.OrdinalIgnoreCase))
-                return SteelFrameProperties.SteelSectionType.WT;
+                return SteelSectionType.WT;
             else if (shape.StartsWith("ST", StringComparison.OrdinalIgnoreCase))
-                return SteelFrameProperties.SteelSectionType.ST;
+                return SteelSectionType.ST;
             else if (shape.StartsWith("MC", StringComparison.OrdinalIgnoreCase))
-                return SteelFrameProperties.SteelSectionType.MC;
+                return SteelSectionType.MC;
             else if (shape.StartsWith("HP", StringComparison.OrdinalIgnoreCase))
-                return SteelFrameProperties.SteelSectionType.HP;
+                return SteelSectionType.HP;
             else
-                return SteelFrameProperties.SteelSectionType.W; // Default
+                return SteelSectionType.W; // Default
         }
 
-        private ConcreteFrameProperties.ConcreteSectionType DetermineConcreteSectionType(string shape)
+        private ConcreteSectionType DetermineConcreteSectionType(string shape)
         {
             if (shape.Contains("Rectangular"))
-                return ConcreteFrameProperties.ConcreteSectionType.Rectangular;
+                return ConcreteSectionType.Rectangular;
             else if (shape.Contains("Circle") || shape.Contains("Circular"))
-                return ConcreteFrameProperties.ConcreteSectionType.Circular;
+                return ConcreteSectionType.Circular;
             else if (shape.Contains("Tee") || shape.Contains("T-Shaped"))
-                return ConcreteFrameProperties.ConcreteSectionType.TShaped;
+                return ConcreteSectionType.TShaped;
             else if (shape.Contains("L-Section") || shape.Contains("L-Shaped"))
-                return ConcreteFrameProperties.ConcreteSectionType.LShaped;
+                return ConcreteSectionType.LShaped;
             else
-                return ConcreteFrameProperties.ConcreteSectionType.Custom;
+                return ConcreteSectionType.Custom;
         }
 
         private Dictionary<string, string> ExtractDimensions(string sectionText)

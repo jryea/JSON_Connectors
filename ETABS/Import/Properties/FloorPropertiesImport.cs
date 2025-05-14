@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Core.Models;
 using Core.Models.Properties;
 
 namespace ETABS.Import.Properties

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using Core.Models;
 using Core.Models.Properties;
 using Core.Utilities;
 using RAM.Utilities;

@@ -25,10 +25,4 @@ namespace Core.Models.Properties
             Type = type;
         }
     }
-
-    public enum DiaphragmType
-    {
-        Rigid,
-        SemiRigid,
-    }
 }

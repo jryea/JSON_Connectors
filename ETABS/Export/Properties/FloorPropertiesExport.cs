@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
+using Core.Models;
 using Core.Models.Properties;
 using Core.Utilities;
 

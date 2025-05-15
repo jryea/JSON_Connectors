@@ -2,13 +2,14 @@
 using System.Collections.Generic;
 using System.Linq;
 using DB = Autodesk.Revit.DB;
+using CE = Core.Models.Elements;
+using Core.Models;
+using Core.Models.Properties;
 using Revit.Utilities;
 using System.Diagnostics;
-using Core.Models;
 
 namespace Revit.Import.Elements
 {
-    // Imports floor elements from JSON into Revit
     public class FloorImport
     {
         private readonly DB.Document _doc;
@@ -126,7 +127,7 @@ namespace Revit.Import.Elements
             return count;
         }
 
-        private DB.CurveLoop CreateFloorBoundary(Core.Models.Elements.Floor jsonFloor)
+        private DB.CurveLoop CreateFloorBoundary(CE.Floor jsonFloor)
         {
             try
             {
@@ -161,7 +162,7 @@ namespace Revit.Import.Elements
             }
         }
 
-        private DB.FloorType GetFloorTypeForFloor(Core.Models.Elements.Floor jsonFloor, BaseModel model)
+        private DB.FloorType GetFloorTypeForFloor(CE.Floor jsonFloor, BaseModel model)
         {
             // Check if we already have a cached floor type for this floor property
             string cacheKey = jsonFloor.FloorPropertiesId ?? "default";
@@ -180,18 +181,12 @@ namespace Revit.Import.Elements
 
             // Determine floor type based on properties
             DB.FloorType floorType = null;
-            string floorTypeStr = floorProps.Type?.ToLower() ?? "";
-            double thickness = floorProps.Thickness;
 
-            if (floorTypeStr == "composite" || floorTypeStr == "noncomposite")
-            {
-                // Use deck type for composite floors
-                floorType = _defaultDeckType ?? _defaultFloorType;
-            }
-            else if (floorTypeStr == "slab")
+            // Use the Type enum to determine the appropriate Revit floor type
+            if (floorProps.Type == StructuralFloorType.Slab)
             {
                 // For slabs, find or create appropriate concrete type
-                string thicknessStr = $"{thickness}\"";
+                string thicknessStr = $"{floorProps.Thickness}\"";
                 string typeName = $"{thicknessStr} Concrete";
 
                 // Look for existing type with matching name
@@ -203,13 +198,28 @@ namespace Revit.Import.Elements
                 if (floorType == null && _defaultConcreteType != null)
                 {
                     // Try to create a new type with the right thickness
-                    floorType = CreateFloorTypeWithThickness(_defaultConcreteType, thickness, typeName);
+                    floorType = CreateFloorTypeWithThickness(_defaultConcreteType, floorProps.Thickness, typeName);
                 }
 
                 if (floorType == null)
                 {
                     floorType = _defaultConcreteType ?? _defaultFloorType;
                 }
+            }
+            else if (floorProps.Type == StructuralFloorType.FilledDeck)
+            {
+                // For filled deck, use the default deck type
+                floorType = _defaultDeckType ?? _defaultFloorType;
+            }
+            else if (floorProps.Type == StructuralFloorType.UnfilledDeck)
+            {
+                // For unfilled deck, try to find a deck type without concrete
+                var unfilledDeckType = new DB.FilteredElementCollector(_doc)
+                    .OfClass(typeof(DB.FloorType))
+                    .Cast<DB.FloorType>()
+                    .FirstOrDefault(ft => ft.Name.Contains("Deck") && !ft.Name.Contains("Concrete"));
+
+                floorType = unfilledDeckType ?? _defaultDeckType ?? _defaultFloorType;
             }
             else
             {

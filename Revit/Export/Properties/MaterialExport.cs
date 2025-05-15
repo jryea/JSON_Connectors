@@ -252,7 +252,6 @@ namespace Revit.Export.Properties
 
             if (matName.Contains("CONCRETE") || matName.Contains("CONC") ||
                 matName.Contains("CON"))
-               
             {
                 materialType = MaterialType.Concrete;
             }
@@ -283,31 +282,63 @@ namespace Revit.Export.Properties
         {
             try
             {
+                // Set base properties
+                material.ElasticModulus = GetMaterialDoubleProperty(revitMaterial, "YoungModulus") ??
+                                         (material.Type == MaterialType.Steel ? 29000000.0 : 3600000.0);
+                material.PoissonsRatio = GetMaterialDoubleProperty(revitMaterial, "PoissonRatio") ??
+                                        (material.Type == MaterialType.Steel ? 0.3 : 0.2);
+                material.WeightPerUnitVolume = GetMaterialDoubleProperty(revitMaterial, "Density") ??
+                                             (material.Type == MaterialType.Steel ? 490.0 : 150.0);
+
+                // Set symmetric type (all structural materials are isotropic)
+                material.DirectionalSymmetryType = DirectionalSymmetryType.Isotropic;
+
+                // Set type-specific properties
                 if (material.Type == MaterialType.Concrete)
                 {
-                    PopulateDefaultConcreteProperties(material);
+                    // For concrete, initialize and set concrete properties
+                    material.ConcreteProps = new ConcreteProperties();
 
-                    // Try to get concrete strength if available
-                    double? fc = GetMaterialPropertyValue(revitMaterial, "Concrete Compressive Strength");
-                    if (fc.HasValue)
+                    // Try to get concrete strength
+                    double? fc = GetMaterialDoubleProperty(revitMaterial, "Compression");
+                    if (fc.HasValue && fc.Value > 0)
                     {
-                        material.ConcreteStrength = fc.Value;
+                        material.ConcreteProps.Fc = fc.Value;
                     }
+                    else
+                    {
+                        material.ConcreteProps.Fc = 4000.0; // Default 4000 psi
+                    }
+
+                    material.ConcreteProps.WeightClass = WeightClass.Normal;
                 }
                 else if (material.Type == MaterialType.Steel)
                 {
-                    PopulateDefaultSteelProperties(material);
+                    // For steel, initialize and set steel properties
+                    material.SteelProps = new SteelProperties();
 
-                    // Try to get steel yield strength if available
-                    double? fy = GetMaterialPropertyValue(revitMaterial, "Steel Yield Strength");
-                    if (fy.HasValue)
+                    // Try to get yield strength
+                    double? fy = GetMaterialDoubleProperty(revitMaterial, "YieldStress");
+                    if (fy.HasValue && fy.Value > 0)
                     {
-                        material.YieldStrength = fy.Value;
+                        material.SteelProps.Fy = fy.Value;
+                    }
+                    else
+                    {
+                        material.SteelProps.Fy = 50000.0; // Default 50 ksi
+                    }
+
+                    // Try to get tensile strength
+                    double? fu = GetMaterialDoubleProperty(revitMaterial, "TensileStrength");
+                    if (fu.HasValue && fu.Value > 0)
+                    {
+                        material.SteelProps.Fu = fu.Value;
+                    }
+                    else
+                    {
+                        material.SteelProps.Fu = 65000.0; // Default 65 ksi
                     }
                 }
-
-                // Set symmetry type for structural materials
-                material.DirectionalSymmetry = DirectionalSymmetryType.Isotropic;
             }
             catch (Exception ex)
             {
@@ -317,24 +348,33 @@ namespace Revit.Export.Properties
 
         private void PopulateDefaultConcreteProperties(Material material)
         {
-            // Default concrete properties
-            material.ConcreteStrength = 4000.0; // psi
             material.ElasticModulus = 3600000.0; // psi
             material.PoissonsRatio = 0.2;
-            material.WeightDensity = 150.0; // pcf
+            material.WeightPerUnitVolume = 150.0; // pcf
+            material.DirectionalSymmetryType = DirectionalSymmetryType.Isotropic;
+
+            material.ConcreteProps = new ConcreteProperties
+            {
+                Fc = 4000.0, // psi
+                WeightClass = WeightClass.Normal
+            };
         }
 
         private void PopulateDefaultSteelProperties(Material material)
         {
-            // Default steel properties
-            material.YieldStrength = 50000.0; // psi
-            material.UltimateStrength = 65000.0; // psi
             material.ElasticModulus = 29000000.0; // psi
             material.PoissonsRatio = 0.3;
-            material.WeightDensity = 490.0; // pcf
+            material.WeightPerUnitVolume = 490.0; // pcf
+            material.DirectionalSymmetryType = DirectionalSymmetryType.Isotropic;
+
+            material.SteelProps = new SteelProperties
+            {
+                Fy = 50000.0, // psi
+                Fu = 65000.0  // psi
+            };
         }
 
-        private double? GetMaterialPropertyValue(DB.Material material, string propertyName)
+        private double? GetMaterialDoubleProperty(DB.Material material, string propertyName)
         {
             try
             {
@@ -343,6 +383,20 @@ namespace Revit.Export.Properties
                 if (param != null && param.HasValue && param.StorageType == DB.StorageType.Double)
                 {
                     return param.AsDouble();
+                }
+
+                // Try structural asset if available
+                if (material.StructuralAssetId != DB.ElementId.InvalidElementId)
+                {
+                    var structAsset = _doc.GetElement(material.StructuralAssetId) as DB.PropertySetElement;
+                    if (structAsset != null)
+                    {
+                        param = structAsset.LookupParameter(propertyName);
+                        if (param != null && param.HasValue && param.StorageType == DB.StorageType.Double)
+                        {
+                            return param.AsDouble();
+                        }
+                    }
                 }
             }
             catch

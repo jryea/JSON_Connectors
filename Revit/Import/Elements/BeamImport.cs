@@ -36,7 +36,8 @@ namespace Revit.Import.Elements
             {
                 if (!symbol.IsActive)
                 {
-                    symbol.Activate();
+                    try { symbol.Activate(); }
+                    catch { continue; }
                 }
 
                 string key = symbol.Name.ToUpper();
@@ -88,16 +89,42 @@ namespace Revit.Import.Elements
                 }
             }
 
-            // Try to match by shape
-            if (!string.IsNullOrEmpty(frameProps.Shape))
+            // Try to match by section name for steel sections
+            if (frameProps.SteelProps != null && !string.IsNullOrEmpty(frameProps.SteelProps.SectionName))
             {
-                // Look for elements that contain the shape designation
+                string sectionName = frameProps.SteelProps.SectionName.ToUpper();
+                if (_beamTypes.TryGetValue(sectionName, out DB.FamilySymbol typeBySectionName))
+                {
+                    return typeBySectionName;
+                }
+
+                // If exact match not found, try to match by section type
+                var sectionType = frameProps.SteelProps.SectionType;
+
+                // Get beams matching this section type prefix
                 var matches = _beamTypes.Where(kvp =>
-                    kvp.Key.Contains(frameProps.Shape.ToUpper())).ToList();
+                    kvp.Key.StartsWith(sectionType.ToString()) ||
+                    kvp.Key.Contains(sectionType.ToString()))
+                    .ToList();
 
                 if (matches.Any())
                 {
                     return matches.First().Value;
+                }
+            }
+
+            // Try to match by concrete section if it's a concrete frame
+            if (frameProps.ConcreteProps != null)
+            {
+                // Try to find a concrete beam
+                var concreteBeams = _beamTypes.Where(kvp =>
+                    kvp.Key.Contains("CONCRETE") ||
+                    kvp.Key.Contains("CONC"))
+                    .ToList();
+
+                if (concreteBeams.Any())
+                {
+                    return concreteBeams.First().Value;
                 }
             }
 
@@ -196,7 +223,12 @@ namespace Revit.Import.Elements
                     // Make sure the family symbol is active
                     if (!familySymbol.IsActive)
                     {
-                        familySymbol.Activate();
+                        try { familySymbol.Activate(); }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Error activating family symbol: {ex.Message}");
+                            continue;
+                        }
                     }
 
                     // Create curve for beam
@@ -230,6 +262,54 @@ namespace Revit.Import.Elements
                     {
                         Debug.WriteLine($"Error setting beam offset parameters: {paramEx.Message}");
                         // Continue with beam creation even if offset setting fails
+                    }
+
+                    // Set lateral flag if beam is part of lateral system
+                    if (jsonBeam.IsLateral)
+                    {
+                        try
+                        {
+                            DB.Parameter lateralParam = beam.LookupParameter("Lateral");
+                            if (lateralParam != null && !lateralParam.IsReadOnly)
+                            {
+                                if (lateralParam.StorageType == DB.StorageType.Integer)
+                                {
+                                    lateralParam.Set(1);
+                                }
+                                else if (lateralParam.StorageType == DB.StorageType.String)
+                                {
+                                    lateralParam.Set("Yes");
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Error setting lateral parameter: {ex.Message}");
+                        }
+                    }
+
+                    // Set joist flag if beam is a joist
+                    if (jsonBeam.IsJoist)
+                    {
+                        try
+                        {
+                            DB.Parameter joistParam = beam.LookupParameter("Joist");
+                            if (joistParam != null && !joistParam.IsReadOnly)
+                            {
+                                if (joistParam.StorageType == DB.StorageType.Integer)
+                                {
+                                    joistParam.Set(1);
+                                }
+                                else if (joistParam.StorageType == DB.StorageType.String)
+                                {
+                                    joistParam.Set("Yes");
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Error setting joist parameter: {ex.Message}");
+                        }
                     }
 
                     count++;

@@ -36,7 +36,8 @@ namespace Revit.Import.Elements
             {
                 if (!symbol.IsActive)
                 {
-                    symbol.Activate();
+                    try { symbol.Activate(); }
+                    catch { continue; }
                 }
 
                 string key = symbol.Name.ToUpper();
@@ -70,8 +71,18 @@ namespace Revit.Import.Elements
             if (_braceTypes.Count == 0)
             {
                 // Get all structural framing types for fallback
+                collector = new DB.FilteredElementCollector(_doc);
+                collector.OfClass(typeof(DB.FamilySymbol));
+                collector.OfCategory(DB.BuiltInCategory.OST_StructuralFraming);
+
                 foreach (DB.FamilySymbol symbol in collector)
                 {
+                    if (!symbol.IsActive)
+                    {
+                        try { symbol.Activate(); }
+                        catch { continue; }
+                    }
+
                     string key = symbol.Name.ToUpper();
                     if (!_braceTypes.ContainsKey(key))
                     {
@@ -117,12 +128,23 @@ namespace Revit.Import.Elements
                 }
             }
 
-            // Try to match by shape
-            if (!string.IsNullOrEmpty(frameProps.Shape))
+            // Try to match by section name for steel sections
+            if (frameProps.SteelProps != null && !string.IsNullOrEmpty(frameProps.SteelProps.SectionName))
             {
-                // Look for elements that contain the shape designation
+                string sectionName = frameProps.SteelProps.SectionName.ToUpper();
+                if (_braceTypes.TryGetValue(sectionName, out DB.FamilySymbol typeBySectionName))
+                {
+                    return typeBySectionName;
+                }
+
+                // If exact match not found, try to match by section type
+                var sectionType = frameProps.SteelProps.SectionType;
+
+                // Get braces matching this section type prefix
                 var matches = _braceTypes.Where(kvp =>
-                    kvp.Key.Contains(frameProps.Shape.ToUpper())).ToList();
+                    kvp.Key.StartsWith(sectionType.ToString()) ||
+                    kvp.Key.Contains(sectionType.ToString()))
+                    .ToList();
 
                 if (matches.Any())
                 {
@@ -130,8 +152,22 @@ namespace Revit.Import.Elements
                 }
             }
 
+            // Try to match by concrete section if it's a concrete frame
+            if (frameProps.ConcreteProps != null)
+            {
+                // Try to find a concrete bracing element
+                var concreteTypes = _braceTypes.Where(kvp =>
+                    kvp.Key.Contains("CONCRETE") ||
+                    kvp.Key.Contains("CONC"))
+                    .ToList();
+
+                if (concreteTypes.Any())
+                {
+                    return concreteTypes.First().Value;
+                }
+            }
+
             // If no match found by name or shape, prioritize HSS type
-            Debug.WriteLine($"No direct match found for brace, defaulting to HSS type: {(hssType != null ? hssType.Name : "none found")}");
             return defaultType;
         }
 
@@ -210,6 +246,7 @@ namespace Revit.Import.Elements
                 {
                     // Skip if required data is missing
                     if (string.IsNullOrEmpty(jsonBrace.BaseLevelId) ||
+                        string.IsNullOrEmpty(jsonBrace.TopLevelId) ||
                         jsonBrace.StartPoint == null ||
                         jsonBrace.EndPoint == null)
                     {
@@ -217,33 +254,27 @@ namespace Revit.Import.Elements
                         continue;
                     }
 
-                    // Get the base level ElementId
-                    if (!levelIdMap.TryGetValue(jsonBrace.BaseLevelId, out DB.ElementId baseLevelId))
+                    // Get the base and top level ElementIds
+                    if (!levelIdMap.TryGetValue(jsonBrace.BaseLevelId, out DB.ElementId baseLevelId) ||
+                        !levelIdMap.TryGetValue(jsonBrace.TopLevelId, out DB.ElementId topLevelId))
                     {
                         Debug.WriteLine($"Skipping brace {jsonBrace.Id} due to missing level mapping.");
                         continue;
                     }
 
-                    // Get base level
+                    // Get base and top levels
                     DB.Level baseLevel = _doc.GetElement(baseLevelId) as DB.Level;
-                    if (baseLevel == null)
-                    {
-                        Debug.WriteLine($"Skipping brace {jsonBrace.Id} due to invalid level.");
-                        continue;
-                    }
-
-                    // Get the top level ElementId
-                    if (!levelIdMap.TryGetValue(jsonBrace.TopLevelId, out DB.ElementId topLevelId))
-                    {
-                        Debug.WriteLine($"Skipping brace {jsonBrace.Id} due to missing level mapping.");
-                        continue;
-                    }
-
-                    // Get top level
                     DB.Level topLevel = _doc.GetElement(topLevelId) as DB.Level;
-                    if (baseLevel == null)
+                    if (baseLevel == null || topLevel == null)
                     {
                         Debug.WriteLine($"Skipping brace {jsonBrace.Id} due to invalid level.");
+                        continue;
+                    }
+
+                    // Check that base and top levels have different elevations
+                    if (Math.Abs(baseLevel.Elevation - topLevel.Elevation) < 0.01)
+                    {
+                        Debug.WriteLine($"Skipping brace {jsonBrace.Id} due to identical base and top level elevations.");
                         continue;
                     }
 
@@ -260,7 +291,12 @@ namespace Revit.Import.Elements
                     // Make sure the family symbol is active
                     if (!familySymbol.IsActive)
                     {
-                        familySymbol.Activate();
+                        try { familySymbol.Activate(); }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Error activating family symbol: {ex.Message}");
+                            continue;
+                        }
                     }
 
                     // Create curve for brace
@@ -268,6 +304,14 @@ namespace Revit.Import.Elements
                     double endPointZ = topLevel.ProjectElevation;
                     DB.XYZ startPoint = Helpers.ConvertToRevitCoordinates(jsonBrace.StartPoint, startPointZ);
                     DB.XYZ endPoint = Helpers.ConvertToRevitCoordinates(jsonBrace.EndPoint, endPointZ);
+
+                    // Ensure the points are not too close
+                    if (startPoint.DistanceTo(endPoint) < 0.1)
+                    {
+                        Debug.WriteLine($"Skipping brace {jsonBrace.Id} due to start and end points being too close.");
+                        continue;
+                    }
+
                     DB.Line braceLine = DB.Line.CreateBound(startPoint, endPoint);
 
                     // Create the structural brace
@@ -279,12 +323,12 @@ namespace Revit.Import.Elements
 
                     try
                     {
-                        // Set reference level to top level
+                        // Set reference level to base level
                         DB.Parameter refLevelParam = brace.get_Parameter(DB.BuiltInParameter.INSTANCE_REFERENCE_LEVEL_PARAM);
                         if (refLevelParam != null && !refLevelParam.IsReadOnly)
                         {
-                            refLevelParam.Set(topLevelId);
-                            Debug.WriteLine($"Brace {jsonBrace.Id}: Set reference level to top level");
+                            refLevelParam.Set(baseLevelId);
+                            Debug.WriteLine($"Brace {jsonBrace.Id}: Set reference level to base level");
                         }
 
                         // Set top level parameter
@@ -312,45 +356,27 @@ namespace Revit.Import.Elements
                         Debug.WriteLine($"Error setting brace parameters: {paramEx.Message}");
                         // Continue with brace creation even if parameter setting fails
                     }
-                    
 
                     // Set attachment level references in a separate try block
                     try
                     {
-                        // Log available parameters for debugging
-                        foreach (DB.Parameter param in brace.Parameters)
-                        {
-                            if (param.Definition.Name.Contains("Attachment") ||
-                                param.Definition.Name.Contains("Level") ||
-                                param.Definition.Name.Contains("Reference"))
-                            {
-                                Debug.WriteLine($"Brace {jsonBrace.Id}: Has parameter {param.Definition.Name}, ReadOnly: {param.IsReadOnly}, StorageType: {param.StorageType}");
-                            }
-                        }
-
                         // Try multiple parameter names that might be used for attachment levels
-                        SetParameterByName(brace, "Start Level Reference", levelIdMap[jsonBrace.TopLevelId], $"Brace {jsonBrace.Id}: Start level reference");
-                        SetParameterByName(brace, "End Level Reference", levelIdMap[jsonBrace.BaseLevelId], $"Brace {jsonBrace.Id}: End level reference");
+                        SetParameterByName(brace, "Start Level Reference", topLevelId, $"Brace {jsonBrace.Id}: Start level reference");
+                        SetParameterByName(brace, "End Level Reference", baseLevelId, $"Brace {jsonBrace.Id}: End level reference");
 
                         // Try built-in parameters
-                        if (levelIdMap.TryGetValue(jsonBrace.TopLevelId, out DB.ElementId startLevelId))
+                        DB.Parameter startLevelParam = brace.get_Parameter(DB.BuiltInParameter.STRUCTURAL_ATTACHMENT_START_LEVEL_REFERENCE);
+                        if (startLevelParam != null && !startLevelParam.IsReadOnly)
                         {
-                            DB.Parameter startLevelParam = brace.get_Parameter(DB.BuiltInParameter.STRUCTURAL_ATTACHMENT_START_LEVEL_REFERENCE);
-                            if (startLevelParam != null && !startLevelParam.IsReadOnly)
-                            {
-                                startLevelParam.Set(startLevelId);
-                                Debug.WriteLine($"Brace {jsonBrace.Id}: Start level attachment set to top level");
-                            }
+                            startLevelParam.Set(topLevelId);
+                            Debug.WriteLine($"Brace {jsonBrace.Id}: Start level attachment set to top level");
                         }
 
-                        if (levelIdMap.TryGetValue(jsonBrace.BaseLevelId, out DB.ElementId endLevelId))
+                        DB.Parameter endLevelParam = brace.get_Parameter(DB.BuiltInParameter.STRUCTURAL_ATTACHMENT_END_LEVEL_REFERENCE);
+                        if (endLevelParam != null && !endLevelParam.IsReadOnly)
                         {
-                            DB.Parameter endLevelParam = brace.get_Parameter(DB.BuiltInParameter.STRUCTURAL_ATTACHMENT_END_LEVEL_REFERENCE);
-                            if (endLevelParam != null && !endLevelParam.IsReadOnly)
-                            {
-                                endLevelParam.Set(endLevelId);
-                                Debug.WriteLine($"Brace {jsonBrace.Id}: End level attachment set to base level");
-                            }
+                            endLevelParam.Set(baseLevelId);
+                            Debug.WriteLine($"Brace {jsonBrace.Id}: End level attachment set to base level");
                         }
                     }
                     catch (Exception attachEx)

@@ -79,23 +79,40 @@ namespace Revit.Export.Properties
                     MaterialType materialType = DetermineMaterialType(famSymbol);
                     string materialId = _materialTypeToIdMap[materialType];
 
-                    // Determine shape type
-                    FrameShapeType shapeType = DetermineShapeType(famSymbol);
-
                     // Create frame property
                     FrameProperties frameProperty = new FrameProperties(
                         famSymbol.Name,
                         materialId,
-                        shapeType
+                        materialType == MaterialType.Steel ? FrameMaterialType.Steel : FrameMaterialType.Concrete
                     );
 
-                    // Get dimensions
-                    PopulateDimensions(frameProperty, famSymbol);
+                    // Set shape-specific properties based on material type
+                    if (materialType == MaterialType.Steel)
+                    {
+                        SteelSectionType sectionType = DetermineSteelSectionType(famSymbol);
+                        frameProperty.SteelProps = new SteelFrameProperties
+                        {
+                            SectionType = sectionType,
+                            SectionName = famSymbol.Name
+                        };
+                    }
+                    else if (materialType == MaterialType.Concrete)
+                    {
+                        ConcreteSectionType sectionType = DetermineConcreteSectionType(famSymbol);
+                        frameProperty.ConcreteProps = new ConcreteFrameProperties
+                        {
+                            SectionType = sectionType,
+                            SectionName = famSymbol.Name
+                        };
+
+                        // Add dimensions to the dictionary
+                        GetConcreteDimensions(famSymbol, frameProperty.ConcreteProps);
+                    }
 
                     frameProperties.Add(frameProperty);
                     count++;
 
-                    Debug.WriteLine($"Exported frame type: {famSymbol.Name}, Material: {materialType}, MaterialID: {materialId}, Shape: {shapeType}");
+                    Debug.WriteLine($"Exported frame type: {famSymbol.Name}, Material: {materialType}, MaterialID: {materialId}");
                 }
                 catch (Exception ex)
                 {
@@ -212,7 +229,7 @@ namespace Revit.Export.Properties
             return MaterialType.Steel;
         }
 
-        private FrameShapeType DetermineShapeType(DB.FamilySymbol famSymbol)
+        private SteelSectionType DetermineSteelSectionType(DB.FamilySymbol famSymbol)
         {
             string famName = famSymbol.FamilyName.ToUpper();
             string typeName = famSymbol.Name.ToUpper();
@@ -220,31 +237,54 @@ namespace Revit.Export.Properties
 
             // Check for W shapes (wide flange)
             if (typeName.StartsWith("W") && typeName.Contains("X"))
-                return FrameShapeType.W;
+                return SteelSectionType.W;
 
             // Check for HSS shapes
             if (combinedName.Contains("HSS") || combinedName.Contains("TUBE"))
-                return FrameShapeType.HSS;
+                return SteelSectionType.HSS;
 
             // Check for pipe shapes
             if (combinedName.Contains("PIPE"))
-                return FrameShapeType.PIPE;
+                return SteelSectionType.PIPE;
 
             // Check for channel shapes
             if (typeName.StartsWith("C") && typeName.Contains("X") ||
                 combinedName.Contains("CHANNEL"))
-                return FrameShapeType.C;
+                return SteelSectionType.C;
 
             // Check for angle shapes
             if (typeName.StartsWith("L") && typeName.Contains("X") ||
                 combinedName.Contains("ANGLE"))
-                return FrameShapeType.L;
+                return SteelSectionType.L;
 
-            // Default to rectangular shape
-            return FrameShapeType.RECT;
+            // Default to W shape if nothing else matches
+            return SteelSectionType.W;
         }
 
-        private void PopulateDimensions(FrameProperties frameProperty, DB.FamilySymbol famSymbol)
+        private ConcreteSectionType DetermineConcreteSectionType(DB.FamilySymbol famSymbol)
+        {
+            string famName = famSymbol.FamilyName.ToUpper();
+            string typeName = famSymbol.Name.ToUpper();
+            string combinedName = $"{famName} {typeName}";
+
+            // Check for circular shapes
+            if (combinedName.Contains("CIRCULAR") || combinedName.Contains("ROUND"))
+                return ConcreteSectionType.Circular;
+
+            // Check for T-shaped sections
+            if (combinedName.Contains("T-SHAPED") || combinedName.Contains("T SHAPED") ||
+                combinedName.Contains("TEE"))
+                return ConcreteSectionType.TShaped;
+
+            // Check for L-shaped sections
+            if (combinedName.Contains("L-SHAPED") || combinedName.Contains("L SHAPED"))
+                return ConcreteSectionType.LShaped;
+
+            // Default to rectangular for most concrete columns
+            return ConcreteSectionType.Rectangular;
+        }
+
+        private void GetConcreteDimensions(DB.FamilySymbol famSymbol, ConcreteFrameProperties concreteProps)
         {
             // Try to find an instance to get parameter values
             DB.FamilyInstance instance = null;
@@ -260,85 +300,46 @@ namespace Revit.Export.Properties
                 // Ignore errors finding instance
             }
 
-            // Default dimensions
-            double depth = 0;
-            double width = 0;
-
             // Try to get dimensions from parameters
             if (instance != null)
             {
                 // Parameter names vary by family - try common ones
-                string[] depthParams = { "h", "d", "Height", "Depth", "DEPTH" };
-                string[] widthParams = { "b", "w", "Width", "WIDTH", "bf", "Flange Width" };
+                string[] dimensionParams = {
+                    "b", "h", "d", "Height", "Width", "Depth",
+                    "DEPTH", "WIDTH", "Diameter", "Radius"
+                };
 
-                foreach (string paramName in depthParams)
+                foreach (string paramName in dimensionParams)
                 {
                     double? value = GetParameterValueInInches(instance, paramName);
                     if (value.HasValue)
                     {
-                        depth = value.Value;
-                        break;
-                    }
-                }
-
-                foreach (string paramName in widthParams)
-                {
-                    double? value = GetParameterValueInInches(instance, paramName);
-                    if (value.HasValue)
-                    {
-                        width = value.Value;
-                        break;
+                        // Store in dictionary using parameter name
+                        concreteProps.Dimensions[paramName] = value.Value.ToString();
                     }
                 }
             }
 
-            // If we couldn't get dimensions, try to parse from name for W shapes
-            if ((depth == 0 || width == 0) && frameProperty.Shape == FrameShapeType.W)
+            // If dimensions dictionary is empty, add some defaults based on section type
+            if (concreteProps.Dimensions.Count == 0)
             {
-                // Parse W-shape name (e.g., W14X90 means 14 inches deep)
-                string name = famSymbol.Name;
-                if (name.StartsWith("W") && name.Contains("X"))
+                switch (concreteProps.SectionType)
                 {
-                    try
-                    {
-                        string[] parts = name.Substring(1).Split('X');
-                        if (parts.Length >= 1)
-                        {
-                            depth = double.Parse(parts[0]);
-                        }
-                    }
-                    catch
-                    {
-                        // Ignore parsing errors
-                    }
+                    case ConcreteSectionType.Rectangular:
+                        concreteProps.Dimensions["b"] = "12";  // Width
+                        concreteProps.Dimensions["h"] = "12";  // Height
+                        break;
+                    case ConcreteSectionType.Circular:
+                        concreteProps.Dimensions["Diameter"] = "12";
+                        break;
+                    case ConcreteSectionType.TShaped:
+                    case ConcreteSectionType.LShaped:
+                        concreteProps.Dimensions["b"] = "12";  // Width
+                        concreteProps.Dimensions["h"] = "12";  // Height
+                        concreteProps.Dimensions["bf"] = "24"; // Flange width
+                        concreteProps.Dimensions["tf"] = "6";  // Flange thickness
+                        break;
                 }
-            }
-
-            // Set dimensions (ensuring non-zero)
-            frameProperty.Depth = depth > 0 ? depth : 12.0;
-            frameProperty.Width = width > 0 ? width : 6.0;
-
-            // Set additional dimensions based on shape
-            switch (frameProperty.Shape)
-            {
-                case FrameShapeType.W:
-                    frameProperty.WebThickness = 0.375;
-                    frameProperty.FlangeThickness = 0.625;
-                    break;
-                case FrameShapeType.HSS:
-                    frameProperty.WallThickness = 0.25;
-                    break;
-                case FrameShapeType.PIPE:
-                    frameProperty.OuterDiameter = width > 0 ? width : 6.0;
-                    frameProperty.WallThickness = 0.25;
-                    break;
-                case FrameShapeType.C:
-                    frameProperty.WebThickness = 0.375;
-                    frameProperty.FlangeThickness = 0.5;
-                    break;
-                case FrameShapeType.L:
-                    frameProperty.Thickness = 0.375;
-                    break;
             }
         }
 

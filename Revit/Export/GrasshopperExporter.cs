@@ -159,12 +159,12 @@ namespace Revit.Export
             {
                 // Export floors - filter by level
                 FloorExport floorExport = new FloorExport(_doc);
-                int floorCount = floorExport.Export(_model.Elements.Floors, _model, selectedLevelNames);
+                int floorCount = floorExport.Export(_model.Elements.Floors, _model);
                 Debug.WriteLine($"Exported {floorCount} floors");
 
                 // Export columns - filter by level
                 ColumnExport columnExport = new ColumnExport(_doc);
-                int columnCount = columnExport.Export(_model.Elements.Columns, _model, selectedLevelNames);
+                int columnCount = columnExport.Export(_model.Elements.Columns, _model);
                 Debug.WriteLine($"Exported {columnCount} columns");
 
                 // Additional structural element exports can be added here

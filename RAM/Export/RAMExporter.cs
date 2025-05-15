@@ -123,6 +123,10 @@ namespace RAM
                         WallExport wallExporter = new WallExport(modelManager.Model, lengthUnit);
                         model.Elements.Walls = wallExporter.Export();
 
+                        // Extract floors
+                        FloorExport floorExporter = new FloorExport(modelManager.Model, lengthUnit);
+                        model.Elements.Floors = floorExporter.Export();
+
                         // Extract columns using the mapping utility
                         ColumnExport columnExporter = new ColumnExport(modelManager.Model, lengthUnit);
                         model.Elements.Columns = columnExporter.Export();
@@ -179,21 +183,11 @@ namespace RAM
             var rigidDiaphragm = new Diaphragm
             {
                 Id = IdGenerator.Generate(IdGenerator.Properties.DIAPHRAGM),
-                Name = "Rigid Diaphragm",
+                Name = "D1",
                 Type = DiaphragmType.Rigid
             };
 
             diaphragms.Add(rigidDiaphragm);
-
-            // Add a semi-rigid diaphragm
-            var semiRigidDiaphragm = new Diaphragm
-            {
-                Id = IdGenerator.Generate(IdGenerator.Properties.DIAPHRAGM),
-                Name = "Semi-Rigid Diaphragm",
-                Type = DiaphragmType.SemiRigid
-            };
-
-            diaphragms.Add(semiRigidDiaphragm);
 
             return diaphragms;
         }

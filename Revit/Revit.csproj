@@ -182,7 +182,6 @@
     <Compile Include="Import\Elements\BraceImport.cs" />
     <Compile Include="Import\Elements\ColumnImport.cs" />
     <Compile Include="Import\Elements\FloorImport.cs" />
-    <Compile Include="Import\Elements\FrameElementImport.cs" />
     <Compile Include="Import\Elements\IsolatedFootingImport.cs" />
     <Compile Include="Import\Elements\WallImport.cs" />
     <Compile Include="Import\ETABSImportCommand.cs" />

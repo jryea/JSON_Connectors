@@ -96,7 +96,7 @@ namespace RAM.Export.Elements
 
                         if (ramStory.GetFloorType().lUID != floorType.lUID)
                         {
-                            // Console.WriteLine($"Story {ramStory.strLabel} uses different floor type: {ramStory.GetFloorType().strLabel}");
+                            Console.WriteLine($"Story {ramStory.strLabel} uses different floor type: {ramStory.GetFloorType().strLabel}");
                             continue;
                         }
 

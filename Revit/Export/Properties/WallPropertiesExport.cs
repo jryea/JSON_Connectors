@@ -12,7 +12,7 @@ namespace Revit.Export.Properties
         private readonly DB.Document _doc;
         private Dictionary<DB.ElementId, string> _materialIdMap = new Dictionary<DB.ElementId, string>();
 
-        public WallPropertiesExport(DB.Document doc) 
+        public WallPropertiesExport(DB.Document doc)
         {
             _doc = doc;
             CreateMaterialIdMapping();
@@ -82,11 +82,11 @@ namespace Revit.Export.Properties
                         thickness
                     );
 
-                    // Set wall function
-                    wallProperty.Function = wallType.Function.ToString();
+                    // Add to wall function to dictionary
+                    wallProperty.Properties["Function"] = wallType.Function.ToString();
 
-                    // Set modeling type
-                    wallProperty.ModelingType = ShellModelingType.ShellThin;
+                    // Set unit weight for self weight (typically 150 pcf for concrete)
+                    wallProperty.UnitWeightForSelfWeight = 150;
 
                     wallProperties.Add(wallProperty);
                     count++;

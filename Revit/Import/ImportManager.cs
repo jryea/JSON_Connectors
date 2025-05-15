@@ -52,7 +52,7 @@ namespace Revit.Import
                     // 2. Import layout elements
                     ImportLayoutElements(_currentModel, ref totalImported);
 
-                    // 5. Import structural elements
+                    // 3. Import structural elements
                     ImportStructuralElements(_currentModel, ref totalImported);
 
                     transaction.Commit();
@@ -69,92 +69,91 @@ namespace Revit.Import
 
         private void CreateMappings(BaseModel model)
         {
-            CreateLevelMappings(model.ModelLayout.Levels);
+            if (model?.ModelLayout?.Levels != null)
+            {
+                CreateLevelMappings(model.ModelLayout.Levels);
+            }
         }
 
         private void ImportLayoutElements(BaseModel model, ref int totalImported)
         {
             // Import grids
-            GridImport gridImport = new GridImport(_doc);
-            int gridsImported = gridImport.Import(model.ModelLayout.Grids);
-            totalImported += gridsImported;
+            if (model?.ModelLayout?.Grids != null && model.ModelLayout.Grids.Count > 0)
+            {
+                GridImport gridImport = new GridImport(_doc);
+                int gridsImported = gridImport.Import(model.ModelLayout.Grids);
+                totalImported += gridsImported;
+                Debug.WriteLine($"Imported {gridsImported} grids");
+            }
 
             // Import levels
-            LevelImport levelImport = new LevelImport(_doc);
-            int levelsImported = levelImport.Import(model.ModelLayout.Levels, _levelIdMap);
-            totalImported += levelsImported;
+            if (model?.ModelLayout?.Levels != null && model.ModelLayout.Levels.Count > 0)
+            {
+                LevelImport levelImport = new LevelImport(_doc);
+                int levelsImported = levelImport.Import(model.ModelLayout.Levels, _levelIdMap);
+                totalImported += levelsImported;
+                Debug.WriteLine($"Imported {levelsImported} levels");
+            }
         }
 
         private void ImportStructuralElements(BaseModel model, ref int totalImported)
         {
-            // Import beams using the new BeamImport class
-            if (model.Elements.Beams != null && model.Elements.Beams.Count > 0)
+            // Import beams
+            if (model?.Elements?.Beams != null && model.Elements.Beams.Count > 0)
             {
                 BeamImport beamImport = new BeamImport(_doc);
                 int beamsImported = beamImport.Import(model.Elements.Beams, _levelIdMap, model);
                 totalImported += beamsImported;
+                Debug.WriteLine($"Imported {beamsImported} beams");
             }
 
-            // Import braces using the new BraceImport class
-            if (model.Elements.Braces != null && model.Elements.Braces.Count > 0)
+            // Import braces
+            if (model?.Elements?.Braces != null && model.Elements.Braces.Count > 0)
             {
                 BraceImport braceImport = new BraceImport(_doc);
                 int bracesImported = braceImport.Import(model.Elements.Braces, _levelIdMap, model);
                 totalImported += bracesImported;
+                Debug.WriteLine($"Imported {bracesImported} braces");
             }
 
             // Import columns
-            if (model.Elements.Columns != null && model.Elements.Columns.Count > 0)
+            if (model?.Elements?.Columns != null && model.Elements.Columns.Count > 0)
             {
                 ColumnImport columnImport = new ColumnImport(_doc);
                 int columnsImported = columnImport.Import(model.Elements.Columns, _levelIdMap, model);
                 totalImported += columnsImported;
+                Debug.WriteLine($"Imported {columnsImported} columns");
             }
 
             // Import floors
-            if (model.Elements.Floors != null && model.Elements.Floors.Count > 0)
+            if (model?.Elements?.Floors != null && model.Elements.Floors.Count > 0)
             {
                 FloorImport floorImport = new FloorImport(_doc);
                 int floorsImported = floorImport.Import(_levelIdMap, model);
                 totalImported += floorsImported;
+                Debug.WriteLine($"Imported {floorsImported} floors");
             }
 
             // Import walls
-            if (model.Elements.Walls != null && model.Elements.Walls.Count > 0)
+            if (model?.Elements?.Walls != null && model.Elements.Walls.Count > 0)
             {
                 WallImport wallImport = new WallImport(_doc);
                 int wallsImported = wallImport.Import(model.Elements.Walls, _levelIdMap, model);
                 totalImported += wallsImported;
+                Debug.WriteLine($"Imported {wallsImported} walls");
             }
 
             // Import isolated footings
-            if (model.Elements.IsolatedFootings != null && model.Elements.IsolatedFootings.Count > 0)
+            if (model?.Elements?.IsolatedFootings != null && model.Elements.IsolatedFootings.Count > 0)
             {
                 IsolatedFootingImport footingImport = new IsolatedFootingImport(_doc);
                 int footingsImported = footingImport.Import(model.Elements.IsolatedFootings, _levelIdMap, model);
                 totalImported += footingsImported;
+                Debug.WriteLine($"Imported {footingsImported} isolated footings");
             }
         }
 
-        // Creates mappings between JSON level IDs and Revit level elements
-        // For ImportManager.cs
-        private string FormatLevelName(string jsonLevelName)
-        {
-            if (string.IsNullOrEmpty(jsonLevelName))
-                return "Level";
-
-            // If the name is only a number, add "Level " prefix
-            if (int.TryParse(jsonLevelName, out _))
-                return $"Level {jsonLevelName}";
-
-            // If the name contains "story", replace "story" with "level"
-            if (jsonLevelName.ToLower().Contains("story"))
-                return jsonLevelName.ToLower().Replace("story", "Level");
-
-            // Otherwise, use the name as is
-            return jsonLevelName;
-        }
-
+        // Creates level-to-floor-type mapping for selected levels only
         private void CreateLevelMappings(List<Level> levels)
         {
             _levelIdMap.Clear();
@@ -197,6 +196,24 @@ namespace Revit.Import
                     Debug.WriteLine($"Failed to create level '{levelName}': {ex.Message}");
                 }
             }
+        }
+
+        // For ImportManager.cs
+        private string FormatLevelName(string jsonLevelName)
+        {
+            if (string.IsNullOrEmpty(jsonLevelName))
+                return "Level";
+
+            // If the name is only a number, add "Level " prefix
+            if (int.TryParse(jsonLevelName, out _))
+                return $"Level {jsonLevelName}";
+
+            // If the name contains "story", replace "story" with "level"
+            if (jsonLevelName.ToLower().Contains("story"))
+                return jsonLevelName.ToLower().Replace("story", "Level");
+
+            // Otherwise, use the name as is
+            return jsonLevelName;
         }
     }
 }

@@ -5,7 +5,6 @@ using DB = Autodesk.Revit.DB;
 using Core.Models;
 using Core.Models.Properties;
 using System.Diagnostics;
-using Autodesk.Revit.DB.Mechanical;
 
 namespace Revit.Export.Properties
 {
@@ -87,8 +86,14 @@ namespace Revit.Export.Properties
                         materialId
                     );
 
-                    // Add specific properties based on type
-                    SetFloorSpecificProperties(floorProperty, floorType, cs);
+                    // Set appropriate modeling type
+                    floorProperty.ModelingType = ModelingType.Membrane;
+
+                    // For composite floors, set deck properties
+                    if (IsDeckType(floorType))
+                    {
+                        SetDeckProperties(floorProperty, floorType, cs);
+                    }
 
                     floorProperties.Add(floorProperty);
                     count++;
@@ -117,11 +122,18 @@ namespace Revit.Export.Properties
 
             if (typeName.Contains("METAL DECK") || typeName.Contains("DECK") ||
                 typeName.Contains("COMPOSITE"))
-                return StructuralFloorType.Composite;
+                return StructuralFloorType.FilledDeck;
             else if (typeName.Contains("NONCOMPOSITE"))
-                return StructuralFloorType.NonComposite;
+                return StructuralFloorType.UnfilledDeck;
             else
                 return StructuralFloorType.Slab;
+        }
+
+        private bool IsDeckType(DB.FloorType floorType)
+        {
+            string typeName = floorType.Name.ToUpper();
+            return typeName.Contains("METAL DECK") || typeName.Contains("DECK") ||
+                   typeName.Contains("COMPOSITE") || typeName.Contains("NONCOMPOSITE");
         }
 
         private string GetMaterialId(DB.CompoundStructure cs)
@@ -138,39 +150,48 @@ namespace Revit.Export.Properties
             return null;
         }
 
-        private void SetFloorSpecificProperties(FloorProperties floorProperty, DB.FloorType floorType, DB.CompoundStructure cs)
+        private void SetDeckProperties(FloorProperties floorProperty, DB.FloorType floorType, DB.CompoundStructure cs)
         {
-            if (floorProperty.Type == StructuralFloorType.Slab)
+            // For composite/deck floors, set the deck properties
+            DeckProperties deckProps = floorProperty.DeckProperties;
+
+            // Try to determine deck type from name
+            string typeName = floorType.Name.ToUpper();
+
+            // Set default deck name
+            if (typeName.Contains("1.5"))
             {
-                floorProperty.ModelingType = ShellModelingType.ShellThin;
-                floorProperty.IsRibbed = false;
-                floorProperty.IsWaffle = false;
-                floorProperty.IsTwoWay = true;
+                deckProps.DeckType = "VULCRAFT 1.5VL";
+                deckProps.RibDepth = 1.5;
             }
-            else if (floorProperty.Type == StructuralFloorType.Composite ||
-                     floorProperty.Type == StructuralFloorType.NonComposite)
+            else if (typeName.Contains("2"))
             {
-                // For composite floors, try to determine deck parameters
-                floorProperty.DeckType = DeckType.Filled;
-
-                // Try to get deck depth from name or parameters
-                double deckDepth = 1.5; // Default deck depth in inches
-                if (floorType.Name.Contains("1.5"))
-                    deckDepth = 1.5;
-                else if (floorType.Name.Contains("2"))
-                    deckDepth = 2.0;
-                else if (floorType.Name.Contains("3"))
-                    deckDepth = 3.0;
-
-                floorProperty.DeckDepth = deckDepth;
-                floorProperty.DeckGage = 22; // Default gage
-                floorProperty.DeckMaterialName = "A992Fy50"; // Default deck material
-
-                // Calculate topping thickness
-                double toppingThickness = floorProperty.Thickness - deckDepth;
-                if (toppingThickness > 0)
-                    floorProperty.ToppingThickness = toppingThickness;
+                deckProps.DeckType = "VULCRAFT 2VL";
+                deckProps.RibDepth = 2.0;
             }
+            else if (typeName.Contains("3"))
+            {
+                deckProps.DeckType = "VULCRAFT 3VL";
+                deckProps.RibDepth = 3.0;
+            }
+
+            // Set a default steel gage
+            if (typeName.Contains("18GA"))
+                deckProps.DeckShearThickness = 0.0474;
+            else if (typeName.Contains("20GA"))
+                deckProps.DeckShearThickness = 0.0358;
+            else if (typeName.Contains("22GA"))
+                deckProps.DeckShearThickness = 0.0295;
+
+            // Set default deck geometry if not already set
+            if (deckProps.RibWidthTop == 0)
+                deckProps.RibWidthTop = 6.0;
+
+            if (deckProps.RibWidthBottom == 0)
+                deckProps.RibWidthBottom = 4.0;
+
+            if (deckProps.RibSpacing == 0)
+                deckProps.RibSpacing = 12.0;
         }
     }
 }

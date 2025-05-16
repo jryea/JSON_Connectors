@@ -59,7 +59,7 @@ namespace ETABS.Import.Elements.LineAssignment
                 }
 
                 // Create line assignment with appropriate release (typically "PINNED")
-                sb.AppendLine(FormatBraceAssign(lineId, storyName, sectionName));
+                sb.AppendLine(FormatBraceAssign(lineId, storyName, sectionName, brace));
             }
 
             return sb.ToString();
@@ -70,12 +70,39 @@ namespace ETABS.Import.Elements.LineAssignment
             string lineId,
             string story,
             string section,
+            Brace brace,
             string release = "PINNED",
             double maxStaSpc = 24,
             string autoMesh = "YES",
             string meshAtIntersections = "YES")
         {
-            return $"  LINEASSIGN  \"{lineId}\"  \"{story}\"  SECTION \"{section}\"  RELEASE \"{release}\"  MAXSTASPC {maxStaSpc} AUTOMESH \"{autoMesh}\"  MESHATINTERSECTIONS \"{meshAtIntersections}\"";
+            StringBuilder sb = new StringBuilder($"  LINEASSIGN  \"{lineId}\"  \"{story}\"  SECTION \"{section}\"  RELEASE \"{release}\"");
+
+            // Add modifiers if they deviate from default value of 1.0
+            if (brace?.ETABSModifiers != null)
+            {
+                // Using Math.Abs to compare floating point values with a small tolerance
+                if (Math.Abs(brace.ETABSModifiers.Area - 1.0) > 0.0001)
+                    sb.Append($" PROPMODA {brace.ETABSModifiers.Area:0.####}");
+                if (Math.Abs(brace.ETABSModifiers.A22 - 1.0) > 0.0001)
+                    sb.Append($" PROPMODA2 {brace.ETABSModifiers.A22:0.####}");
+                if (Math.Abs(brace.ETABSModifiers.A33 - 1.0) > 0.0001)
+                    sb.Append($" PROPMODA3 {brace.ETABSModifiers.A33:0.####}");
+                if (Math.Abs(brace.ETABSModifiers.Torsion - 1.0) > 0.0001)
+                    sb.Append($" PROPMODT {brace.ETABSModifiers.Torsion:0.####}");
+                if (Math.Abs(brace.ETABSModifiers.I22 - 1.0) > 0.0001)
+                    sb.Append($" PROPMODI22 {brace.ETABSModifiers.I22:0.####}");
+                if (Math.Abs(brace.ETABSModifiers.I33 - 1.0) > 0.0001)
+                    sb.Append($" PROPMODI33 {brace.ETABSModifiers.I33:0.####}");
+                if (Math.Abs(brace.ETABSModifiers.Mass - 1.0) > 0.0001)
+                    sb.Append($" PROPMODM {brace.ETABSModifiers.Mass:0.####}");
+                if (Math.Abs(brace.ETABSModifiers.Weight - 1.0) > 0.0001)
+                    sb.Append($" PROPMODW {brace.ETABSModifiers.Weight:0.####}");
+            }
+
+            sb.Append($" MAXSTASPC {maxStaSpc} AUTOMESH \"{autoMesh}\"  MESHATINTERSECTIONS \"{meshAtIntersections}\"");
+
+            return sb.ToString();
         }
     }
 }

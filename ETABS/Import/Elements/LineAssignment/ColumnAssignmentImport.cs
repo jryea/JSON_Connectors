@@ -77,12 +77,10 @@ namespace ETABS.Import.Elements.LineAssignment
                         lineId: e2kId,
                         story: storyName,
                         section: sectionName,
-                        orientation: column.Orientation,
+                        column: column,
                         minNumSta: 3,
                         autoMesh: "YES",
                         meshAtIntersections: "YES"));
-
-                    Console.WriteLine($"Created column assignment for {e2kId} at story {storyName} with section {sectionName} and orientation {column.Orientation}");
                 }
             }
 
@@ -101,15 +99,43 @@ namespace ETABS.Import.Elements.LineAssignment
             string lineId,
             string story,
             string section,
-            double orientation = 0.0,
+            Column column,
             int minNumSta = 3,
             string autoMesh = "YES",
             string meshAtIntersections = "YES")
         {
-            // Include ANG parameter only if orientation is not 0
-            string orientationPart = Math.Abs(orientation) > 0.001 ? $" ANG {orientation}" : "";
+            StringBuilder sb = new StringBuilder($"  LINEASSIGN \"{lineId}\" \"{story}\" SECTION \"{section}\"");
 
-            return $"  LINEASSIGN \"{lineId}\" \"{story}\" SECTION \"{section}\"{orientationPart} MINNUMSTA {minNumSta} AUTOMESH \"{autoMesh}\" MESHATINTERSECTIONS \"{meshAtIntersections}\"";
+            // Include ANG parameter only if orientation is not 0
+            if (column != null && Math.Abs(column.Orientation) > 0.001)
+                sb.Append($" ANG {column.Orientation}");
+
+            // Add modifiers if they deviate from default value of 1.0
+            if (column?.ETABSModifiers != null)
+            {
+                // Using Math.Abs to compare floating point values with a small tolerance
+                // Format with appropriate decimal places for cleaner output
+                if (Math.Abs(column.ETABSModifiers.Area - 1.0) > 0.0001)
+                    sb.Append($" PROPMODA {column.ETABSModifiers.Area:0.####}");
+                if (Math.Abs(column.ETABSModifiers.A22 - 1.0) > 0.0001)
+                    sb.Append($" PROPMODA2 {column.ETABSModifiers.A22:0.####}");
+                if (Math.Abs(column.ETABSModifiers.A33 - 1.0) > 0.0001)
+                    sb.Append($" PROPMODA3 {column.ETABSModifiers.A33:0.####}");
+                if (Math.Abs(column.ETABSModifiers.Torsion - 1.0) > 0.0001)
+                    sb.Append($" PROPMODT {column.ETABSModifiers.Torsion:0.####}");
+                if (Math.Abs(column.ETABSModifiers.I22 - 1.0) > 0.0001)
+                    sb.Append($" PROPMODI22 {column.ETABSModifiers.I22:0.####}");
+                if (Math.Abs(column.ETABSModifiers.I33 - 1.0) > 0.0001)
+                    sb.Append($" PROPMODI33 {column.ETABSModifiers.I33:0.####}");
+                if (Math.Abs(column.ETABSModifiers.Mass - 1.0) > 0.0001)
+                    sb.Append($" PROPMODM {column.ETABSModifiers.Mass:0.####}");
+                if (Math.Abs(column.ETABSModifiers.Weight - 1.0) > 0.0001)
+                    sb.Append($" PROPMODW {column.ETABSModifiers.Weight:0.####}");
+            }
+
+            sb.Append($" MINNUMSTA {minNumSta} AUTOMESH \"{autoMesh}\" MESHATINTERSECTIONS \"{meshAtIntersections}\"");
+
+            return sb.ToString();
         }
     }
 }

@@ -31,6 +31,19 @@ namespace ETABS.Utilities
             // Pattern for lateral flag
             var lateralPattern = new Regex(@"ISLATERAL\s+""([^""]+)""", RegexOptions.Singleline);
 
+            // Pattern for column angle
+            var anglePattern = new Regex(@"ANG\s+([\d\.\-]+)", RegexOptions.Singleline);
+
+            // Patterns for property modifiers
+            var modAreaPattern = new Regex(@"PROPMODA\s+([\d\.\-]+)", RegexOptions.Singleline);
+            var modArea2Pattern = new Regex(@"PROPMODA2\s+([\d\.\-]+)", RegexOptions.Singleline);
+            var modArea3Pattern = new Regex(@"PROPMODA3\s+([\d\.\-]+)", RegexOptions.Singleline);
+            var modTorsionPattern = new Regex(@"PROPMODT\s+([\d\.\-]+)", RegexOptions.Singleline);
+            var modI22Pattern = new Regex(@"PROPMODI22\s+([\d\.\-]+)", RegexOptions.Singleline);
+            var modI33Pattern = new Regex(@"PROPMODI33\s+([\d\.\-]+)", RegexOptions.Singleline);
+            var modMassPattern = new Regex(@"PROPMODM\s+([\d\.\-]+)", RegexOptions.Singleline);
+            var modWeightPattern = new Regex(@"PROPMODW\s+([\d\.\-]+)", RegexOptions.Singleline);
+
             var matches = basicPattern.Matches(lineAssignsSection);
 
             foreach (Match match in matches)
@@ -65,6 +78,14 @@ namespace ETABS.Utilities
                         isLateral = lateralMatch.Groups[1].Value.ToUpper() == "YES";
                     }
 
+                    // Check for column angle
+                    double? columnAngle = null;
+                    Match angleMatch = anglePattern.Match(completeLine);
+                    if (angleMatch.Success)
+                    {
+                        columnAngle = Convert.ToDouble(angleMatch.Groups[1].Value);
+                    }
+
                     // Create assignment object
                     var assignment = new LineAssignment
                     {
@@ -72,8 +93,58 @@ namespace ETABS.Utilities
                         Story = story,
                         Section = section,
                         ReleaseCondition = release,
-                        IsLateral = isLateral
+                        IsLateral = isLateral,
+                        ColumnAngle = columnAngle
                     };
+
+                    // Parse property modifiers
+                    Match modAreaMatch = modAreaPattern.Match(completeLine);
+                    if (modAreaMatch.Success)
+                    {
+                        assignment.AreaModifier = Convert.ToDouble(modAreaMatch.Groups[1].Value);
+                    }
+
+                    Match modArea2Match = modArea2Pattern.Match(completeLine);
+                    if (modArea2Match.Success)
+                    {
+                        assignment.A22Modifier = Convert.ToDouble(modArea2Match.Groups[1].Value);
+                    }
+
+                    Match modArea3Match = modArea3Pattern.Match(completeLine);
+                    if (modArea3Match.Success)
+                    {
+                        assignment.A33Modifier = Convert.ToDouble(modArea3Match.Groups[1].Value);
+                    }
+
+                    Match modTorsionMatch = modTorsionPattern.Match(completeLine);
+                    if (modTorsionMatch.Success)
+                    {
+                        assignment.TorsionModifier = Convert.ToDouble(modTorsionMatch.Groups[1].Value);
+                    }
+
+                    Match modI22Match = modI22Pattern.Match(completeLine);
+                    if (modI22Match.Success)
+                    {
+                        assignment.I22Modifier = Convert.ToDouble(modI22Match.Groups[1].Value);
+                    }
+
+                    Match modI33Match = modI33Pattern.Match(completeLine);
+                    if (modI33Match.Success)
+                    {
+                        assignment.I33Modifier = Convert.ToDouble(modI33Match.Groups[1].Value);
+                    }
+
+                    Match modMassMatch = modMassPattern.Match(completeLine);
+                    if (modMassMatch.Success)
+                    {
+                        assignment.MassModifier = Convert.ToDouble(modMassMatch.Groups[1].Value);
+                    }
+
+                    Match modWeightMatch = modWeightPattern.Match(completeLine);
+                    if (modWeightMatch.Success)
+                    {
+                        assignment.WeightModifier = Convert.ToDouble(modWeightMatch.Groups[1].Value);
+                    }
 
                     // Add to dictionary, creating list if needed
                     if (!LineAssignments.ContainsKey(lineId))
@@ -95,6 +166,16 @@ namespace ETABS.Utilities
             public string ReleaseCondition { get; set; }
             public bool IsLateral { get; set; }
             public double? ColumnAngle { get; set; }  // Nullable double for column orientation
+
+            // Property modifiers - defaulting to 1.0 (no modification)
+            public double AreaModifier { get; set; } = 1.0;
+            public double A22Modifier { get; set; } = 1.0;
+            public double A33Modifier { get; set; } = 1.0;
+            public double TorsionModifier { get; set; } = 1.0;
+            public double I22Modifier { get; set; } = 1.0;
+            public double I33Modifier { get; set; } = 1.0;
+            public double MassModifier { get; set; } = 1.0;
+            public double WeightModifier { get; set; } = 1.0;
         }
     }
 }

@@ -7,94 +7,144 @@ using Core.Models.ModelLayout;
 using Core.Models.Properties;
 
 namespace ETABS.Import.Elements.LineAssignment
-{
-    // Converts beam assignment information to ETABS E2K format
-    public class BeamAssignmentImport : IAssignmentImport
     {
-        private List<Beam> _beams;
-        private IEnumerable<Level> _levels;
-        private IEnumerable<FrameProperties> _frameProperties;
-
-        // Sets the data needed for converting beam assignments
-        public void SetData(
-            List<Beam> beams,
-            IEnumerable<Level> levels,
-            IEnumerable<FrameProperties> frameProperties)
+        // Converts beam assignment information to ETABS E2K format
+        public class BeamAssignmentImport : IAssignmentImport
         {
-            _beams = beams;
-            _levels = levels;
-            _frameProperties = frameProperties;
-        }
+            private List<Beam> _beams;
+            private IEnumerable<Level> _levels;
+            private IEnumerable<FrameProperties> _frameProperties;
 
-        // Converts beam assignments to E2K format
-        public string ExportAssignments(Dictionary<string, string> idMapping)
-        {
-            StringBuilder sb = new StringBuilder();
-
-            if (_beams == null || _beams.Count == 0 || idMapping == null || idMapping.Count == 0)
-                return sb.ToString();
-
-            foreach (var beam in _beams)
+            // Sets the data needed for converting beam assignments
+            public void SetData(
+                List<Beam> beams,
+                IEnumerable<Level> levels,
+                IEnumerable<FrameProperties> frameProperties)
             {
-                // Check if we have a mapping for this beam ID
-                if (!idMapping.TryGetValue(beam.Id, out string lineId))
-                    continue;
-
-                // Get the beam properties
-                string sectionName = "Unknown";
-                var frameProps = _frameProperties?.FirstOrDefault(fp => fp.Id == beam.FramePropertiesId);
-                if (frameProps != null)
-                {
-                    sectionName = frameProps.Name;
-                }
-
-                // Find the level for this beam
-                var level = _levels?.FirstOrDefault(l => l.Id == beam.LevelId);
-                string storyName = "Story1"; // Default
-                if (level != null)
-                {
-                    // Format story name (add "Story" prefix except for "Base")
-                    storyName = level.Name.ToLower() == "base" ? "Base" : $"Story{level.Name}";
-                }
-
-                // Create line assignment based on beam type (regular or joist)
-                if (beam.IsJoist)
-                {
-                    sb.AppendLine(FormatJoistAssign(lineId, storyName, sectionName));
-                }
-                else
-                {
-                    sb.AppendLine(FormatBeamAssign(lineId, storyName, sectionName));
-                }
+                _beams = beams;
+                _levels = levels;
+                _frameProperties = frameProperties;
             }
 
-            return sb.ToString();
-        }
+            // Converts beam assignments to E2K format
+            public string ExportAssignments(Dictionary<string, string> idMapping)
+            {
+                StringBuilder sb = new StringBuilder();
 
-        // Formats a beam assignment line for E2K format
-        private string FormatBeamAssign(
-            string lineId,
-            string story,
-            string section,
-            string cardinalPoint = "8",
-            double maxStaSpc = 24,
-            string autoMesh = "YES",
-            string meshAtIntersections = "YES")
-        {
-            return $"  LINEASSIGN  \"{lineId}\"  \"{story}\"  SECTION \"{section}\"  CARDINALPT {cardinalPoint}  MAXSTASPC {maxStaSpc} AUTOMESH \"{autoMesh}\"  MESHATINTERSECTIONS \"{meshAtIntersections}\"";
-        }
+                if (_beams == null || _beams.Count == 0 || idMapping == null || idMapping.Count == 0)
+                    return sb.ToString();
 
-        // Formats a joist assignment line for E2K format
-        private string FormatJoistAssign(
-            string lineId,
-            string story,
-            string section,
-            string cardinalPoint = "8",
-            double maxStaSpc = 24,
-            string autoMesh = "YES",
-            string meshAtIntersections = "YES")
-        {
-            return $"  LINEASSIGN  \"{lineId}\"  \"{story}\"  SECTION \"{section}\"  RELEASE \"TI M2I M2J M3I M3J\" CARDINALPT {cardinalPoint}  MAXSTASPC {maxStaSpc} AUTOMESH \"{autoMesh}\"  MESHATINTERSECTIONS \"{meshAtIntersections}\"";
+                foreach (var beam in _beams)
+                {
+                    // Check if we have a mapping for this beam ID
+                    if (!idMapping.TryGetValue(beam.Id, out string lineId))
+                        continue;
+
+                    // Get the beam properties
+                    string sectionName = "Unknown";
+                    var frameProps = _frameProperties?.FirstOrDefault(fp => fp.Id == beam.FramePropertiesId);
+                    if (frameProps != null)
+                    {
+                        sectionName = frameProps.Name;
+                    }
+
+                    // Find the level for this beam
+                    var level = _levels?.FirstOrDefault(l => l.Id == beam.LevelId);
+                    string storyName = "Story1"; // Default
+                    if (level != null)
+                    {
+                        // Format story name (add "Story" prefix except for "Base")
+                        storyName = level.Name.ToLower() == "base" ? "Base" : $"Story{level.Name}";
+                    }
+
+                    // Create line assignment based on beam type (regular or joist)
+                    if (beam.IsJoist)
+                    {
+                        sb.AppendLine(FormatJoistAssign(lineId, storyName, sectionName, beam));
+                    }
+                    else
+                    {
+                        sb.AppendLine(FormatBeamAssign(lineId, storyName, sectionName, beam));
+                    }
+                }
+
+                return sb.ToString();
+            }
+
+            // Formats a beam assignment line for E2K format
+            private string FormatBeamAssign(
+                string lineId,
+                string story,
+                string section,
+                Beam beam,
+                string cardinalPoint = "8",
+                double maxStaSpc = 24,
+                string autoMesh = "YES",
+                string meshAtIntersections = "YES")
+            {
+                StringBuilder sb = new StringBuilder($"  LINEASSIGN  \"{lineId}\"  \"{story}\"  SECTION \"{section}\"  CARDINALPT {cardinalPoint}");
+
+                // Add modifiers if they deviate from default value of 1.0
+                if (beam?.ETABSModifiers != null)
+                {
+                    if (Math.Abs(beam.ETABSModifiers.Area - 1.0) > 0.0001)
+                        sb.Append($" PROPMODA {beam.ETABSModifiers.Area}");
+                    if (Math.Abs(beam.ETABSModifiers.A22 - 1.0) > 0.0001)
+                        sb.Append($" PROPMODA2 {beam.ETABSModifiers.A22}");
+                    if (Math.Abs(beam.ETABSModifiers.A33 - 1.0) > 0.0001)
+                        sb.Append($" PROPMODA3 {beam.ETABSModifiers.A33}");
+                    if (Math.Abs(beam.ETABSModifiers.Torsion - 1.0) > 0.0001)
+                        sb.Append($" PROPMODT {beam.ETABSModifiers.Torsion}");
+                    if (Math.Abs(beam.ETABSModifiers.I22 - 1.0) > 0.0001)
+                        sb.Append($" PROPMODI22 {beam.ETABSModifiers.I22}");
+                    if (Math.Abs(beam.ETABSModifiers.I33 - 1.0) > 0.0001)
+                        sb.Append($" PROPMODI33 {beam.ETABSModifiers.I33}");
+                    if (Math.Abs(beam.ETABSModifiers.Mass - 1.0) > 0.0001)
+                        sb.Append($" PROPMODM {beam.ETABSModifiers.Mass}");
+                    if (Math.Abs(beam.ETABSModifiers.Weight - 1.0) > 0.0001)
+                        sb.Append($" PROPMODW {beam.ETABSModifiers.Weight}");
+                }
+
+                sb.Append($"  MAXSTASPC {maxStaSpc} AUTOMESH \"{autoMesh}\"  MESHATINTERSECTIONS \"{meshAtIntersections}\"");
+                return sb.ToString();
+            }
+
+            // Formats a joist assignment line for E2K format
+            private string FormatJoistAssign(
+                string lineId,
+                string story,
+                string section,
+                Beam beam,
+                string cardinalPoint = "8",
+                double maxStaSpc = 24,
+                string autoMesh = "YES",
+                string meshAtIntersections = "YES")
+            {
+                StringBuilder sb = new StringBuilder($"  LINEASSIGN  \"{lineId}\"  \"{story}\"  SECTION \"{section}\"  RELEASE \"TI M2I M2J M3I M3J\" CARDINALPT {cardinalPoint}");
+
+                // Add modifiers if they deviate from default value of 1.0
+                if (beam?.ETABSModifiers != null)
+                {
+                    if (Math.Abs(beam.ETABSModifiers.Area - 1.0) > 0.0001)
+                        sb.Append($" PROPMODA {beam.ETABSModifiers.Area}");
+                    if (Math.Abs(beam.ETABSModifiers.A22 - 1.0) > 0.0001)
+                        sb.Append($" PROPMODA2 {beam.ETABSModifiers.A22}");
+                    if (Math.Abs(beam.ETABSModifiers.A33 - 1.0) > 0.0001)
+                        sb.Append($" PROPMODA3 {beam.ETABSModifiers.A33}");
+                    if (Math.Abs(beam.ETABSModifiers.Torsion - 1.0) > 0.0001)
+                        sb.Append($" PROPMODT {beam.ETABSModifiers.Torsion}");
+                    if (Math.Abs(beam.ETABSModifiers.I22 - 1.0) > 0.0001)
+                        sb.Append($" PROPMODI22 {beam.ETABSModifiers.I22}");
+                    if (Math.Abs(beam.ETABSModifiers.I33 - 1.0) > 0.0001)
+                        sb.Append($" PROPMODI33 {beam.ETABSModifiers.I33}");
+                    if (Math.Abs(beam.ETABSModifiers.Mass - 1.0) > 0.0001)
+                        sb.Append($" PROPMODM {beam.ETABSModifiers.Mass}");
+                    if (Math.Abs(beam.ETABSModifiers.Weight - 1.0) > 0.0001)
+                        sb.Append($" PROPMODW {beam.ETABSModifiers.Weight}");
+                }
+
+                sb.Append($"  MAXSTASPC {maxStaSpc} AUTOMESH \"{autoMesh}\"  MESHATINTERSECTIONS \"{meshAtIntersections}\"");
+                return sb.ToString();
+            }
         }
     }
-}

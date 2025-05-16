@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using Core.Models.Geometry;
 using Core.Utilities;
-using static Core.Models.SoftwareSpecific.ETABSModifiers;
+using static Core.Models.Properties.Modifiers;
 
 namespace Core.Models.Elements
 {
@@ -28,8 +28,7 @@ namespace Core.Models.Elements
 
         public double SpanDirection { get; set; } = 0.0; // Span direction in degrees   
 
-        // ETABS-specific properties
-        public ETABSShellModifiers ETABSModifiers { get; set; } = new ETABSShellModifiers();
+        public ShellModifiers ETABSModifiers { get; set; } = new ShellModifiers();
 
         // Creates a new Floor with a generated ID
         public Floor()

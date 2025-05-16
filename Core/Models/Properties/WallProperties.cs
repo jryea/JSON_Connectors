@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using Core.Models.SoftwareSpecific;
 using Core.Utilities;
-using static Core.Models.SoftwareSpecific.ETABSModifiers;
+using static Core.Models.Properties.Modifiers;
 using static Core.Models.SoftwareSpecific.RAMReinforcement;
 namespace Core.Models.Properties
 {
@@ -28,7 +28,7 @@ namespace Core.Models.Properties
         public RAMReinforcement Reinforcement { get; set; } = new RAMReinforcement();
 
         // ETABS-specific properties
-        public ETABSShellModifiers ETABSModifiers { get; set; } = new ETABSShellModifiers();
+        public ShellModifiers ETABSModifiers { get; set; } = new ShellModifiers();
 
         // Creates a new WallProperties with a generated ID
         public WallProperties()

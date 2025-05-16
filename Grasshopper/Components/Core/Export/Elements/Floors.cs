@@ -9,7 +9,7 @@ using Core.Models.Loads;
 using Grasshopper.Utilities;
 using Grasshopper.Kernel.Types;
 using Core.Models.Geometry;
-using static Core.Models.SoftwareSpecific.ETABSModifiers;
+using static Core.Models.Properties.Modifiers;
 
 namespace Grasshopper.Components.Core.Export.Elements
 {

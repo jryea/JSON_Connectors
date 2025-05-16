@@ -1,8 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Grasshopper.Kernel;
-using Core.Models.SoftwareSpecific;
-using static Core.Models.SoftwareSpecific.ETABSModifiers;
+using static Core.Models.Properties.Modifiers;
 using Grasshopper.Components.Core;
 using Grasshopper.Utilities;
 

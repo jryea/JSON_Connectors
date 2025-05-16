@@ -290,6 +290,13 @@ namespace Revit.Import.Elements
 
                         // Get frame properties and find appropriate column type
                         var frameProps = GetFrameProperties(jsonColumn, model);
+
+                        // Log orientation information
+                        if (jsonColumn.Orientation != 0)
+                        {
+                            Debug.WriteLine($"Column {jsonColumn.Id} has non-default orientation: {jsonColumn.Orientation} degrees");
+                        }
+
                         DB.FamilySymbol familySymbol = FindColumnType(jsonColumn, frameProps);
 
                         if (familySymbol == null)
@@ -307,7 +314,7 @@ namespace Revit.Import.Elements
 
                         // Add to column manager for stacking
                         columnManager.AddColumn(jsonColumn.Id, columnPoint, baseLevel, topLevel,
-                                               familySymbol, jsonColumn.IsLateral, frameProps, topOffset);
+                                              familySymbol, jsonColumn.IsLateral, frameProps, topOffset, jsonColumn.Orientation);
                     }
                     catch (Exception columnEx)
                     {
@@ -341,7 +348,7 @@ namespace Revit.Import.Elements
 
             public void AddColumn(string id, DB.XYZ location, DB.Level baseLevel, DB.Level topLevel,
                                  DB.FamilySymbol familySymbol, bool isLateral,
-                                 Core.Models.Properties.FrameProperties frameProps, double topOffset)
+                                 Core.Models.Properties.FrameProperties frameProps, double topOffset, double orientation = 0)
             {
                 _columns.Add(new ColumnData
                 {
@@ -352,8 +359,10 @@ namespace Revit.Import.Elements
                     BaseLevelId = baseLevel.Id,
                     TopLevelId = topLevel.Id,
                     FamilySymbol = familySymbol,
+                    IsLateral = isLateral,
                     FrameProps = frameProps,
-                    TopOffset = topOffset
+                    TopOffset = topOffset,
+                    Orientation = orientation
                 });
             }
 
@@ -462,6 +471,34 @@ namespace Revit.Import.Elements
                                             continue;
                                         }
 
+                                        // Rotate the column to match the model orientation
+                                        try
+                                        {
+                                            // Create a vertical line (Z-axis) at the column location to use as rotation axis
+                                            DB.XYZ basePoint = bottomColumn.Location;
+                                            DB.XYZ topPoint = new DB.XYZ(basePoint.X, basePoint.Y, basePoint.Z + 1.0); // 1 foot up in Z direction
+                                            DB.Line rotationAxis = DB.Line.CreateBound(basePoint, topPoint);
+
+                                            // Calculate rotation angle - default is 90 degrees different from model
+                                            // Add the column's orientation from the model (already in degrees)
+                                            double rotationAngle = (90.0 + bottomColumn.Orientation) * Math.PI / 180.0; // Convert to radians
+
+                                            // Rotate the column using ElementTransformUtils
+                                            DB.ElementTransformUtils.RotateElement(
+                                                _doc,
+                                                column.Id,
+                                                rotationAxis,
+                                                rotationAngle
+                                            );
+
+                                            Debug.WriteLine($"Rotated column by {rotationAngle} radians ({90.0 + bottomColumn.Orientation} degrees)");
+                                        }
+                                        catch (Exception rotateEx)
+                                        {
+                                            Debug.WriteLine($"Error rotating column: {rotateEx.Message}");
+                                            // Continue with column creation even if rotation fails
+                                        }
+
                                         // Set top level to the top column's top level
                                         try
                                         {
@@ -482,16 +519,6 @@ namespace Revit.Import.Elements
                                         catch (Exception paramEx)
                                         {
                                             Debug.WriteLine($"Error setting column parameters: {paramEx.Message}");
-                                        }
-
-                                        // Set columns orientation
-                                        if (bottomColumn.Orientation != 0.0)
-                                        {
-                                            DB.Parameter orientationParam = column.get_Parameter(DB.BuiltInParameter.FAMILY_ORIENTATION_PARAM);
-                                            if (orientationParam != null && !orientationParam.IsReadOnly)
-                                            {
-                                                orientationParam.Set(bottomColumn.Orientation);
-                                            }
                                         }
 
                                         // Log stacked column creation
@@ -530,13 +557,12 @@ namespace Revit.Import.Elements
             public DB.ElementId BaseLevelId { get; set; }
             public DB.ElementId TopLevelId { get; set; }
             public DB.FamilySymbol FamilySymbol { get; set; }
-
+            public bool IsLateral { get; set; }
+            public double Orientation { get; set; } = 0;
             public Core.Models.Properties.FrameProperties FrameProps { get; set; }
             public double TopOffset { get; set; } = 0;
             public double X => Location.X;
             public double Y => Location.Y;
-
-            public double Orientation {get;set;}
         }
     }
 }

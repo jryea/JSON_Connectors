@@ -7,7 +7,7 @@ using Core.Models.Metadata;
 using Core.Models.Loads;
 using Core.Models;
 using Core.Models.Geometry;
-using static Core.Models.SoftwareSpecific.ETABSModifiers;
+using static Core.Models.Properties.Modifiers;
 
 namespace Grasshopper.Utilities
 {

@@ -1,10 +1,9 @@
-﻿using Core.Models.SoftwareSpecific;
-using Core.Utilities;
+﻿using Core.Utilities;
 using Core.Models;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Serialization;
-using static Core.Models.SoftwareSpecific.ETABSModifiers;
+using static Core.Models.Properties.Modifiers;
 
 namespace Core.Models.Properties
 {
@@ -29,7 +28,7 @@ namespace Core.Models.Properties
 
         public DeckProperties DeckProperties { get; set; } = new DeckProperties();
         public ShearStudProperties ShearStudProperties { get; set; } = new ShearStudProperties();
-        public ETABSShellModifiers ETABSModifiers { get; set; } = new ETABSShellModifiers();
+        public ShellModifiers ETABSModifiers { get; set; } = new ShellModifiers();
 
         public FloorProperties()
         {

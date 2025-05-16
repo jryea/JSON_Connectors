@@ -1,7 +1,7 @@
 ﻿using Core.Models.Geometry;
 using Core.Utilities;
 using System;
-using static Core.Models.SoftwareSpecific.ETABSModifiers;
+using static Core.Models.Properties.Modifiers;
 
 namespace Core.Models.Elements
 {

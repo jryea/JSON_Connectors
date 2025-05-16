@@ -6,7 +6,7 @@ using Core.Models;
 using Core.Models.Properties;
 using Grasshopper.Utilities;
 using GH_Types = Grasshopper.Kernel.Types;
-using static Core.Models.SoftwareSpecific.ETABSModifiers;
+using static Core.Models.Properties.Modifiers;
 
 namespace Grasshopper.Components.Core.Export.Properties
 {

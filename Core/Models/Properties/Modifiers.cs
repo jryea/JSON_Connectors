@@ -2,9 +2,9 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace Core.Models.SoftwareSpecific
+namespace Core.Models.Properties
 {
-    public class ETABSModifiers
+    public class Modifiers
     {
         public class ETABSFrameModifiers
         {
@@ -18,7 +18,7 @@ namespace Core.Models.SoftwareSpecific
             public double Weight { get; set; } = 1.0;
         }
 
-        public class ETABSShellModifiers
+        public class ShellModifiers
         {
             public double F11 { get; set; } = 1.0;  // Membrane area modifier in local 1-direction
             public double F22 { get; set; } = 1.0;  // Membrane area modifier in local 2-direction

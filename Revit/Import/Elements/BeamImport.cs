@@ -55,6 +55,21 @@ namespace Revit.Import.Elements
         }
 
         // Find appropriate beam type based on frame properties
+        
+
+        // Get frame properties for an element
+        private Core.Models.Properties.FrameProperties GetFrameProperties(
+            string framePropertiesId, BaseModel model)
+        {
+            if (string.IsNullOrEmpty(framePropertiesId) || model?.Properties?.FrameProperties == null)
+            {
+                return null;
+            }
+
+            return model.Properties.FrameProperties.FirstOrDefault(fp =>
+                fp.Id == framePropertiesId);
+        }
+
         private DB.FamilySymbol FindBeamType(Core.Models.Properties.FrameProperties frameProps)
         {
             // Default to the first type if we can't find a match
@@ -75,34 +90,83 @@ namespace Revit.Import.Elements
                 }
             }
 
-            // Try to match by section name for steel sections
-            if (frameProps.SteelProps != null && !string.IsNullOrEmpty(frameProps.SteelProps.SectionName))
+            // Enhanced section type matching based on SteelProps.SectionType
+            if (frameProps.Type == FrameMaterialType.Steel && frameProps.SteelProps != null)
             {
-                string sectionName = frameProps.SteelProps.SectionName.ToUpper();
-                if (_beamTypes.TryGetValue(sectionName, out DB.FamilySymbol typeBySectionName))
-                {
-                    return typeBySectionName;
-                }
-
-                // If exact match not found, try to match by section type
                 var sectionType = frameProps.SteelProps.SectionType;
 
-                // Get beams matching this section type prefix
-                var matches = _beamTypes.Where(kvp =>
-                    kvp.Key.StartsWith(sectionType.ToString()) ||
-                    kvp.Key.Contains(sectionType.ToString()))
-                    .ToList();
-
-                if (matches.Any())
+                // Attempt to match family by section type
+                switch (sectionType)
                 {
-                    return matches.First().Value;
+                    case SteelSectionType.W:
+                        // Find Wide Flange sections
+                        var wSections = _beamTypes.Where(kvp =>
+                            kvp.Key.StartsWith("W") ||
+                            kvp.Key.Contains("WIDE") ||
+                            kvp.Key.Contains("FLANGE"))
+                            .ToList();
+
+                        if (wSections.Any())
+                            return wSections.First().Value;
+                        break;
+
+                    case SteelSectionType.HSS:
+                        // Find HSS sections
+                        var hssSections = _beamTypes.Where(kvp =>
+                            kvp.Key.Contains("HSS") ||
+                            kvp.Key.Contains("TUBE"))
+                            .ToList();
+
+                        if (hssSections.Any())
+                            return hssSections.First().Value;
+                        break;
+
+                    case SteelSectionType.PIPE:
+                        // Find Pipe sections
+                        var pipeSections = _beamTypes.Where(kvp =>
+                            kvp.Key.Contains("PIPE"))
+                            .ToList();
+
+                        if (pipeSections.Any())
+                            return pipeSections.First().Value;
+                        break;
+
+                    case SteelSectionType.C:
+                        // Find Channel sections
+                        var cSections = _beamTypes.Where(kvp =>
+                            kvp.Key.StartsWith("C") ||
+                            kvp.Key.Contains("CHANNEL"))
+                            .ToList();
+
+                        if (cSections.Any())
+                            return cSections.First().Value;
+                        break;
+
+                    case SteelSectionType.L:
+                        // Find Angle sections
+                        var lSections = _beamTypes.Where(kvp =>
+                            kvp.Key.StartsWith("L") ||
+                            kvp.Key.Contains("ANGLE"))
+                            .ToList();
+
+                        if (lSections.Any())
+                            return lSections.First().Value;
+                        break;
+
+                    default:
+                        // For other section types, try to find family by section type name
+                        var typeSections = _beamTypes.Where(kvp =>
+                            kvp.Key.Contains(sectionType.ToString()))
+                            .ToList();
+
+                        if (typeSections.Any())
+                            return typeSections.First().Value;
+                        break;
                 }
             }
-
-            // Try to match by concrete section if it's a concrete frame
-            if (frameProps.ConcreteProps != null)
+            else if (frameProps.Type == FrameMaterialType.Concrete && frameProps.ConcreteProps != null)
             {
-                // Try to find a concrete beam
+                // For concrete beams, try to find a concrete beam type
                 var concreteBeams = _beamTypes.Where(kvp =>
                     kvp.Key.Contains("CONCRETE") ||
                     kvp.Key.Contains("CONC"))
@@ -115,19 +179,6 @@ namespace Revit.Import.Elements
             }
 
             return defaultType;
-        }
-
-        // Get frame properties for an element
-        private Core.Models.Properties.FrameProperties GetFrameProperties(
-            string framePropertiesId, BaseModel model)
-        {
-            if (string.IsNullOrEmpty(framePropertiesId) || model?.Properties?.FrameProperties == null)
-            {
-                return null;
-            }
-
-            return model.Properties.FrameProperties.FirstOrDefault(fp =>
-                fp.Id == framePropertiesId);
         }
 
         // Find floor thickness at a specific level

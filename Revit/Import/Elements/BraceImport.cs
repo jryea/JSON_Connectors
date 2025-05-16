@@ -104,7 +104,7 @@ namespace Revit.Import.Elements
         // Find appropriate brace type based on frame properties
         private DB.FamilySymbol FindBraceType(Core.Models.Properties.FrameProperties frameProps)
         {
-            // Try to find an HSS type to use as default
+            // Try to find an HSS type to use as default since HSS is common for braces
             DB.FamilySymbol hssType = _braceTypes
                 .Where(kvp => kvp.Key.Contains("HSS"))
                 .Select(kvp => kvp.Value)
@@ -128,34 +128,65 @@ namespace Revit.Import.Elements
                 }
             }
 
-            // Try to match by section name for steel sections
-            if (frameProps.SteelProps != null && !string.IsNullOrEmpty(frameProps.SteelProps.SectionName))
+            // Enhanced section type matching based on SteelProps.SectionType
+            if (frameProps.Type == FrameMaterialType.Steel && frameProps.SteelProps != null)
             {
-                string sectionName = frameProps.SteelProps.SectionName.ToUpper();
-                if (_braceTypes.TryGetValue(sectionName, out DB.FamilySymbol typeBySectionName))
-                {
-                    return typeBySectionName;
-                }
-
-                // If exact match not found, try to match by section type
                 var sectionType = frameProps.SteelProps.SectionType;
 
-                // Get braces matching this section type prefix
-                var matches = _braceTypes.Where(kvp =>
-                    kvp.Key.StartsWith(sectionType.ToString()) ||
-                    kvp.Key.Contains(sectionType.ToString()))
-                    .ToList();
-
-                if (matches.Any())
+                // Attempt to match family by section type
+                switch (sectionType)
                 {
-                    return matches.First().Value;
-                }
-            }
+                    case SteelSectionType.W:
+                        // Find Wide Flange sections
+                        var wSections = _braceTypes.Where(kvp =>
+                            kvp.Key.StartsWith("W") ||
+                            kvp.Key.Contains("WIDE") ||
+                            kvp.Key.Contains("FLANGE"))
+                            .ToList();
 
-            // Try to match by concrete section if it's a concrete frame
-            if (frameProps.ConcreteProps != null)
+                        if (wSections.Any())
+                            return wSections.First().Value;
+                        break;
+
+                    case SteelSectionType.HSS:
+                        // Find HSS sections - very common for braces
+                        var hssSections = _braceTypes.Where(kvp =>
+                            kvp.Key.Contains("HSS") ||
+                            kvp.Key.Contains("TUBE"))
+                            .ToList();
+
+                        if (hssSections.Any())
+                            return hssSections.First().Value;
+                        break;
+
+                    case SteelSectionType.PIPE:
+                        // Find Pipe sections
+                        var pipeSections = _braceTypes.Where(kvp =>
+                            kvp.Key.Contains("PIPE"))
+                            .ToList();
+
+                        if (pipeSections.Any())
+                            return pipeSections.First().Value;
+                        break;
+
+                    default:
+                        // For other section types, try to find family by section type name
+                        var typeSections = _braceTypes.Where(kvp =>
+                            kvp.Key.Contains(sectionType.ToString()))
+                            .ToList();
+
+                        if (typeSections.Any())
+                            return typeSections.First().Value;
+                        break;
+                }
+
+                // If we still haven't found a match, prioritize HSS sections for braces
+                if (hssType != null)
+                    return hssType;
+            }
+            else if (frameProps.Type == FrameMaterialType.Concrete && frameProps.ConcreteProps != null)
             {
-                // Try to find a concrete bracing element
+                // For concrete braces, try to find a concrete brace type
                 var concreteTypes = _braceTypes.Where(kvp =>
                     kvp.Key.Contains("CONCRETE") ||
                     kvp.Key.Contains("CONC"))
@@ -167,7 +198,6 @@ namespace Revit.Import.Elements
                 }
             }
 
-            // If no match found by name or shape, prioritize HSS type
             return defaultType;
         }
 

@@ -80,44 +80,107 @@ namespace Revit.Import.Elements
                 }
             }
 
-            // Try to match by section type - first check if we have steel or concrete properties
-            string sectionName = null;
+            // Enhanced section type matching based on material type and section properties
+            if (frameProps.Type == FrameMaterialType.Steel && frameProps.SteelProps != null)
+            {
+                var sectionType = frameProps.SteelProps.SectionType;
 
-            if (frameProps.SteelProps != null && !string.IsNullOrEmpty(frameProps.SteelProps.SectionName))
-            {
-                sectionName = frameProps.SteelProps.SectionName.ToUpper();
-            }
-            else if (frameProps.ConcreteProps != null && !string.IsNullOrEmpty(frameProps.ConcreteProps.SectionName))
-            {
-                sectionName = frameProps.ConcreteProps.SectionName.ToUpper();
-            }
-
-            if (sectionName != null && _columnTypes.TryGetValue(sectionName, out DB.FamilySymbol typeBySection))
-            {
-                return typeBySection;
-            }
-
-            // If still no match, try to find a column by material type
-            if (frameProps.Type == FrameMaterialType.Concrete)
-            {
-                foreach (var pair in _columnTypes)
+                // Attempt to match family by section type
+                switch (sectionType)
                 {
-                    if (pair.Key.Contains("CONCRETE") || pair.Key.Contains("CONC"))
-                    {
-                        return pair.Value;
-                    }
+                    case SteelSectionType.W:
+                        // Find Wide Flange columns
+                        var wSections = _columnTypes.Where(kvp =>
+                            kvp.Key.StartsWith("W") ||
+                            kvp.Key.Contains("WIDE") ||
+                            kvp.Key.Contains("FLANGE"))
+                            .ToList();
+
+                        if (wSections.Any())
+                            return wSections.First().Value;
+                        break;
+
+                    case SteelSectionType.HSS:
+                        // Find HSS columns
+                        var hssSections = _columnTypes.Where(kvp =>
+                            kvp.Key.Contains("HSS") ||
+                            kvp.Key.Contains("TUBE"))
+                            .ToList();
+
+                        if (hssSections.Any())
+                            return hssSections.First().Value;
+                        break;
+
+                    case SteelSectionType.PIPE:
+                        // Find Pipe columns
+                        var pipeSections = _columnTypes.Where(kvp =>
+                            kvp.Key.Contains("PIPE"))
+                            .ToList();
+
+                        if (pipeSections.Any())
+                            return pipeSections.First().Value;
+                        break;
+
+                    default:
+                        // For other section types, try to find family by section type name
+                        var typeSections = _columnTypes.Where(kvp =>
+                            kvp.Key.Contains(sectionType.ToString()))
+                            .ToList();
+
+                        if (typeSections.Any())
+                            return typeSections.First().Value;
+                        break;
                 }
+
+                // If still no match, try to find any steel column
+                var steelColumns = _columnTypes.Where(kvp =>
+                    kvp.Key.Contains("STEEL") ||
+                    kvp.Key.Contains("METAL") ||
+                    kvp.Key.StartsWith("W") ||
+                    kvp.Key.Contains("HSS"))
+                    .ToList();
+
+                if (steelColumns.Any())
+                    return steelColumns.First().Value;
             }
-            else if (frameProps.Type == FrameMaterialType.Steel)
+            else if (frameProps.Type == FrameMaterialType.Concrete && frameProps.ConcreteProps != null)
             {
-                // Try to find a steel column
-                foreach (var pair in _columnTypes)
+                var sectionType = frameProps.ConcreteProps.SectionType;
+
+                // Attempt to match concrete column by section type
+                switch (sectionType)
                 {
-                    if (pair.Key.Contains("STEEL") || pair.Key.Contains("METAL") ||
-                        pair.Key.Contains("W") || pair.Key.Contains("HSS"))
-                    {
-                        return pair.Value;
-                    }
+                    case ConcreteSectionType.Rectangular:
+                        var rectColumns = _columnTypes.Where(kvp =>
+                            kvp.Key.Contains("RECT") ||
+                            kvp.Key.Contains("SQUARE") ||
+                            (kvp.Key.Contains("CONCRETE") && !kvp.Key.Contains("ROUND")))
+                            .ToList();
+
+                        if (rectColumns.Any())
+                            return rectColumns.First().Value;
+                        break;
+
+                    case ConcreteSectionType.Circular:
+                        var circColumns = _columnTypes.Where(kvp =>
+                            kvp.Key.Contains("CIRC") ||
+                            kvp.Key.Contains("ROUND"))
+                            .ToList();
+
+                        if (circColumns.Any())
+                            return circColumns.First().Value;
+                        break;
+
+                    default:
+                        // Try to find any concrete column
+                        var concreteColumns = _columnTypes.Where(kvp =>
+                            kvp.Key.Contains("CONCRETE") ||
+                            kvp.Key.Contains("CONC"))
+                            .ToList();
+
+                        if (concreteColumns.Any())
+                            return concreteColumns.First().Value;
+                        break;
                 }
             }
 
@@ -289,7 +352,6 @@ namespace Revit.Import.Elements
                     BaseLevelId = baseLevel.Id,
                     TopLevelId = topLevel.Id,
                     FamilySymbol = familySymbol,
-                    IsLateral = isLateral,
                     FrameProps = frameProps,
                     TopOffset = topOffset
                 });
@@ -422,6 +484,16 @@ namespace Revit.Import.Elements
                                             Debug.WriteLine($"Error setting column parameters: {paramEx.Message}");
                                         }
 
+                                        // Set columns orientation
+                                        if (bottomColumn.Orientation != 0.0)
+                                        {
+                                            DB.Parameter orientationParam = column.get_Parameter(DB.BuiltInParameter.FAMILY_ORIENTATION_PARAM);
+                                            if (orientationParam != null && !orientationParam.IsReadOnly)
+                                            {
+                                                orientationParam.Set(bottomColumn.Orientation);
+                                            }
+                                        }
+
                                         // Log stacked column creation
                                         string columnIds = string.Join(", ", stack.Select(c => c.Id));
                                         Debug.WriteLine($"Created stacked column from {stack.Count} columns ({columnIds}) from level {bottomColumn.BaseLevel.Name} to {topColumn.TopLevel.Name}");
@@ -458,11 +530,13 @@ namespace Revit.Import.Elements
             public DB.ElementId BaseLevelId { get; set; }
             public DB.ElementId TopLevelId { get; set; }
             public DB.FamilySymbol FamilySymbol { get; set; }
-            public bool IsLateral { get; set; }
+
             public Core.Models.Properties.FrameProperties FrameProps { get; set; }
             public double TopOffset { get; set; } = 0;
             public double X => Location.X;
             public double Y => Location.Y;
+
+            public double Orientation {get;set;}
         }
     }
 }

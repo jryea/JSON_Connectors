@@ -34,35 +34,21 @@ namespace Revit.Import.Elements
 
             foreach (DB.FamilySymbol symbol in collector)
             {
-                if (!symbol.IsActive)
-                {
-                    try { symbol.Activate(); }
-                    catch { continue; }
-                }
-
                 string key = symbol.Name.ToUpper();
-
-                // Only add if it's not likely to be a brace
-                bool isBrace = symbol.Family.Name.ToUpper().Contains("BRACE") ||
-                               key.Contains("BRACE");
-
-                if (!isBrace)
+                
+                if (!_beamTypes.ContainsKey(key))
                 {
-                    if (!_beamTypes.ContainsKey(key))
-                    {
-                        _beamTypes[key] = symbol;
-                    }
+                    _beamTypes[key] = symbol;
                 }
 
                 // Also add by family name + symbol name for more specific matching
                 string combinedKey = $"{symbol.Family.Name}_{symbol.Name}".ToUpper();
-                if (!isBrace)
+               
+                if (!_beamTypes.ContainsKey(combinedKey))
                 {
-                    if (!_beamTypes.ContainsKey(combinedKey))
-                    {
-                        _beamTypes[combinedKey] = symbol;
-                    }
+                    _beamTypes[combinedKey] = symbol;
                 }
+                
             }
 
             Debug.WriteLine($"Loaded {_beamTypes.Count} beam family types");
@@ -264,53 +250,7 @@ namespace Revit.Import.Elements
                         // Continue with beam creation even if offset setting fails
                     }
 
-                    // Set lateral flag if beam is part of lateral system
-                    if (jsonBeam.IsLateral)
-                    {
-                        try
-                        {
-                            DB.Parameter lateralParam = beam.LookupParameter("Lateral");
-                            if (lateralParam != null && !lateralParam.IsReadOnly)
-                            {
-                                if (lateralParam.StorageType == DB.StorageType.Integer)
-                                {
-                                    lateralParam.Set(1);
-                                }
-                                else if (lateralParam.StorageType == DB.StorageType.String)
-                                {
-                                    lateralParam.Set("Yes");
-                                }
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Debug.WriteLine($"Error setting lateral parameter: {ex.Message}");
-                        }
-                    }
-
-                    // Set joist flag if beam is a joist
-                    if (jsonBeam.IsJoist)
-                    {
-                        try
-                        {
-                            DB.Parameter joistParam = beam.LookupParameter("Joist");
-                            if (joistParam != null && !joistParam.IsReadOnly)
-                            {
-                                if (joistParam.StorageType == DB.StorageType.Integer)
-                                {
-                                    joistParam.Set(1);
-                                }
-                                else if (joistParam.StorageType == DB.StorageType.String)
-                                {
-                                    joistParam.Set("Yes");
-                                }
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Debug.WriteLine($"Error setting joist parameter: {ex.Message}");
-                        }
-                    }
+                    
 
                     count++;
                     Debug.WriteLine($"Created beam {jsonBeam.Id} with type {familySymbol.Name}");

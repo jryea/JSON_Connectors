@@ -51,11 +51,6 @@ namespace RAM.Import.Elements
                 // Create mappings from Core level IDs to RAM story UIDs
                 Dictionary<string, int> levelIdToStoryUid = new Dictionary<string, int>();
 
-                // Find the lowest level (foundation level)
-                var sortedLevels = levels.OrderBy(l => l.Elevation).ToList();
-                Level lowestLevel = sortedLevels.FirstOrDefault();
-                string foundationLevelId = lowestLevel?.Id;
-
                 // Map levels to stories
                 for (int i = 0; i < ramStories.GetCount(); i++)
                 {
@@ -103,9 +98,8 @@ namespace RAM.Import.Elements
                     // Get the RAM story UID for the base level
                     int baseStoryUid;
 
-                    // Simple logic: If the base level is the foundation or we can't find a mapping, use -1
-                    // Otherwise, use the mapped story UID
-                    if (brace.BaseLevelId == foundationLevelId || !levelIdToStoryUid.TryGetValue(brace.BaseLevelId, out baseStoryUid))
+                    // If we can't find a mapping for the base level, use -1 (foundation level in RAM)
+                    if (!levelIdToStoryUid.TryGetValue(brace.BaseLevelId, out baseStoryUid))
                     {
                         baseStoryUid = -1;
                     }

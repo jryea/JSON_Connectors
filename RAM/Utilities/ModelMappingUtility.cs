@@ -269,6 +269,22 @@ namespace RAM.Utilities
             }
         }
 
+        // Get the RAM Floor Type UID for a Core Floor Type ID
+        public static string GetRamFloorTypeUidForFloorTypeId(string floorTypeId)
+        {
+            if (string.IsNullOrEmpty(floorTypeId))
+                return null;
+
+            // Search for the floor type ID in our existing mapping
+            foreach (var kvp in _floorTypeUidToId)
+            {
+                if (kvp.Value == floorTypeId)
+                    return kvp.Key;
+            }
+
+            return null;
+        }
+
         /// <summary>
         /// Set frame property mappings
         /// </summary>

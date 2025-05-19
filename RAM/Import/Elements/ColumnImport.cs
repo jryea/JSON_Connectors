@@ -52,37 +52,48 @@ namespace RAM.Import.Elements
                     }
                 }
 
-                // Now create a direct mapping from floor type ID to RAM floor type
+                // Create a direct mapping from floor type ID to RAM floor type
                 var floorTypeIdToRamFloorType = new Dictionary<string, IFloorType>();
 
-                // Build this map systematically, ensuring correct order
-                var sortedFloorTypes = new List<string>(levelToFloorTypeMapping.Values.Distinct());
-                Console.WriteLine($"Found {sortedFloorTypes.Count} distinct floor types in mapping");
-
-                // Make sure we have floor types to map from
-                if (sortedFloorTypes.Count > 0)
+                // For each floor type ID in the level mapping
+                foreach (var floorTypeId in levelIdToFloorTypeId.Values.Distinct())
                 {
-                    // Print out the available RAM floor types
-                    Console.WriteLine($"Available RAM floor types ({ramFloorTypes.GetCount()}):");
-                    for (int i = 0; i < ramFloorTypes.GetCount(); i++)
+                    // Get the RAM floor type UID from ModelMappingUtility
+                    string ramFloorTypeUid = ModelMappingUtility.GetRamFloorTypeUidForFloorTypeId(floorTypeId);
+                    if (!string.IsNullOrEmpty(ramFloorTypeUid))
                     {
-                        IFloorType floorType = ramFloorTypes.GetAt(i);
-                        Console.WriteLine($"  {i}: {floorType.strLabel} (UID: {floorType.lUID})");
-                    }
-
-                    // Map in order - the key is to match them in the correct order
-                    for (int i = 0; i < Math.Min(sortedFloorTypes.Count, ramFloorTypes.GetCount()); i++)
-                    {
-                        string floorTypeId = sortedFloorTypes[i];
-                        IFloorType ramFloorType = ramFloorTypes.GetAt(i);
-                        floorTypeIdToRamFloorType[floorTypeId] = ramFloorType;
-                        Console.WriteLine($"Mapped floor type ID {floorTypeId} to RAM floor type {ramFloorType.strLabel} (UID: {ramFloorType.lUID})");
+                        // Find the RAM floor type with this UID
+                        int ramUid;
+                        if (int.TryParse(ramFloorTypeUid, out ramUid))
+                        {
+                            for (int i = 0; i < ramFloorTypes.GetCount(); i++)
+                            {
+                                IFloorType ramFloorType = ramFloorTypes.GetAt(i);
+                                if (ramFloorType.lUID == ramUid)
+                                {
+                                    floorTypeIdToRamFloorType[floorTypeId] = ramFloorType;
+                                    Console.WriteLine($"Using existing mapping: Core floor type {floorTypeId} to RAM floor type {ramFloorType.strLabel}");
+                                    break;
+                                }
+                            }
+                        }
                     }
                 }
-                else
+
+                // Fall back to position-based mapping only for unmapped floor types
+                if (floorTypeIdToRamFloorType.Count < levelIdToFloorTypeId.Values.Distinct().Count())
                 {
-                    Console.WriteLine("ERROR: No floor types found in level-to-floor-type mapping");
-                    return 0;
+                    Console.WriteLine("Some floor types not mapped by ModelMappingUtility, using fallback mappings");
+                    int index = 0;
+                    foreach (var floorTypeId in levelIdToFloorTypeId.Values.Distinct())
+                    {
+                        if (!floorTypeIdToRamFloorType.ContainsKey(floorTypeId) && index < ramFloorTypes.GetCount())
+                        {
+                            floorTypeIdToRamFloorType[floorTypeId] = ramFloorTypes.GetAt(index);
+                            Console.WriteLine($"Fallback mapping: Core floor type {floorTypeId} to RAM floor type {ramFloorTypes.GetAt(index).strLabel}");
+                            index++;
+                        }
+                    }
                 }
 
                 // Track processed columns per floor type to avoid duplicates

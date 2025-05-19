@@ -355,8 +355,6 @@ namespace Grasshopper.Utilities
             return $"Props: {Value.Materials.Count} materials, {Value.FrameProperties.Count} frames, {Value.FloorProperties.Count} floors, {Value.WallProperties.Count} walls, {Value.Diaphragms.Count} diaphragms";
         }
     }
-
-    // ETABS Modifiers GooWrappers
     public class GH_ETABSFrameModifiers : GH_ModelGoo<ETABSFrameModifiers>
     {
         public GH_ETABSFrameModifiers() { }
@@ -371,12 +369,12 @@ namespace Grasshopper.Utilities
         }
     }
 
-    public class GH_ETABSShellModifiers : GH_ModelGoo<ETABSShellModifiers>
+    public class GH_ShellModifiers : GH_ModelGoo<ShellModifiers>
     {
-        public GH_ETABSShellModifiers() { }
-        public GH_ETABSShellModifiers(ETABSShellModifiers modifiers) : base(modifiers) { }
+        public GH_ShellModifiers() { }
+        public GH_ShellModifiers(ShellModifiers modifiers) : base(modifiers) { }
 
-        public override IGH_Goo Duplicate() => new GH_ETABSShellModifiers(Value);
+        public override IGH_Goo Duplicate() => new GH_ShellModifiers(Value);
 
         public override string ToString()
         {

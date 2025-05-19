@@ -142,7 +142,7 @@ namespace Grasshopper.Components.Core.Export.Elements
                 // Get diaphragm and surface load (if available)
                 Diaphragm diaphragm = diaphragmObjs.Count > i ? ExtractObject<Diaphragm>(diaphragmObjs[i], "Diaphragm") : null;
                 SurfaceLoad surfaceLoad = surfaceLoadObjs.Count > i ? ExtractObject<SurfaceLoad>(surfaceLoadObjs[i], "SurfaceLoad") : null;
-                ETABSShellModifiers etabsModifiers = etabsModObjs.Count > i ? ExtractObject<ETABSShellModifiers>(etabsModObjs[i], "ETABSShellModifiers") : null;
+                ShellModifiers etabsModifiers = etabsModObjs.Count > i ? ExtractObject<ShellModifiers>(etabsModObjs[i], "ETABSShellModifiers") : null;
 
                 if (level == null || floorProps == null)
                 {

@@ -96,7 +96,7 @@ namespace Grasshopper.Components.Core.Export.Properties
             ShearStudProperties shearStudProps = ExtractObject<ShearStudProperties>(shearStudPropsObj, "ShearStudProperties");
 
             // Extract ETABS modifiers
-            ETABSShellModifiers etabsModifiers = ExtractObject<ETABSShellModifiers>(etabsModifiersObj, "ETABSShellModifiers");
+            ShellModifiers etabsModifiers = ExtractObject<ShellModifiers>(etabsModifiersObj, "ETABSShellModifiers");
 
             try
             {

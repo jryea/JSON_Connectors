@@ -2,17 +2,16 @@
 using System.Collections.Generic;
 using Grasshopper.Kernel;
 using static Core.Models.Properties.Modifiers;
-using Grasshopper.Components.Core;
 using Grasshopper.Utilities;
 
-namespace Grasshopper.Components.Core.Export.ETABS
+namespace Grasshopper.Components.Core.Export.Properties
 {
     public class ETABSShellModifiersComponent : ComponentBase
     {
         public ETABSShellModifiersComponent()
-          : base("ETABS Shell Modifiers", "EShellMod",
-              "Creates ETABS-specific modifiers for shell elements (floors, walls)",
-              "IMEG", "ETABS")
+          : base("Shell Modifiers", "ShellMod",
+              "Creates modifiers for shell elements (floors, walls)",
+              "IMEG", "Properties")
         {
         }
 
@@ -65,7 +64,7 @@ namespace Grasshopper.Components.Core.Export.ETABS
             DA.GetData(9, ref weight);
 
             // Create modifiers
-            ETABSShellModifiers modifiers = new ETABSShellModifiers
+            ShellModifiers modifiers = new ShellModifiers
             {
                 F11 = f11,
                 F22 = f22,
@@ -80,7 +79,7 @@ namespace Grasshopper.Components.Core.Export.ETABS
             };
 
             // Output
-            DA.SetData(0, new GH_ETABSShellModifiers(modifiers));
+            DA.SetData(0, new GH_ShellModifiers(modifiers));
         }
 
         public override Guid ComponentGuid => new Guid("B2C3D4E5-F6A7-8901-2B3C-4D5E6F7A8B9C");

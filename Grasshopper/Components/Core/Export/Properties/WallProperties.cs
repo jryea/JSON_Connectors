@@ -87,7 +87,7 @@ namespace Grasshopper.Components.Core.Export.Properties
             }
 
             // Extract ETABS modifiers
-            ETABSShellModifiers etabsModifiers = ExtractObject<ETABSShellModifiers>(etabsModifiersObj, "ETABSShellModifiers");
+            ShellModifiers etabsModifiers = ExtractObject<ShellModifiers>(etabsModifiersObj, "ETABSShellModifiers");
 
             try
             {

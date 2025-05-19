@@ -178,6 +178,7 @@ namespace Grasshopper.Components.Core.Export.Elements
 
                 columns.Add(new GH_Column(column));
             }
+            DA.SetDataList(0, columns);
         }
 
         private T ExtractObject<T>(object obj, string typeName) where T : class

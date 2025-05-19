@@ -50,29 +50,11 @@ namespace RAM.Import.Elements
 
                 // Create mappings from Core level IDs to RAM story UIDs
                 Dictionary<string, int> levelIdToStoryUid = new Dictionary<string, int>();
-                Dictionary<string, IStory> levelIdToStory = new Dictionary<string, IStory>();
-                Dictionary<string, Level> levelIdToLevel = new Dictionary<string, Level>();
 
-                // Get all levels sorted by elevation
+                // Find the lowest level (foundation level)
                 var sortedLevels = levels.OrderBy(l => l.Elevation).ToList();
-
-                // Find the lowest level (ground or foundation level)
                 Level lowestLevel = sortedLevels.FirstOrDefault();
                 string foundationLevelId = lowestLevel?.Id;
-
-                if (lowestLevel != null)
-                {
-                    Console.WriteLine($"Identified foundation level: {lowestLevel.Name} (ID: {lowestLevel.Id}, Elevation: {lowestLevel.Elevation})");
-                }
-
-                // Build level dictionary for quick lookup
-                foreach (var level in levels)
-                {
-                    if (!string.IsNullOrEmpty(level.Id))
-                    {
-                        levelIdToLevel[level.Id] = level;
-                    }
-                }
 
                 // Map levels to stories
                 for (int i = 0; i < ramStories.GetCount(); i++)
@@ -80,12 +62,11 @@ namespace RAM.Import.Elements
                     IStory story = ramStories.GetAt(i);
                     if (story == null) continue;
 
-                    // Find the corresponding level by name or elevation
+                    // Find the matching level
                     Level matchingLevel = FindMatchingLevel(story, levels);
                     if (matchingLevel != null)
                     {
                         levelIdToStoryUid[matchingLevel.Id] = story.lUID;
-                        levelIdToStory[matchingLevel.Id] = story;
                         Console.WriteLine($"Mapped level {matchingLevel.Name} (ID: {matchingLevel.Id}) to story {story.strLabel} (UID: {story.lUID})");
                     }
                 }
@@ -119,18 +100,14 @@ namespace RAM.Import.Elements
                         continue;
                     }
 
-                    // Determine if base level is the foundation level
-                    bool isFoundationBrace = (brace.BaseLevelId == foundationLevelId);
-                    int baseStoryUid = -1; // Default to -1 for foundation
+                    // Get the RAM story UID for the base level
+                    int baseStoryUid;
 
-                    // If it's not a foundation brace, get the real story UID
-                    if (!isFoundationBrace)
+                    // Simple logic: If the base level is the foundation or we can't find a mapping, use -1
+                    // Otherwise, use the mapped story UID
+                    if (brace.BaseLevelId == foundationLevelId || !levelIdToStoryUid.TryGetValue(brace.BaseLevelId, out baseStoryUid))
                     {
-                        if (!levelIdToStoryUid.TryGetValue(brace.BaseLevelId, out baseStoryUid))
-                        {
-                            Console.WriteLine($"No story mapping found for base level {brace.BaseLevelId}, using foundation (-1)");
-                            isFoundationBrace = true; // Treat as foundation brace
-                        }
+                        baseStoryUid = -1;
                     }
 
                     // Convert coordinates to inches
@@ -157,8 +134,9 @@ namespace RAM.Import.Elements
 
                     try
                     {
+                        Console.WriteLine($"Adding brace: topStoryUID={topStoryUid}, baseStoryUID={baseStoryUid}");
+
                         // Add the vertical brace to the model
-                        // Special case: lStoryAtBotID can be -1 for foundation braces
                         IVerticalBrace ramBrace = verticalBraces.Add(
                             braceMaterial,
                             topStoryUid,

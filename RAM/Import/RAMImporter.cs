@@ -202,6 +202,9 @@ namespace RAM
                             Console.WriteLine($"Imported {floorPropertyMappings.Count} floor property mappings");
                         }
 
+                        // Modified section of RAMImporter.cs
+                        // This replaces the relevant section in the Import method where beam, column and brace importing happens
+
                         // Import structural elements
                         int beamCount = 0;
                         int columnCount = 0;
@@ -211,6 +214,17 @@ namespace RAM
 
                         if (model.Elements != null)
                         {
+                            // Create a detailed level-to-floor-type mapping
+                            Console.WriteLine("Creating detailed level-to-floor-type mapping...");
+                            var detailedLevelToFloorTypeMap = ModelMappingUtility.CreateLevelToFloorTypeMapping(validLevels);
+
+                            // Dump the mapping for debugging
+                            foreach (var mapping in detailedLevelToFloorTypeMap)
+                            {
+                                var level = validLevels.FirstOrDefault(l => l.Id == mapping.Key);
+                                Console.WriteLine($"Level: {(level != null ? level.Name : "Unknown")} (ID: {mapping.Key}) -> FloorType ID: {mapping.Value}");
+                            }
+
                             // Import beams
                             Console.WriteLine("Importing beams");
                             if (model.Elements.Beams != null && model.Elements.Beams.Count > 0)
@@ -224,7 +238,7 @@ namespace RAM
                                     model.Elements.Beams,
                                     validLevels,
                                     model.Properties.FrameProperties,
-                                    levelToFloorTypeMapping);
+                                    detailedLevelToFloorTypeMap);
                                 Console.WriteLine($"Imported {beamCount} beams");
                             }
 
@@ -241,7 +255,7 @@ namespace RAM
                                     model.Elements.Columns,
                                     validLevels,
                                     model.Properties.FrameProperties,
-                                    levelToFloorTypeMapping);
+                                    detailedLevelToFloorTypeMap);
                                 Console.WriteLine($"Imported {columnCount} columns");
                             }
 
@@ -258,7 +272,7 @@ namespace RAM
                                     model.Elements.Braces,
                                     validLevels,
                                     model.Properties.FrameProperties,
-                                    levelToFloorTypeMapping);
+                                    detailedLevelToFloorTypeMap);
                                 Console.WriteLine($"Imported {braceCount} braces");
                             }
 
@@ -274,7 +288,7 @@ namespace RAM
                                 wallCount = wallImporter.Import(
                                     model.Elements.Walls,
                                     validLevels,
-                                    levelToFloorTypeMapping,
+                                    detailedLevelToFloorTypeMap,
                                     model.Properties.WallProperties);
                                 Console.WriteLine($"Imported {wallCount} walls");
                             }
@@ -302,6 +316,7 @@ namespace RAM
                                 }
                             }
                         }
+
 
                         // Save model
                         Console.WriteLine("Saving RAM model");

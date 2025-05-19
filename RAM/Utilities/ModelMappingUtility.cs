@@ -548,6 +548,68 @@ namespace RAM.Utilities
             return _sectionLabelToFramePropId.Values.FirstOrDefault();
         }
 
+        public static void DumpMappingState()
+        {
+            Console.WriteLine("\n=== MAPPING UTILITY STATE ===");
+
+            // Dump level to story mappings
+            Console.WriteLine("\nLevel ID to Story UID Mappings:");
+            Console.WriteLine("{0,-40} {1,-10}", "Level ID", "Story UID");
+            Console.WriteLine(new string('-', 50));
+            foreach (var mapping in _levelIdToStoryUid)
+            {
+                Console.WriteLine("{0,-40} {1,-10}", mapping.Key, mapping.Value);
+            }
+
+            // Dump story to level mappings
+            Console.WriteLine("\nStory UID to Level ID Mappings:");
+            Console.WriteLine("{0,-10} {1,-40}", "Story UID", "Level ID");
+            Console.WriteLine(new string('-', 50));
+            foreach (var mapping in _storyUidToLevelId)
+            {
+                Console.WriteLine("{0,-10} {1,-40}", mapping.Key, mapping.Value);
+            }
+
+            // Dump level name mappings
+            Console.WriteLine("\nLevel Name to ID Mappings:");
+            Console.WriteLine("{0,-30} {1,-40}", "Level Name", "Level ID");
+            Console.WriteLine(new string('-', 70));
+            foreach (var mapping in _levelNameToId)
+            {
+                Console.WriteLine("{0,-30} {1,-40}", mapping.Key, mapping.Value);
+            }
+
+            // Dump floor type mappings
+            Console.WriteLine("\nFloor Type UID to ID Mappings:");
+            Console.WriteLine("{0,-10} {1,-40}", "Floor UID", "Floor Type ID");
+            Console.WriteLine(new string('-', 50));
+            foreach (var mapping in _floorTypeUidToId)
+            {
+                Console.WriteLine("{0,-10} {1,-40}", mapping.Key, mapping.Value);
+            }
+
+            // Dump frame property mappings
+            Console.WriteLine("\nSection Label to Frame Property ID Mappings:");
+            Console.WriteLine("{0,-30} {1,-40}", "Section Label", "Frame Prop ID");
+            Console.WriteLine(new string('-', 70));
+            foreach (var mapping in _sectionLabelToFramePropId)
+            {
+                Console.WriteLine("{0,-30} {1,-40}", mapping.Key, mapping.Value);
+            }
+
+            // Dump wall thickness mappings
+            Console.WriteLine("\nWall Thickness to Property ID Mappings:");
+            Console.WriteLine("{0,-15} {1,-40}", "Thickness", "Wall Prop ID");
+            Console.WriteLine(new string('-', 55));
+            foreach (var mapping in _wallThicknessToId)
+            {
+                Console.WriteLine("{0,-15} {1,-40}", mapping.Key, mapping.Value);
+            }
+
+            Console.WriteLine("\nGround Level ID: " + (_groundLevelId ?? "Not set"));
+            Console.WriteLine("=== END MAPPING STATE ===\n");
+        }
+
         #endregion
     }
 }

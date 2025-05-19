@@ -40,74 +40,49 @@ namespace RAM.Import.Elements
                 if (ramFloorTypes.GetCount() == 0)
                     return 0;
 
-                Console.WriteLine("Beginning column import with top-down floor type mapping...");
+                Console.WriteLine("Beginning column import with corrected floor type mapping...");
 
-                // Group levels by floor type ID
-                var levelsByFloorType = new Dictionary<string, List<Level>>();
+                // First, create a mapping from level ID to its floor type ID
+                var levelIdToFloorTypeId = new Dictionary<string, string>();
                 foreach (var level in levels)
                 {
-                    if (string.IsNullOrEmpty(level.Id) || string.IsNullOrEmpty(level.FloorTypeId))
-                        continue;
-
-                    if (!levelsByFloorType.ContainsKey(level.FloorTypeId))
+                    if (!string.IsNullOrEmpty(level.Id) && !string.IsNullOrEmpty(level.FloorTypeId))
                     {
-                        levelsByFloorType[level.FloorTypeId] = new List<Level>();
-                    }
-
-                    levelsByFloorType[level.FloorTypeId].Add(level);
-                }
-
-                // For each floor type, identify the highest level
-                var highestLevelByFloorType = new Dictionary<string, Level>();
-                foreach (var entry in levelsByFloorType)
-                {
-                    var floorTypeId = entry.Key;
-                    var levelsWithThisFloorType = entry.Value;
-
-                    if (levelsWithThisFloorType.Count > 0)
-                    {
-                        // Find the highest level (highest elevation)
-                        var highestLevel = levelsWithThisFloorType.OrderByDescending(l => l.Elevation).First();
-                        highestLevelByFloorType[floorTypeId] = highestLevel;
-
-                        Console.WriteLine($"FloorType {floorTypeId} uses highest level: {highestLevel.Name} (Elevation: {highestLevel.Elevation})");
+                        levelIdToFloorTypeId[level.Id] = level.FloorTypeId;
                     }
                 }
 
-                // Create mapping from RAM floor type UID to RAM floor type
-                var ramFloorTypeByUID = new Dictionary<int, IFloorType>();
-                for (int i = 0; i < ramFloorTypes.GetCount(); i++)
-                {
-                    IFloorType ramFloorType = ramFloorTypes.GetAt(i);
-                    ramFloorTypeByUID[ramFloorType.lUID] = ramFloorType;
-                }
+                // Now create a direct mapping from floor type ID to RAM floor type
+                var floorTypeIdToRamFloorType = new Dictionary<string, IFloorType>();
 
-                // Map Core floor type IDs to RAM floor types
-                var coreFloorTypeToRamFloorType = new Dictionary<string, IFloorType>();
-                int ftIndex = 0;
-                foreach (var floorTypeId in highestLevelByFloorType.Keys)
+                // Build this map systematically, ensuring correct order
+                var sortedFloorTypes = new List<string>(levelToFloorTypeMapping.Values.Distinct());
+                Console.WriteLine($"Found {sortedFloorTypes.Count} distinct floor types in mapping");
+
+                // Make sure we have floor types to map from
+                if (sortedFloorTypes.Count > 0)
                 {
-                    if (ftIndex < ramFloorTypes.GetCount())
+                    // Print out the available RAM floor types
+                    Console.WriteLine($"Available RAM floor types ({ramFloorTypes.GetCount()}):");
+                    for (int i = 0; i < ramFloorTypes.GetCount(); i++)
                     {
-                        IFloorType ramFloorType = ramFloorTypes.GetAt(ftIndex);
-                        coreFloorTypeToRamFloorType[floorTypeId] = ramFloorType;
-                        Console.WriteLine($"Mapped Core floor type {floorTypeId} to RAM floor type {ramFloorType.strLabel} (UID: {ramFloorType.lUID})");
-                        ftIndex++;
+                        IFloorType floorType = ramFloorTypes.GetAt(i);
+                        Console.WriteLine($"  {i}: {floorType.strLabel} (UID: {floorType.lUID})");
+                    }
+
+                    // Map in order - the key is to match them in the correct order
+                    for (int i = 0; i < Math.Min(sortedFloorTypes.Count, ramFloorTypes.GetCount()); i++)
+                    {
+                        string floorTypeId = sortedFloorTypes[i];
+                        IFloorType ramFloorType = ramFloorTypes.GetAt(i);
+                        floorTypeIdToRamFloorType[floorTypeId] = ramFloorType;
+                        Console.WriteLine($"Mapped floor type ID {floorTypeId} to RAM floor type {ramFloorType.strLabel} (UID: {ramFloorType.lUID})");
                     }
                 }
-
-                // Create a mapping from level ID to RAM floor type (only for highest levels of each floor type)
-                var levelIdToRamFloorType = new Dictionary<string, IFloorType>();
-                foreach (var entry in highestLevelByFloorType)
+                else
                 {
-                    string floorTypeId = entry.Key;
-                    Level highestLevel = entry.Value;
-
-                    if (coreFloorTypeToRamFloorType.TryGetValue(floorTypeId, out IFloorType ramFloorType))
-                    {
-                        levelIdToRamFloorType[highestLevel.Id] = ramFloorType;
-                        Console.WriteLine($"Level {highestLevel.Name} (ID: {highestLevel.Id}) will use RAM floor type {ramFloorType.strLabel}");
-                    }
+                    Console.WriteLine("ERROR: No floor types found in level-to-floor-type mapping");
+                    return 0;
                 }
 
                 // Track processed columns per floor type to avoid duplicates
@@ -120,12 +95,21 @@ namespace RAM.Import.Elements
                     if (column.StartPoint == null || string.IsNullOrEmpty(column.TopLevelId))
                         continue;
 
-                    // Only process columns on levels that are the highest for their floor type
-                    if (!levelIdToRamFloorType.TryGetValue(column.TopLevelId, out IFloorType ramFloorType))
+                    // Get the floor type ID for this column's top level
+                    if (!levelIdToFloorTypeId.TryGetValue(column.TopLevelId, out string floorTypeId))
                     {
-                        // Skip columns not on highest level for their floor type
+                        Console.WriteLine($"No floor type mapping found for column top level {column.TopLevelId}, skipping");
                         continue;
                     }
+
+                    // Get the RAM floor type for this floor type ID
+                    if (!floorTypeIdToRamFloorType.TryGetValue(floorTypeId, out IFloorType ramFloorType))
+                    {
+                        Console.WriteLine($"No RAM floor type found for floor type ID {floorTypeId}, skipping");
+                        continue;
+                    }
+
+                    Console.WriteLine($"Processing column on top level ID {column.TopLevelId}, floor type ID {floorTypeId}, RAM floor type {ramFloorType.strLabel}");
 
                     // Convert coordinates
                     double x = Math.Round(UnitConversionUtils.ConvertToInches(column.StartPoint.X, _lengthUnit), 6);
@@ -166,19 +150,33 @@ namespace RAM.Import.Elements
                             ILayoutColumn ramColumn = layoutColumns.Add(columnMaterial, x, y, 0, 0);
                             if (ramColumn != null)
                             {
-                                // Set the beam properties
+                                // Set the column properties
                                 if (column.IsLateral)
                                 {
                                     ramColumn.eFramingType = EFRAMETYPE.MemberIsLateral;
                                 }
-                                count++;
 
                                 if (column.Orientation != 0.0)
                                 {
                                     ramColumn.dOrientation = column.Orientation;
                                 }
 
-                                Console.WriteLine($"Added column to floor type {ramFloorType.strLabel} for level {column.TopLevelId}");
+                                // Set section label if available via frame properties
+                                if (!string.IsNullOrEmpty(column.FramePropertiesId))
+                                {
+                                    var frameProp = frameProperties?.FirstOrDefault(fp => fp.Id == column.FramePropertiesId);
+                                    if (frameProp != null && !string.IsNullOrEmpty(frameProp.Name))
+                                    {
+                                        ramColumn.strSectionLabel = frameProp.Name;
+                                    }
+                                    else
+                                    {
+                                        ramColumn.strSectionLabel = "W10X49"; // Default if not found
+                                    }
+                                }
+
+                                count++;
+                                Console.WriteLine($"Added column to floor type {ramFloorType.strLabel} for level ID {column.TopLevelId}");
                             }
                             else
                             {

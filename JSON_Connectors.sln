@@ -13,8 +13,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ETABS", "ETABS\ETABS.csproj
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Grasshopper", "Grasshopper\Grasshopper.csproj", "{DFF66E54-FD53-4C7C-94FD-9C30CFCF29D2}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StructuralModelTesting", "StructuralModelTesting\StructuralModelTesting.csproj", "{8E09C6FF-E9BB-4E49-A1DB-2573F1B78679}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StandaloneConverter", "StandaloneConverter\StandaloneConverter.csproj", "{B1DCA380-9471-4F33-92E3-CBC60B14AEF1}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rhino", "Rhino\Rhino.csproj", "{405C2517-1131-4431-ACED-39A3CFAFFFED}"
@@ -47,10 +45,6 @@ Global
 		{DFF66E54-FD53-4C7C-94FD-9C30CFCF29D2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{DFF66E54-FD53-4C7C-94FD-9C30CFCF29D2}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{DFF66E54-FD53-4C7C-94FD-9C30CFCF29D2}.Release|Any CPU.Build.0 = Release|Any CPU
-		{8E09C6FF-E9BB-4E49-A1DB-2573F1B78679}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{8E09C6FF-E9BB-4E49-A1DB-2573F1B78679}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{8E09C6FF-E9BB-4E49-A1DB-2573F1B78679}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{8E09C6FF-E9BB-4E49-A1DB-2573F1B78679}.Release|Any CPU.Build.0 = Release|Any CPU
 		{B1DCA380-9471-4F33-92E3-CBC60B14AEF1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{B1DCA380-9471-4F33-92E3-CBC60B14AEF1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B1DCA380-9471-4F33-92E3-CBC60B14AEF1}.Release|Any CPU.ActiveCfg = Release|Any CPU

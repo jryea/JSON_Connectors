@@ -9,6 +9,7 @@ using Core.Models.Properties;
 using Core.Utilities;
 using ETABS.Utilities;
 
+
 namespace ETABS.Export.Elements
 {
     public class BeamExport
@@ -43,6 +44,12 @@ namespace ETABS.Export.Elements
 
                 _levelsByName[$"Story{normalizedName}"] = level;
                 _levelsByName[normalizedName] = level;
+
+                // Special case for "Base" level
+                if (normalizedName.Equals("Base", StringComparison.OrdinalIgnoreCase))
+                {
+                    _levelsByName["0"] = level;
+                }
             }
         }
 
@@ -138,13 +145,13 @@ namespace ETABS.Export.Elements
                                 EndPoint = endPoint,
                                 LevelId = level?.Id,
                                 FramePropertiesId = framePropId,
-                                IsJoist = DetermineIfJoist(assignment)
-                                // IsLateral property removed - will use default value from model class
+                                IsJoist = DetermineIfJoist(assignment),
+                                IsLateral = assignment.IsLateral
                             };
 
                             // Add to the list
                             beams.Add(beam);
-                            logWriter.WriteLine($"Added beam: {beam.Id}, LevelId: {beam.LevelId}, IsJoist: {beam.IsJoist}");
+                            logWriter.WriteLine($"Added beam: {beam.Id}, LevelId: {beam.LevelId}, IsJoist: {beam.IsJoist}, IsLateral: {beam.IsLateral}");
                         }
                     }
 

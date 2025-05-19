@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using Core.Models.Elements;
@@ -37,6 +36,7 @@ namespace ETABS.Export.Elements
         public void SetLevels(IEnumerable<Level> levels)
         {
             _levelsByName.Clear();
+            // Sort levels by elevation in ascending order (bottom to top)
             _sortedLevels = levels.OrderBy(l => l.Elevation).ToList();
 
             foreach (var level in levels)
@@ -70,7 +70,6 @@ namespace ETABS.Export.Elements
         }
 
         // Imports columns from E2K data to model
-        // In ColumnExport.cs - removing isLateral references
         public List<Column> Export()
         {
             var columns = new List<Column>();
@@ -122,14 +121,14 @@ namespace ETABS.Export.Elements
                         {
                             logWriter.WriteLine($"Processing assignment for column {columnId}, Story: {assignment.Story}");
 
-                            // Get the story level for this assignment
+                            // Get the story level for this assignment - this is TOP LEVEL
                             if (!_levelsByName.TryGetValue(assignment.Story, out var currentLevel))
                             {
                                 logWriter.WriteLine($"Cannot find level for story {assignment.Story}");
                                 continue;
                             }
 
-                            logWriter.WriteLine($"Found level: {currentLevel.Name}, Elevation: {currentLevel.Elevation}");
+                            logWriter.WriteLine($"Found top level: {currentLevel.Name}, Elevation: {currentLevel.Elevation}");
 
                             // Find base level (the level below this one)
                             Level baseLevel = null;
@@ -158,7 +157,7 @@ namespace ETABS.Export.Elements
                                 logWriter.WriteLine($"Could not find frame property for section: {assignment.Section}");
                             }
 
-                            // Create column object for this assignment
+                            // Create column object for this assignment with correct base and top levels
                             var column = new Column
                             {
                                 Id = IdGenerator.Generate(IdGenerator.Elements.COLUMN),
@@ -167,7 +166,6 @@ namespace ETABS.Export.Elements
                                 BaseLevelId = baseLevel?.Id,
                                 TopLevelId = currentLevel?.Id,
                                 FramePropertiesId = framePropId
-                                // IsLateral property removed - will use default value from model class
                             };
 
                             // Add to the list

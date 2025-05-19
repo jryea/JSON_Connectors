@@ -10,6 +10,7 @@ using Grasshopper.Utilities;
 using System.Linq;
 using System.Windows.Forms;
 using Core.Models.SoftwareSpecific;
+using static Core.Models.Properties.Modifiers;
 
 namespace Grasshopper.Components.Core.Export.Elements
 {
@@ -106,8 +107,18 @@ namespace Grasshopper.Components.Core.Export.Elements
             }
             else if (orientation.Count == 0)
             {
-                // Default to false for all columns if no value was provided
+                // Default to 0 degrees for all columns if no value was provided
                 orientation = Enumerable.Repeat(0.0, lines.Count).ToList();
+            }
+
+            // Extend ETABS modifiers list if needed
+            if (etabsModObjs.Count > 0 && etabsModObjs.Count < lines.Count)
+            {
+                object lastMod = etabsModObjs[etabsModObjs.Count - 1];
+                while (etabsModObjs.Count < lines.Count)
+                {
+                    etabsModObjs.Add(lastMod);
+                }
             }
 
             // Check that the number of branches matches after extension
@@ -134,6 +145,13 @@ namespace Grasshopper.Components.Core.Export.Elements
                 Level topLevel = ExtractObject<Level>(topLevelObjs[i], "TopLevel");
                 RG.Line line = lines[i];
 
+                // Extract ETABS modifiers if provided
+                ETABSFrameModifiers etabsModifiers = null;
+                if (etabsModObjs.Count > i && etabsModObjs[i] != null)
+                {
+                    etabsModifiers = ExtractObject<ETABSFrameModifiers>(etabsModObjs[i], "ETABSFrameModifiers");
+                }
+
                 if (baseLevel == null || topLevel == null || frameProps == null || line == null)
                 {
                     AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
@@ -151,12 +169,15 @@ namespace Grasshopper.Components.Core.Export.Elements
                     IsLateral = isLateral[i],
                     Orientation = orientation[i]
                 };
-               
+
+                // Apply ETABS modifiers if provided
+                if (etabsModifiers != null)
+                {
+                    column.ETABSModifiers = etabsModifiers;
+                }
 
                 columns.Add(new GH_Column(column));
             }
-
-            DA.SetDataList(0, columns);
         }
 
         private T ExtractObject<T>(object obj, string typeName) where T : class

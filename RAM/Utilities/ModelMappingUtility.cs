@@ -40,7 +40,7 @@ namespace RAM.Utilities
                 // Build floor type mappings
                 if (coreModel?.ModelLayout?.FloorTypes != null)
                 {
-                    BuildFloorTypeMappings(ramModel, coreModel.ModelLayout.FloorTypes);
+                    BuildFloorTypeMappings(ramModel, coreModel.ModelLayout.FloorTypes, coreModel.ModelLayout.Levels);
                 }
 
                 // Set frame property mappings if available
@@ -173,32 +173,97 @@ namespace RAM.Utilities
         /// <summary>
         /// Build mappings between RAM floor types and Core floor types
         /// </summary>
-        private static void BuildFloorTypeMappings(IModel ramModel, IEnumerable<FloorType> floorTypes)
+        private static void BuildFloorTypeMappings(IModel ramModel, IEnumerable<FloorType> floorTypes, IEnumerable<Level> levels = null)
         {
             var ramFloorTypes = ramModel.GetFloorTypes();
+            _floorTypeUidToId.Clear();
 
             Console.WriteLine("Building floor type mappings...");
 
-            // Create a dictionary of Core floor type IDs by name for quick lookup
-            Dictionary<string, string> floorTypeIdsByName = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var floorType in floorTypes)
-            {
-                if (!string.IsNullOrEmpty(floorType.Name) && !string.IsNullOrEmpty(floorType.Id))
-                {
-                    floorTypeIdsByName[floorType.Name] = floorType.Id;
-                }
-            }
+            // 1. First try to match by name (most reliable approach)
+            Dictionary<string, IFloorType> matchedRamFloorTypes = new Dictionary<string, IFloorType>();
 
-            // Map floor types by name
             for (int i = 0; i < ramFloorTypes.GetCount(); i++)
             {
                 IFloorType ramFloorType = ramFloorTypes.GetAt(i);
                 if (ramFloorType != null && !string.IsNullOrEmpty(ramFloorType.strLabel))
                 {
-                    if (floorTypeIdsByName.TryGetValue(ramFloorType.strLabel, out string floorTypeId))
+                    // Try to find matching core floor type by name
+                    var matchingFloorType = floorTypes.FirstOrDefault(ft =>
+                        string.Equals(ft.Name, ramFloorType.strLabel, StringComparison.OrdinalIgnoreCase));
+
+                    if (matchingFloorType != null)
                     {
-                        _floorTypeUidToId[ramFloorType.lUID.ToString()] = floorTypeId;
-                        Console.WriteLine($"Mapped RAM floor type {ramFloorType.strLabel} to Core floor type ID {floorTypeId}");
+                        _floorTypeUidToId[ramFloorType.lUID.ToString()] = matchingFloorType.Id;
+                        matchedRamFloorTypes[ramFloorType.strLabel] = ramFloorType;
+                        Console.WriteLine($"Matched floor type by name: {matchingFloorType.Name} (ID: {matchingFloorType.Id}) -> RAM ID: {ramFloorType.lUID}");
+                    }
+                }
+            }
+
+            // 2. For remaining unmatched floor types, try matching by elevation order if levels are provided
+            if (levels != null && levels.Any())
+            {
+                // Find floor types that haven't been matched yet
+                var unmatchedFloorTypes = floorTypes.Where(ft =>
+                    !_floorTypeUidToId.Values.Contains(ft.Id)).ToList();
+
+                if (unmatchedFloorTypes.Any())
+                {
+                    // Find RAM floor types that haven't been matched yet
+                    var unmatchedRamFloorTypes = new List<IFloorType>();
+                    for (int i = 0; i < ramFloorTypes.GetCount(); i++)
+                    {
+                        IFloorType ramFloorType = ramFloorTypes.GetAt(i);
+                        if (ramFloorType != null && !matchedRamFloorTypes.Values.Contains(ramFloorType))
+                        {
+                            unmatchedRamFloorTypes.Add(ramFloorType);
+                        }
+                    }
+
+                    // Get average elevation for each floor type
+                    var floorTypeElevations = new Dictionary<string, double>();
+                    var floorTypeLevelCount = new Dictionary<string, int>();
+
+                    foreach (var level in levels)
+                    {
+                        if (!string.IsNullOrEmpty(level.FloorTypeId))
+                        {
+                            if (!floorTypeElevations.ContainsKey(level.FloorTypeId))
+                            {
+                                floorTypeElevations[level.FloorTypeId] = 0;
+                                floorTypeLevelCount[level.FloorTypeId] = 0;
+                            }
+
+                            floorTypeElevations[level.FloorTypeId] += level.Elevation;
+                            floorTypeLevelCount[level.FloorTypeId]++;
+                        }
+                    }
+
+                    // Calculate average elevations
+                    foreach (var ftId in floorTypeElevations.Keys.ToList())
+                    {
+                        if (floorTypeLevelCount[ftId] > 0)
+                        {
+                            floorTypeElevations[ftId] /= floorTypeLevelCount[ftId];
+                        }
+                    }
+
+                    // Sort unmatched floor types by elevation
+                    var sortedUnmatchedFloorTypes = unmatchedFloorTypes
+                        .Where(ft => floorTypeElevations.ContainsKey(ft.Id))
+                        .OrderBy(ft => floorTypeElevations[ft.Id])
+                        .ToList();
+
+                    // Match remaining floor types in elevation order
+                    int count = Math.Min(sortedUnmatchedFloorTypes.Count, unmatchedRamFloorTypes.Count);
+                    for (int i = 0; i < count; i++)
+                    {
+                        var floorType = sortedUnmatchedFloorTypes[i];
+                        var ramFloorType = unmatchedRamFloorTypes[i];
+
+                        _floorTypeUidToId[ramFloorType.lUID.ToString()] = floorType.Id;
+                        Console.WriteLine($"Matched floor type by elevation: {floorType.Name} (ID: {floorType.Id}) -> RAM ID: {ramFloorType.lUID}");
                     }
                 }
             }

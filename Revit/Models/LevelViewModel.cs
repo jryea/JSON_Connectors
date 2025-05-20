@@ -12,6 +12,9 @@ namespace Revit.Export.Models
         private FloorTypeModel _selectedFloorType;
         private bool _isSelected;
         private ElementId _levelId;
+        private bool _isMasterStory;
+        private LevelViewModel _similarToLevel;
+        private bool _isEnabledForExport = true;
 
         public string Id
         {
@@ -58,8 +61,17 @@ namespace Revit.Export.Models
             get => _isSelected;
             set
             {
-                _isSelected = value;
-                OnPropertyChanged();
+                if (_isSelected != value)
+                {
+                    _isSelected = value;
+                    OnPropertyChanged();
+
+                    // When selection changes, notify the view model to update master story list
+                    if (PropertyChanged != null)
+                    {
+                        OnPropertyChanged(nameof(IsMasterStory)); // Trigger update of dependent properties
+                    }
+                }
             }
         }
 
@@ -73,11 +85,54 @@ namespace Revit.Export.Models
             }
         }
 
+        public bool IsMasterStory
+        {
+            get => _isMasterStory;
+            set
+            {
+                if (_isMasterStory != value)
+                {
+                    _isMasterStory = value;
+                    OnPropertyChanged();
+
+                    // Notify that master story status changed (for updating collection)
+                    NotifyMasterStoryChanged();
+                }
+            }
+        }
+
+        public LevelViewModel SimilarToLevel
+        {
+            get => _similarToLevel;
+            set
+            {
+                _similarToLevel = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public bool IsEnabledForExport
+        {
+            get => _isEnabledForExport;
+            set
+            {
+                _isEnabledForExport = value;
+                OnPropertyChanged();
+            }
+        }
+
         public event PropertyChangedEventHandler PropertyChanged;
 
         protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+        private void NotifyMasterStoryChanged()
+        {
+            // This is a way to notify the parent view model that it should update its master story list
+            // The actual implementation would depend on your architecture
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("MasterStoryCollectionChanged"));
         }
     }
 }

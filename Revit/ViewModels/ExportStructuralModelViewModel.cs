@@ -12,19 +12,18 @@ using Autodesk.Revit.UI;
 using Microsoft.Win32;
 using Revit.Export;
 using Revit.Export.Models;
-using Revit.Export.ModelLayout;
-using System.Collections.Generic;
 
 namespace Revit.ViewModels
 {
-    public class ExportGrasshopperViewModel : INotifyPropertyChanged
+    public class ExportStructuralModelViewModel : INotifyPropertyChanged
     {
         #region Fields
         private UIApplication _uiApp;
         private Document _document;
         private string _outputLocation;
-        private XYZ _referencePoint;
-        private string _referencePointText;
+        private bool _exportToETABS = true;
+        private bool _exportToRAM;
+        private bool _exportToGrasshopper;
         private string _newFloorTypeName;
         private ObservableCollection<FloorTypeModel> _floorTypes;
         private FloorTypeModel _selectedFloorType;
@@ -33,8 +32,22 @@ namespace Revit.ViewModels
         private ObservableCollection<LevelViewModel> _levelCollection;
         private ObservableCollection<ViewPlanViewModel> _viewPlanCollection;
         private ObservableCollection<FloorTypeViewMappingModel> _floorTypeViewMappingCollection;
+        private ObservableCollection<LevelViewModel> _masterStoryLevels;
         private ICollectionView _filteredLevelCollection;
-        private FloorTypeExport _floorTypeExporter;
+        private LevelViewModel _baseLevel;
+
+        // Element categories
+        private bool _exportGrids = true;
+        private bool _exportBeams = true;
+        private bool _exportBraces = true;
+        private bool _exportColumns = true;
+        private bool _exportFloors = true;
+        private bool _exportWalls = true;
+        private bool _exportFootings = true;
+
+        // Material types
+        private bool _exportSteel = true;
+        private bool _exportConcrete = true;
         #endregion
 
         #region Properties
@@ -48,28 +61,45 @@ namespace Revit.ViewModels
             }
         }
 
-        public XYZ ReferencePoint
+        public bool ExportToETABS
         {
-            get => _referencePoint;
+            get => _exportToETABS;
             set
             {
-                _referencePoint = value;
-                OnPropertyChanged();
-
-                // Update the text representation
-                ReferencePointText = value == null ?
-                    "No point selected" :
-                    $"X: {value.X:F2}, Y: {value.Y:F2}, Z: {value.Z:F2}";
+                if (_exportToETABS != value)
+                {
+                    _exportToETABS = value;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(IsAnalysisExport));
+                }
             }
         }
 
-        public string ReferencePointText
+        public bool ExportToRAM
         {
-            get => _referencePointText;
+            get => _exportToRAM;
             set
             {
-                _referencePointText = value;
-                OnPropertyChanged();
+                if (_exportToRAM != value)
+                {
+                    _exportToRAM = value;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(IsAnalysisExport));
+                }
+            }
+        }
+
+        public bool ExportToGrasshopper
+        {
+            get => _exportToGrasshopper;
+            set
+            {
+                if (_exportToGrasshopper != value)
+                {
+                    _exportToGrasshopper = value;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(IsAnalysisExport));
+                }
             }
         }
 
@@ -121,7 +151,6 @@ namespace Revit.ViewModels
             {
                 _viewSearchText = value;
                 OnPropertyChanged();
-                FilterViewPlanCollection();
             }
         }
 
@@ -154,11 +183,129 @@ namespace Revit.ViewModels
                 OnPropertyChanged();
             }
         }
+
+        public ObservableCollection<LevelViewModel> MasterStoryLevels
+        {
+            get => _masterStoryLevels;
+            set
+            {
+                _masterStoryLevels = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public LevelViewModel BaseLevel
+        {
+            get => _baseLevel;
+            set
+            {
+                if (_baseLevel != value)
+                {
+                    _baseLevel = value;
+                    OnPropertyChanged();
+                    UpdateLevelEnabledStates();
+                }
+            }
+        }
+
+        // Helper property to show/hide analysis-specific controls (ETABS or RAM)
+        public bool IsAnalysisExport => ExportToETABS || ExportToRAM;
+
+        // Element Categories
+        public bool ExportGrids
+        {
+            get => _exportGrids;
+            set
+            {
+                _exportGrids = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public bool ExportBeams
+        {
+            get => _exportBeams;
+            set
+            {
+                _exportBeams = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public bool ExportBraces
+        {
+            get => _exportBraces;
+            set
+            {
+                _exportBraces = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public bool ExportColumns
+        {
+            get => _exportColumns;
+            set
+            {
+                _exportColumns = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public bool ExportFloors
+        {
+            get => _exportFloors;
+            set
+            {
+                _exportFloors = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public bool ExportWalls
+        {
+            get => _exportWalls;
+            set
+            {
+                _exportWalls = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public bool ExportFootings
+        {
+            get => _exportFootings;
+            set
+            {
+                _exportFootings = value;
+                OnPropertyChanged();
+            }
+        }
+
+        // Material Types
+        public bool ExportSteel
+        {
+            get => _exportSteel;
+            set
+            {
+                _exportSteel = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public bool ExportConcrete
+        {
+            get => _exportConcrete;
+            set
+            {
+                _exportConcrete = value;
+                OnPropertyChanged();
+            }
+        }
         #endregion
 
         #region Commands
         public ICommand BrowseOutputCommand { get; private set; }
-        public ICommand SelectPointCommand { get; private set; }
         public ICommand AddFloorTypeCommand { get; private set; }
         public ICommand RemoveFloorTypeCommand { get; private set; }
         public ICommand ExportCommand { get; private set; }
@@ -166,7 +313,7 @@ namespace Revit.ViewModels
         #endregion
 
         // Constructor for designer time
-        public ExportGrasshopperViewModel()
+        public ExportStructuralModelViewModel()
         {
             InitializeProperties();
             InitializeCommands();
@@ -179,15 +326,10 @@ namespace Revit.ViewModels
         }
 
         // Constructor for runtime with Revit API
-        public ExportGrasshopperViewModel(UIApplication uiApp)
+        public ExportStructuralModelViewModel(UIApplication uiApp)
         {
             _uiApp = uiApp;
             _document = uiApp?.ActiveUIDocument?.Document;
-
-            if (_document != null)
-            {
-                _floorTypeExporter = new FloorTypeExport(_document);
-            }
 
             InitializeProperties();
             InitializeCommands();
@@ -206,8 +348,8 @@ namespace Revit.ViewModels
             LevelCollection = new ObservableCollection<LevelViewModel>();
             ViewPlanCollection = new ObservableCollection<ViewPlanViewModel>();
             FloorTypeViewMappingCollection = new ObservableCollection<FloorTypeViewMappingModel>();
+            MasterStoryLevels = new ObservableCollection<LevelViewModel>();
 
-            ReferencePointText = "No point selected";
             LevelSearchText = string.Empty;
             ViewSearchText = string.Empty;
 
@@ -219,7 +361,6 @@ namespace Revit.ViewModels
         private void InitializeCommands()
         {
             BrowseOutputCommand = new RelayCommand(BrowseOutput);
-            SelectPointCommand = new RelayCommand(SelectPoint);
             AddFloorTypeCommand = new RelayCommand(AddFloorType, CanAddFloorType);
             RemoveFloorTypeCommand = new RelayCommand(RemoveFloorType);
             ExportCommand = new RelayCommand(Export, CanExport);
@@ -277,6 +418,7 @@ namespace Revit.ViewModels
                 SelectedViewPlan = ViewPlanCollection[1]
             });
         }
+
         private void LoadLevels()
         {
             // Clear existing items
@@ -301,7 +443,6 @@ namespace Revit.ViewModels
                         Elevation = level.Elevation * 12.0, // Convert to inches
                         LevelId = level.Id,
                         IsSelected = false, // Set to false by default
-                                            // No default floor type assignment - this will be null initially
                     };
 
                     LevelCollection.Add(levelViewModel);
@@ -350,6 +491,51 @@ namespace Revit.ViewModels
             }
         }
 
+        private void UpdateLevelEnabledStates()
+        {
+            if (BaseLevel == null || LevelCollection == null)
+                return;
+
+            // Update the IsEnabledForExport property based on base level
+            foreach (var level in LevelCollection)
+            {
+                // If level is below base level, disable it
+                level.IsEnabledForExport = level.Elevation >= BaseLevel.Elevation;
+
+                // If level is below base level and was selected, deselect it
+                if (!level.IsEnabledForExport && level.IsSelected)
+                {
+                    level.IsSelected = false;
+                }
+            }
+
+            // Update master story levels collection
+            UpdateMasterStoryLevels();
+        }
+
+        private void UpdateMasterStoryLevels()
+        {
+            MasterStoryLevels.Clear();
+
+            // Add master story levels to the collection
+            foreach (var level in LevelCollection)
+            {
+                if (level.IsMasterStory && level.IsSelected)
+                {
+                    MasterStoryLevels.Add(level);
+                }
+            }
+
+            // Handle "Similar To" references when a master story is deselected
+            foreach (var level in LevelCollection)
+            {
+                if (level.SimilarToLevel != null && !MasterStoryLevels.Contains(level.SimilarToLevel))
+                {
+                    level.SimilarToLevel = null; // Reset reference if the master story is no longer available
+                }
+            }
+        }
+
         private void UpdateFloorTypeViewMappings()
         {
             // Clear existing mappings
@@ -383,13 +569,6 @@ namespace Revit.ViewModels
             return level.Name.IndexOf(LevelSearchText, StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
-        private void FilterViewPlanCollection()
-        {
-            // Since we don't have a filtered collection for ViewPlans directly,
-            // we need to ensure the appropriate views are shown in the mappings
-            // This could be enhanced with more complex filtering if needed
-        }
-
         private void BrowseOutput(object parameter)
         {
             var dialog = new SaveFileDialog
@@ -403,29 +582,6 @@ namespace Revit.ViewModels
             {
                 // Extract the folder path from the selected file path
                 OutputLocation = Path.GetDirectoryName(dialog.FileName);
-            }
-        }
-
-        private void SelectPoint(object parameter)
-        {
-            try
-            {
-                RequestMinimize?.Invoke();
-
-                // Let user select a point in Revit
-                var uiDoc = _uiApp?.ActiveUIDocument;
-                if (uiDoc != null)
-                {
-                    var result = uiDoc.Selection.PickPoint("Select a reference point");
-                    ReferencePoint = result;
-                }
-
-                RequestRestore?.Invoke();
-            }
-            catch (Exception ex)
-            {
-                RequestRestore?.Invoke();
-                MessageBox.Show($"Error selecting point: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -474,7 +630,6 @@ namespace Revit.ViewModels
                 }
             }
         }
-
 
         private bool CanAddFloorType(object parameter)
         {
@@ -534,6 +689,7 @@ namespace Revit.ViewModels
                 }
             }
         }
+
         private void Export(object parameter)
         {
             if (string.IsNullOrEmpty(OutputLocation))
@@ -542,20 +698,14 @@ namespace Revit.ViewModels
                 return;
             }
 
-            if (ReferencePoint == null)
-            {
-                MessageBox.Show("Please select a reference point first.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
-
-            if (FloorTypes.Count == 0)
-            {
-                MessageBox.Show("Please create at least one floor type first.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
-
             try
             {
+                // Get selected export format
+                string exportFormat = "UNKNOWN";
+                if (ExportToETABS) exportFormat = "ETABS";
+                else if (ExportToRAM) exportFormat = "RAM";
+                else if (ExportToGrasshopper) exportFormat = "Grasshopper";
+
                 // Get selected levels
                 var selectedLevels = LevelCollection
                     .Where(level => level.IsSelected)
@@ -577,101 +727,8 @@ namespace Revit.ViewModels
                     }
                 }
 
-                // Check if all floor types have an assigned view plan
-                foreach (var floorTypeMapping in FloorTypeViewMappingCollection)
-                {
-                    if (floorTypeMapping.SelectedViewPlan == null)
-                    {
-                        MessageBox.Show($"Please assign a view plan to floor type: {floorTypeMapping.FloorTypeName}",
-                            "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                        return;
-                    }
-                }
-
-                // Get the folder name from the path
-                string exportFolder = OutputLocation;
-                string folderName = Path.GetFileName(exportFolder);
-
-                // If the user selected a folder but not the final project folder, create it
-                if (string.IsNullOrEmpty(folderName))
-                {
-                    folderName = _document?.Title ?? "GrasshopperExport";
-                    exportFolder = Path.Combine(OutputLocation, folderName);
-                    Directory.CreateDirectory(exportFolder);
-                }
-
-                // Create JSON file path and CAD folder path
-                string jsonPath = Path.Combine(exportFolder, folderName + ".json");
-                string dwgFolder = Path.Combine(exportFolder, "CAD");
-                Directory.CreateDirectory(dwgFolder);
-
-                // Use ONLY the floor types from the UI - no default type
-                var floorTypesList = FloorTypes.Select(ft => new Core.Models.ModelLayout.FloorType
-                {
-                    Id = ft.Id,
-                    Name = ft.Name
-                }).ToList();
-
-                // Create a map between the view model floor types and the core model instances
-                var floorTypeIdToNameMap = floorTypesList
-                    .ToDictionary(ft => ft.Id, ft => ft.Name);
-
-                // Create level-to-floor-type mapping for selected levels only
-                var selectedCoreModelLevels = new List<Core.Models.ModelLayout.Level>();
-                foreach (var level in selectedLevels)
-                {
-                    // Create a Core.Models.ModelLayout.Level for each selected level
-                    var coreLevel = new Core.Models.ModelLayout.Level
-                    {
-                        Name = level.Name,
-                        Elevation = level.Elevation
-                    };
-
-                    // Assign floor type ID based on the selected floor type
-                    if (level.SelectedFloorType != null)
-                    {
-                        coreLevel.FloorTypeId = level.SelectedFloorType.Id;
-                    }
-
-                    selectedCoreModelLevels.Add(coreLevel);
-                }
-
-                // Create list of selected level IDs to only export those levels
-                var selectedLevelIds = selectedLevels
-                    .Select(level => level.LevelId)
-                    .Where(id => id != null)
-                    .ToList();
-
-                // Create floor type to view plan mapping for export
-                var floorTypeToViewMap = new Dictionary<string, ElementId>();
-                foreach (var mapping in FloorTypeViewMappingCollection)
-                {
-                    if (mapping.SelectedViewPlan != null)
-                    {
-                        // Find the floor type ID by name
-                        var floorType = FloorTypes.FirstOrDefault(ft => ft.Name == mapping.FloorTypeName);
-                        if (floorType != null)
-                        {
-                            floorTypeToViewMap[floorType.Id] = mapping.SelectedViewPlan.ViewId;
-                        }
-                    }
-                }
-
-                // Execute the exporter
-                GrasshopperExporter exporter = new GrasshopperExporter(_document, _uiApp);
-
-                // Export the model with floor type information, view plan mappings, and selected levels only
-                exporter.ExportWithFloorTypeViewMappings(
-                    jsonPath,
-                    dwgFolder,
-                    floorTypesList,
-                    selectedCoreModelLevels,
-                    ReferencePoint,
-                    floorTypeToViewMap,
-                    selectedLevelIds
-                );
-
-                MessageBox.Show($"Export completed successfully to:\n{exportFolder}", "Export Complete", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show($"Would export to {exportFormat} format\nOutput location: {OutputLocation}\nSelected levels: {selectedLevels.Count}",
+                               "Export", MessageBoxButton.OK, MessageBoxImage.Information);
 
                 // Close the dialog
                 RequestClose?.Invoke();
@@ -685,10 +742,10 @@ namespace Revit.ViewModels
         private bool CanExport(object parameter)
         {
             return !string.IsNullOrEmpty(OutputLocation) &&
-                   ReferencePoint != null &&
                    LevelCollection.Any(level => level.IsSelected) &&
                    FloorTypes.Count > 0;
         }
+
         #region Events
         public event Action RequestClose;
         public event Action RequestMinimize;
@@ -702,8 +759,6 @@ namespace Revit.ViewModels
 
             // Update command states when properties change
             if (propertyName == nameof(OutputLocation) ||
-                propertyName == nameof(ReferencePoint) ||
-                propertyName == nameof(NewFloorTypeName) ||
                 propertyName == nameof(LevelCollection))
             {
                 CommandManager.InvalidateRequerySuggested();

@@ -178,6 +178,7 @@
     <Compile Include="Export\Properties\MaterialExport.cs" />
     <Compile Include="Export\Properties\WallPropertiesExport.cs" />
     <Compile Include="Export\RAMExportCommand.cs" />
+    <Compile Include="Export\StructuralModelExportCommand.cs" />
     <Compile Include="Import\Elements\BeamImport.cs" />
     <Compile Include="Import\Elements\BraceImport.cs" />
     <Compile Include="Import\Elements\ColumnImport.cs" />
@@ -206,7 +207,13 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Utilities\Helpers.cs" />
     <Compile Include="Utilities\Utils.cs" />
+    <Compile Include="ViewModels\Converters.cs" />
     <Compile Include="ViewModels\ExportGrasshopperViewModel.cs" />
+    <Compile Include="ViewModels\ExportStructuralModelViewModel.cs" />
+    <Compile Include="ViewModels\RelayCommand.cs" />
+    <Compile Include="Views\ExportStructuralModelWindow.xaml.cs">
+      <DependentUpon>ExportStructuralModelWindow.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Views\ExportGrasshopperWindow.xaml.cs">
       <DependentUpon>ExportGrasshopperWindow.xaml</DependentUpon>
     </Compile>
@@ -243,6 +250,10 @@
   </ItemGroup>
   <ItemGroup />
   <ItemGroup>
+    <Page Include="Views\ExportStructuralModelWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
     <Page Include="Views\ExportGrasshopperWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>

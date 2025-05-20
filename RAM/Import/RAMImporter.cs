@@ -12,6 +12,8 @@ using RAM.Import.Properties;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Linq;
+using Core.Models.ModelLayout;
+using System.Collections.Generic;
 
 namespace RAM
 {
@@ -146,7 +148,17 @@ namespace RAM
                         int floorTypeCount = 0;
                         if (model.ModelLayout.FloorTypes != null && model.ModelLayout.FloorTypes.Count > 0)
                         {
-                            floorTypeCount = floorTypeImporter.Import(model.ModelLayout.FloorTypes, validLevels);
+                            // Sort floor types by elevation before importing
+                            var sortedFloorTypes = SortFloorTypesByElevation(model.ModelLayout.FloorTypes, validLevels);
+
+                            // Log the sorted order
+                            Console.WriteLine("Floor types sorted by elevation for importing:");
+                            foreach (var ft in sortedFloorTypes)
+                            {
+                                Console.WriteLine($"  {ft.Name} (ID: {ft.Id})");
+                            }
+
+                            floorTypeCount = floorTypeImporter.Import(sortedFloorTypes, validLevels);
                             Console.WriteLine($"Imported {floorTypeCount} floor types");
                         }
 
@@ -353,6 +365,40 @@ namespace RAM
                 Console.WriteLine($"Stack trace: {ex.StackTrace}");
                 return (false, $"Error converting JSON to RAM: {ex.Message}");
             }
+        }
+
+        private List<FloorType> SortFloorTypesByElevation(IEnumerable<FloorType> floorTypes, IEnumerable<Level> levels)
+        {
+            // Calculate average elevation for each floor type
+            var elevationMap = new Dictionary<string, double>();
+            var countMap = new Dictionary<string, int>();
+
+            foreach (var level in levels)
+            {
+                if (!string.IsNullOrEmpty(level.FloorTypeId))
+                {
+                    if (!elevationMap.ContainsKey(level.FloorTypeId))
+                    {
+                        elevationMap[level.FloorTypeId] = 0;
+                        countMap[level.FloorTypeId] = 0;
+                    }
+
+                    elevationMap[level.FloorTypeId] += level.Elevation;
+                    countMap[level.FloorTypeId]++;
+                }
+            }
+
+            // Calculate averages
+            foreach (var key in elevationMap.Keys.ToList())
+            {
+                if (countMap[key] > 0)
+                    elevationMap[key] /= countMap[key];
+            }
+
+            // Sort by elevation
+            return floorTypes
+                .OrderBy(ft => elevationMap.ContainsKey(ft.Id) ? elevationMap[ft.Id] : double.MaxValue)
+                .ToList();
         }
     }
 }

@@ -34,6 +34,9 @@ namespace Revit.Export.Elements
             Dictionary<DB.ElementId, string> levelIdMap = CreateLevelMapping(model);
             Dictionary<DB.ElementId, string> framePropertiesMap = CreateFramePropertiesMapping(model);
 
+            // Get ordered list of levels for splitting columns
+            List<DB.Level> orderedLevels = GetOrderedLevels();
+
             foreach (var revitColumn in revitColumns)
             {
                 try
@@ -45,51 +48,147 @@ namespace Revit.Export.Elements
 
                     DB.XYZ point = location.Point;
 
-                    // Create column object
-                    CE.Column column = new CE.Column();
+                    // Get base and top levels
+                    DB.Parameter baseLevelParam = revitColumn.get_Parameter(DB.BuiltInParameter.FAMILY_BASE_LEVEL_PARAM);
+                    DB.Parameter topLevelParam = revitColumn.get_Parameter(DB.BuiltInParameter.FAMILY_TOP_LEVEL_PARAM);
 
-                    // Set base and top levels
-                    DB.ElementId baseLevelId = revitColumn.get_Parameter(DB.BuiltInParameter.FAMILY_BASE_LEVEL_PARAM).AsElementId();
-                    DB.ElementId topLevelId = revitColumn.get_Parameter(DB.BuiltInParameter.FAMILY_TOP_LEVEL_PARAM).AsElementId();
-
-                    if (levelIdMap.ContainsKey(baseLevelId))
-                        column.BaseLevelId = levelIdMap[baseLevelId];
-
-                    if (levelIdMap.ContainsKey(topLevelId))
-                        column.TopLevelId = levelIdMap[topLevelId];
-                    else
-                        column.TopLevelId = column.BaseLevelId; // Default to base level if top level not found
-
-                    // Verify that top and base levels are different to avoid zero-height columns
-                    if (column.BaseLevelId == column.TopLevelId)
-                    {
-                        Debug.WriteLine($"Skipping column with same base and top level: {column.BaseLevelId}");
+                    if (baseLevelParam == null || topLevelParam == null)
                         continue;
-                    }
 
-                    // Set column type
+                    DB.ElementId baseLevelId = baseLevelParam.AsElementId();
+                    DB.ElementId topLevelId = topLevelParam.AsElementId();
+
+                    if (baseLevelId == DB.ElementId.InvalidElementId || topLevelId == DB.ElementId.InvalidElementId)
+                        continue;
+
+                    DB.Level baseLevel = _doc.GetElement(baseLevelId) as DB.Level;
+                    DB.Level topLevel = _doc.GetElement(topLevelId) as DB.Level;
+
+                    if (baseLevel == null || topLevel == null)
+                        continue;
+
+                    // Get column type
                     DB.ElementId typeId = revitColumn.GetTypeId();
+                    string framePropertiesId = null;
                     if (framePropertiesMap.ContainsKey(typeId))
-                        column.FramePropertiesId = framePropertiesMap[typeId];
+                        framePropertiesId = framePropertiesMap[typeId];
 
-                    // Set column location
-                    column.StartPoint = new CG.Point2D(point.X * 12.0, point.Y * 12.0); // Convert to inches
-                    column.EndPoint = column.StartPoint; // Same as start point for simple representation
+                    // Find all levels that this column spans
+                    List<DB.Level> spanningLevels = FindSpanningLevels(baseLevel, topLevel, orderedLevels);
 
-                    // Determine if column is part of lateral system (approximation)
-                    column.IsLateral = IsColumnLateral(revitColumn);
+                    if (spanningLevels.Count <= 1)
+                    {
+                        // If column doesn't span multiple levels, export as a single column
+                        CE.Column column = CreateColumnObject(revitColumn, point, framePropertiesId, levelIdMap, baseLevel, topLevel);
+                        if (column != null)
+                        {
+                            columns.Add(column);
+                            count++;
+                        }
+                    }
+                    else
+                    {
+                        // Split column into segments for each level it spans
+                        for (int i = 0; i < spanningLevels.Count - 1; i++)
+                        {
+                            DB.Level currentBaseLevel = spanningLevels[i];
+                            DB.Level currentTopLevel = spanningLevels[i + 1];
 
-                    columns.Add(column);
-                    count++;
+                            CE.Column columnSegment = CreateColumnObject(revitColumn, point, framePropertiesId, levelIdMap,
+                                currentBaseLevel, currentTopLevel);
+
+                            if (columnSegment != null)
+                            {
+                                columns.Add(columnSegment);
+                                count++;
+                                Debug.WriteLine($"Added column segment from {currentBaseLevel.Name} to {currentTopLevel.Name}");
+                            }
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"Error exporting column: {ex.Message}");
-                    // Skip this column and continue with the next one
                 }
             }
 
             return count;
+        }
+
+        private List<DB.Level> GetOrderedLevels()
+        {
+            // Get all levels and order them by elevation
+            DB.FilteredElementCollector levelCollector = new DB.FilteredElementCollector(_doc);
+            return levelCollector.OfClass(typeof(DB.Level))
+                .Cast<DB.Level>()
+                .OrderBy(l => l.Elevation)
+                .ToList();
+        }
+
+        private List<DB.Level> FindSpanningLevels(DB.Level baseLevel, DB.Level topLevel, List<DB.Level> orderedLevels)
+        {
+            // Find all levels between baseLevel and topLevel (inclusive)
+            List<DB.Level> spanningLevels = new List<DB.Level>();
+            bool inRange = false;
+
+            foreach (var level in orderedLevels)
+            {
+                if (level.Id == baseLevel.Id)
+                {
+                    inRange = true;
+                    spanningLevels.Add(level);
+                }
+                else if (level.Id == topLevel.Id)
+                {
+                    spanningLevels.Add(level);
+                    break;
+                }
+                else if (inRange)
+                {
+                    spanningLevels.Add(level);
+                }
+            }
+
+            return spanningLevels;
+        }
+
+        private CE.Column CreateColumnObject(DB.FamilyInstance revitColumn, DB.XYZ point, string framePropertiesId,
+            Dictionary<DB.ElementId, string> levelIdMap, DB.Level baseLevel, DB.Level topLevel)
+        {
+            // Create a column object for the specified levels
+            CE.Column column = new CE.Column();
+
+            // Set column location
+            column.StartPoint = new CG.Point2D(point.X * 12.0, point.Y * 12.0); // Convert to inches
+            column.EndPoint = column.StartPoint; // Same as start point for simple representation
+
+            // Set base and top levels using mapping
+            if (levelIdMap.ContainsKey(baseLevel.Id) && levelIdMap.ContainsKey(topLevel.Id))
+            {
+                column.BaseLevelId = levelIdMap[baseLevel.Id];
+                column.TopLevelId = levelIdMap[topLevel.Id];
+            }
+            else
+            {
+                return null; // Skip if level mapping not found
+            }
+
+            // Set column properties
+            column.FramePropertiesId = framePropertiesId;
+
+            // Try to get orientation parameter
+            try
+            {
+                DB.Parameter orientParam = revitColumn.get_Parameter(DB.BuiltInParameter.COLUMN_ORIENTATION_PARAM);
+                if (orientParam != null && orientParam.HasValue)
+                    column.Orientation = orientParam.AsDouble();
+            }
+            catch { }
+
+            // Determine if column is part of lateral system
+            column.IsLateral = IsColumnLateral(revitColumn);
+
+            return column;
         }
 
         private bool IsColumnLateral(DB.FamilyInstance column)

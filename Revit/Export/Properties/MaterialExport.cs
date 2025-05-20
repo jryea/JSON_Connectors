@@ -17,7 +17,7 @@ namespace Revit.Export.Properties
             _doc = doc;
         }
 
-        public int Export(List<Material> materials)
+        public int Export(List<Material> materials, Dictionary<string, bool> materialFilters = null)
         {
             int count = 0;
 
@@ -44,6 +44,20 @@ namespace Revit.Export.Properties
             string steelMaterialId = string.Empty;
             string concreteMaterialId = string.Empty;
 
+            // Get filter settings
+            bool exportSteel = true;
+            bool exportConcrete = true;
+
+            // Apply material filters if provided
+            if (materialFilters != null)
+            {
+                if (materialFilters.TryGetValue("Steel", out bool steelEnabled))
+                    exportSteel = steelEnabled;
+
+                if (materialFilters.TryGetValue("Concrete", out bool concreteEnabled))
+                    exportConcrete = concreteEnabled;
+            }
+
             // Export only the materials that are used by structural elements
             foreach (var materialId in usedMaterialIds)
             {
@@ -55,6 +69,11 @@ namespace Revit.Export.Properties
 
                     // Determine material type
                     MaterialType materialType = DetermineStructuralMaterialType(revitMaterial);
+
+                    // Skip if material type is filtered out
+                    if ((materialType == MaterialType.Steel && !exportSteel) ||
+                        (materialType == MaterialType.Concrete && !exportConcrete))
+                        continue;
 
                     // Check if we already have this material type
                     if (materialType == MaterialType.Steel && hasSteel)
@@ -91,8 +110,8 @@ namespace Revit.Export.Properties
                 }
             }
 
-            // Ensure we have at least one steel and one concrete material
-            if (!hasSteel)
+            // Ensure we have at least one steel and one concrete material if they're enabled in filters
+            if (exportSteel && !hasSteel)
             {
                 Material steelMaterial = new Material("Steel", MaterialType.Steel);
                 PopulateDefaultSteelProperties(steelMaterial);
@@ -101,7 +120,7 @@ namespace Revit.Export.Properties
                 Debug.WriteLine($"Added default Steel material with ID: {steelMaterial.Id}");
             }
 
-            if (!hasConcrete)
+            if (exportConcrete && !hasConcrete)
             {
                 Material concreteMaterial = new Material("Concrete", MaterialType.Concrete);
                 PopulateDefaultConcreteProperties(concreteMaterial);

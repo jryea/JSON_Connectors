@@ -24,17 +24,9 @@ namespace Revit.Views
                     // Only set DialogResult if the window is shown as a dialog
                     if (this.Owner != null)
                     {
-                        this.DialogResult = false;
+                        this.DialogResult = _viewModel.DialogResult ?? false;
                     }
                     this.Close();
-                }
-            };
-
-            _viewModel.RequestMinimize += () =>
-            {
-                if (this.IsLoaded && this.IsVisible)
-                {
-                    this.Hide();
                 }
             };
 

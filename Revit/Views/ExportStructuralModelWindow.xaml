@@ -164,7 +164,9 @@ WindowStartupLocation="CenterScreen">
             <Grid Margin="15">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
-                    <!-- Export Options & Output Location -->
+                    <!-- Export Options & Output File -->
+                    <RowDefinition Height="Auto"/>
+                    <!-- Base Level -->
                     <RowDefinition Height="Auto"/>
                     <!-- Elements to Export -->
                     <RowDefinition Height="Auto"/>
@@ -173,7 +175,7 @@ WindowStartupLocation="CenterScreen">
                     <!-- View Plans to Floor Types (Grasshopper only) -->
                 </Grid.RowDefinitions>
 
-                <!-- Export Options & Output Location -->
+                <!-- Export Options & Output File -->
                 <Grid Grid.Row="0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -189,8 +191,8 @@ WindowStartupLocation="CenterScreen">
                         </StackPanel>
                     </GroupBox>
 
-                    <!-- Output Location -->
-                    <GroupBox Grid.Column="1" Header="Output Location" Margin="10,0,0,0">
+                    <!-- Output File -->
+                    <GroupBox Grid.Column="1" Header="Output File" Margin="10,0,0,0">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -205,8 +207,28 @@ WindowStartupLocation="CenterScreen">
                     </GroupBox>
                 </Grid>
 
+                <!-- Base Level Section -->
+                <GroupBox Grid.Row="1" Header="Base Level" Margin="0,0,0,15">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Select Base Level:" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <ComboBox Grid.Column="1" Height="30" Margin="0,0,0,0" 
+                                  ItemsSource="{Binding LevelCollection}"
+                                  SelectedItem="{Binding BaseLevel}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Name}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </Grid>
+                </GroupBox>
+
                 <!-- Elements to Export & Floor Layouts -->
-                <Grid Grid.Row="1" Margin="0,15,0,0">
+                <Grid Grid.Row="2" Margin="0,0,0,15">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="*"/>
@@ -214,6 +236,7 @@ WindowStartupLocation="CenterScreen">
 
                     <!-- Elements to Export -->
                     <GroupBox Grid.Column="0" Header="Elements to Export" Margin="0,0,10,0" 
+                             Height="180"
                              IsEnabled="{Binding ExportToGrasshopper, Converter={StaticResource InverseBoolConverter}}">
                         <TabControl>
                             <!-- By Category Tab -->
@@ -252,7 +275,7 @@ WindowStartupLocation="CenterScreen">
                     </GroupBox>
 
                     <!-- Floor Layouts -->
-                    <GroupBox Grid.Column="1" Header="Floor Layouts" Margin="10,0,0,0">
+                    <GroupBox Grid.Column="1" Header="Floor Layouts" Margin="10,0,0,0" Height="180">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -279,7 +302,7 @@ WindowStartupLocation="CenterScreen">
 
                             <!-- Floor Types List -->
                             <ListBox x:Name="structuralFloorLayouts" Grid.Column="0" Grid.Row="1" Grid.ColumnSpan="2"
-                                 Height="150" Margin="0,0,0,0"
+                                 Height="100" Margin="0,0,0,0"
                                  ItemsSource="{Binding FloorTypes}"
                                  SelectedItem="{Binding SelectedFloorType}"
                                  IsEnabled="{Binding IsFloorLayoutEnabled}">
@@ -304,38 +327,25 @@ WindowStartupLocation="CenterScreen">
                 </Grid>
 
                 <!-- Level Export Section - Common across all exports but with different content -->
-                <GroupBox Grid.Row="2" Header="Level Export" Margin="0,15,0,0">
-                    <!-- Common Level Search and Base Level Selection -->
+                <GroupBox Grid.Row="3" Header="Level Export">
+                    <!-- Common Level Search -->
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
-                            <!-- Search and Base Level -->
+                            <!-- Search -->
                             <RowDefinition Height="*"/>
                             <!-- Levels Grid - different per export type -->
                         </Grid.RowDefinitions>
 
-                        <!-- Search Box and Base Level Selection -->
+                        <!-- Search Box -->
                         <Grid Grid.Row="0" Margin="0,0,0,10">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="Search:" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,5,0"/>
-                            <TextBox x:Name="structuralLevelSearch" Grid.Column="1" Margin="0,0,10,0" Height="30" 
+                            <TextBox x:Name="structuralLevelSearch" Grid.Column="1" Margin="0" Height="30" 
                                      VerticalContentAlignment="Center" Text="{Binding LevelSearchText, UpdateSourceTrigger=PropertyChanged}"/>
-
-                            <TextBlock Text="Base Level:" Grid.Column="2" VerticalAlignment="Center" Margin="10,0,5,0"/>
-                            <ComboBox Grid.Column="3" Height="30" Margin="0,0,0,0" 
-                                      ItemsSource="{Binding LevelCollection}"
-                                      SelectedItem="{Binding BaseLevel}">
-                                <ComboBox.ItemTemplate>
-                                    <DataTemplate>
-                                        <TextBlock Text="{Binding Name}"/>
-                                    </DataTemplate>
-                                </ComboBox.ItemTemplate>
-                            </ComboBox>
                         </Grid>
 
                         <!-- Content that changes based on export type -->
@@ -450,7 +460,7 @@ WindowStartupLocation="CenterScreen">
                 </GroupBox>
 
                 <!-- View Plans for CAD Export (Grasshopper only) -->
-                <GroupBox Grid.Row="3" Header="Plan Views for CAD Export" Margin="0,15,0,0"
+                <GroupBox Grid.Row="4" Header="Plan Views for CAD Export" Margin="0,15,0,0"
                           Visibility="{Binding ExportToGrasshopper, Converter={StaticResource BoolToVis}}">
                     <!-- View Plans DataGrid -->
                     <DataGrid x:Name="structuralViewPlansGrid" AutoGenerateColumns="False" Height="200"

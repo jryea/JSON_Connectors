@@ -47,8 +47,8 @@ namespace Revit.Export
             return ExportToJson(filePath, elementFilters, materialFilters, null, null);
         }
 
-        public int ExportToJson(string filePath, Dictionary<string, bool> elementFilters,
-                               Dictionary<string, bool> materialFilters,
+        public int ExportToJson(string filePath, Dictionary<string, bool> elementFilters, 
+                               Dictionary<string, bool> materialFilters, 
                                List<ElementId> selectedLevelIds = null,
                                ElementId baseLevelId = null)
         {
@@ -168,7 +168,7 @@ namespace Revit.Export
             double baseElevation = baseLevel.Elevation;
 
             // Find the corresponding level in our model
-            var modelBaseLevel = _model.ModelLayout.Levels.Find(l =>
+            var modelBaseLevel = _model.ModelLayout.Levels.Find(l => 
                 Math.Abs(l.Elevation - (baseElevation * 12.0)) < 0.1 || // Compare elevation
                 l.Name == baseLevel.Name); // Or compare name as fallback
 

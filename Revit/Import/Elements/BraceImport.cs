@@ -330,19 +330,25 @@ namespace Revit.Import.Elements
                     }
 
                     // Create curve for brace
-                    double startPointZ = baseLevel.ProjectElevation;
-                    double endPointZ = topLevel.ProjectElevation;
-                    DB.XYZ startPoint = Helpers.ConvertToRevitCoordinates(jsonBrace.StartPoint, startPointZ);
-                    DB.XYZ endPoint = Helpers.ConvertToRevitCoordinates(jsonBrace.EndPoint, endPointZ);
+                    // CONSISTENT CONVENTION: startPoint is BOTTOM, endPoint is TOP
+
+                    // Get the elevations of the two levels
+                    double baseElevation = baseLevel.ProjectElevation;
+                    double topElevation = topLevel.ProjectElevation;
+
+                    // Convert the 2D points to 3D points with correct Z coordinates
+                    DB.XYZ basePoint = Helpers.ConvertToRevitCoordinates(jsonBrace.StartPoint, baseElevation);
+                    DB.XYZ topPoint = Helpers.ConvertToRevitCoordinates(jsonBrace.EndPoint, topElevation);
+
+                    // Create the line from bottom to top
+                    DB.Line braceLine = DB.Line.CreateBound(basePoint, topPoint);
 
                     // Ensure the points are not too close
-                    if (startPoint.DistanceTo(endPoint) < 0.1)
+                    if (topPoint.DistanceTo(basePoint) < 0.1)
                     {
                         Debug.WriteLine($"Skipping brace {jsonBrace.Id} due to start and end points being too close.");
                         continue;
                     }
-
-                    DB.Line braceLine = DB.Line.CreateBound(startPoint, endPoint);
 
                     // Create the structural brace
                     DB.FamilyInstance brace = _doc.Create.NewFamilyInstance(

@@ -53,10 +53,26 @@ namespace Revit.Export.Elements
                     // Create brace object
                     CE.Brace brace = new CE.Brace();
 
-                    // Set brace geometry
-                    DB.XYZ startPoint = line.GetEndPoint(0);
-                    DB.XYZ endPoint = line.GetEndPoint(1);
+                    // Get brace geometry
+                    DB.XYZ point0 = line.GetEndPoint(0);
+                    DB.XYZ point1 = line.GetEndPoint(1);
 
+                    // Determine which point is lower/higher (based on Z coordinate)
+                    // CONSISTENT CONVENTION: startPoint is BOTTOM, endPoint is TOP
+                    DB.XYZ startPoint, endPoint;
+
+                    if (point0.Z <= point1.Z)
+                    {
+                        startPoint = point0;
+                        endPoint = point1;
+                    }
+                    else
+                    {
+                        startPoint = point1;
+                        endPoint = point0;
+                    }
+
+                    // Set the points following our convention (BOTTOM to TOP)
                     brace.StartPoint = new CG.Point2D(startPoint.X * 12.0, startPoint.Y * 12.0); // Convert to inches
                     brace.EndPoint = new CG.Point2D(endPoint.X * 12.0, endPoint.Y * 12.0);
 
@@ -74,15 +90,15 @@ namespace Revit.Export.Elements
                         // Find closest levels to the start and end points
                         string refLevelId = levelIdMap[referenceLevelId];
 
-                        // Find level closest to the bottom point
-                        string baseLevelId = FindClosestLevel(model, Math.Min(startPoint.Z, endPoint.Z) * 12.0); // Convert to inches
+                        // Find level closest to the BOTTOM point (startPoint)
+                        string baseLevelId = FindClosestLevel(model, startPoint.Z * 12.0); // Convert to inches
                         if (!string.IsNullOrEmpty(baseLevelId))
                             brace.BaseLevelId = baseLevelId;
                         else
                             brace.BaseLevelId = refLevelId; // Default to reference level
 
-                        // Find level closest to the top point
-                        string topLevelId = FindClosestLevel(model, Math.Max(startPoint.Z, endPoint.Z) * 12.0); // Convert to inches
+                        // Find level closest to the TOP point (endPoint)
+                        string topLevelId = FindClosestLevel(model, endPoint.Z * 12.0); // Convert to inches
                         if (!string.IsNullOrEmpty(topLevelId))
                             brace.TopLevelId = topLevelId;
                         else

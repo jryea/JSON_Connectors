@@ -6,6 +6,7 @@ using DB = Autodesk.Revit.DB;
 using CE = Core.Models.Elements;
 using Core.Models;
 using Revit.Utilities;
+using Autodesk.Revit.DB;
 
 namespace Revit.Import.Elements
 {
@@ -339,11 +340,25 @@ namespace Revit.Import.Elements
             private readonly DB.Document _doc;
             private readonly Dictionary<string, DB.ElementId> _levelIdMap;
             private readonly List<ColumnData> _columns = new List<ColumnData>();
+            private readonly Dictionary<string, DB.FamilyInstance> _createdColumns = new Dictionary<string, DB.FamilyInstance>();
+            private readonly List<DB.FamilyInstance> _beamsInModel;
+            private const double BEAM_PROXIMITY_TOLERANCE = 1.0; // 1 foot in XY for beam proximity
+            private const double ENDPOINT_PROXIMITY_TOLERANCE = 0.5; // 0.5 foot for endpoint proximity
 
             public ColumnImportManager(DB.Document doc, Dictionary<string, DB.ElementId> levelIdMap)
             {
                 _doc = doc;
                 _levelIdMap = levelIdMap;
+
+                // Find all beams in the model
+                DB.FilteredElementCollector collector = new DB.FilteredElementCollector(_doc);
+                _beamsInModel = collector.OfClass(typeof(DB.FamilyInstance))
+                    .OfCategory(DB.BuiltInCategory.OST_StructuralFraming)
+                    .Cast<DB.FamilyInstance>()
+                    .Where(f => f.StructuralType == DB.Structure.StructuralType.Beam)
+                    .ToList();
+
+                Debug.WriteLine($"Found {_beamsInModel.Count} beams in model for potential column attachment");
             }
 
             public void AddColumn(string id, DB.XYZ location, DB.Level baseLevel, DB.Level topLevel,
@@ -366,185 +381,558 @@ namespace Revit.Import.Elements
                 });
             }
 
+            private string GetLocationKey(DB.XYZ location)
+            {
+                // Use 3 decimal places for position (about 1/8" precision in feet)
+                return $"{Math.Round(location.X, 3)}_{Math.Round(location.Y, 3)}";
+            }
+
             public int CreateColumns()
             {
                 int count = 0;
 
                 try
                 {
-                    // Group columns by location (X,Y coordinates)
-                    var columnGroups = _columns
-                        .GroupBy(c => new { X = Math.Round(c.X, 3), Y = Math.Round(c.Y, 3) })
-                        .ToList();
+                    // First, create a lookup key for each location with sufficient precision
+                    var locationGroups = _columns.GroupBy(c => GetLocationKey(c.Location)).ToList();
+                    Debug.WriteLine($"Found {locationGroups.Count} column locations after grouping");
 
-                    Debug.WriteLine($"Found {columnGroups.Count} column groups after combining by location");
-
-                    // Process each column group (columns at the same location)
-                    foreach (var locationGroup in columnGroups)
+                    // Process each unique column location
+                    foreach (var locationGroup in locationGroups)
                     {
                         try
                         {
-                            // Group further by family symbol
-                            var symbolGroups = locationGroup.GroupBy(c => c.FamilySymbol.Id).ToList();
+                            // Extract all columns at this location
+                            var columnsAtLocation = locationGroup.ToList();
+                            DB.XYZ locationPoint = columnsAtLocation[0].Location;
+                            Debug.WriteLine($"Processing location {locationPoint.X}, {locationPoint.Y} with {columnsAtLocation.Count} columns");
 
+                            // Group columns by family symbol type
+                            var symbolGroups = columnsAtLocation.GroupBy(c => c.FamilySymbol.Id.IntegerValue).ToList();
+                            Debug.WriteLine($"Found {symbolGroups.Count} different family symbol types at this location");
+
+                            // Process columns for each family symbol type
                             foreach (var symbolGroup in symbolGroups)
                             {
-                                // Sort by base level elevation
-                                var sortedColumns = symbolGroup.OrderBy(c => c.BaseLevel.Elevation).ToList();
+                                var columnsOfType = symbolGroup.ToList();
+                                var familySymbol = columnsOfType[0].FamilySymbol;
+                                Debug.WriteLine($"Processing {columnsOfType.Count} columns using family symbol: {familySymbol.Name}");
 
-                                // Find stacked columns (one's top level = next one's base level)
-                                List<List<ColumnData>> stackedGroups = new List<List<ColumnData>>();
-                                List<ColumnData> currentStack = new List<ColumnData>();
-                                currentStack.Add(sortedColumns[0]);
+                                // IMPORTANT CHANGE: Try two different approaches to handle columns
+                                bool createAsIndividualColumns = ShouldCreateAsIndividualColumns(columnsOfType);
 
-                                for (int i = 1; i < sortedColumns.Count; i++)
+                                if (createAsIndividualColumns)
                                 {
-                                    var prevColumn = sortedColumns[i - 1];
-                                    var currColumn = sortedColumns[i];
-
-                                    // Check if current column's base level is the same as previous column's top level
-                                    if (prevColumn.TopLevel.Id == currColumn.BaseLevel.Id)
-                                    {
-                                        // This is part of the stack
-                                        currentStack.Add(currColumn);
-                                    }
-                                    else
-                                    {
-                                        // Start a new stack
-                                        stackedGroups.Add(currentStack);
-                                        currentStack = new List<ColumnData>();
-                                        currentStack.Add(currColumn);
-                                    }
+                                    // Create individual columns rather than stacked
+                                    count += CreateIndividualColumns(columnsOfType);
                                 }
-
-                                // Add the last stack
-                                if (currentStack.Count > 0)
+                                else
                                 {
-                                    stackedGroups.Add(currentStack);
-                                }
-
-                                Debug.WriteLine($"Found {stackedGroups.Count} stacked column groups at location {locationGroup.Key.X}, {locationGroup.Key.Y}");
-
-                                // Create each stacked column
-                                foreach (var stack in stackedGroups)
-                                {
-                                    try
-                                    {
-                                        // Use the bottom column's base level and the top column's top level
-                                        var bottomColumn = stack.First();
-                                        var topColumn = stack.Last();
-
-                                        // Check for existing columns at this point
-                                        bool columnExists = false;
-                                        var existingColumns = new DB.FilteredElementCollector(_doc)
-                                            .OfClass(typeof(DB.FamilyInstance))
-                                            .OfCategory(DB.BuiltInCategory.OST_StructuralColumns)
-                                            .WhereElementIsNotElementType()
-                                            .ToElements();
-
-                                        foreach (var existingColumn in existingColumns)
-                                        {
-                                            var location = existingColumn.Location as DB.LocationPoint;
-                                            if (location != null && location.Point.IsAlmostEqualTo(bottomColumn.Location))
-                                            {
-                                                Debug.WriteLine($"A column already exists at point {bottomColumn.Location}. Skipping stacked column.");
-                                                columnExists = true;
-                                                break;
-                                            }
-                                        }
-
-                                        if (columnExists)
-                                        {
-                                            continue;
-                                        }
-
-                                        // Create the consolidated column
-                                        DB.FamilyInstance column = _doc.Create.NewFamilyInstance(
-                                            bottomColumn.Location,
-                                            bottomColumn.FamilySymbol,
-                                            bottomColumn.BaseLevel,
-                                            DB.Structure.StructuralType.Column);
-
-                                        if (column == null)
-                                        {
-                                            Debug.WriteLine($"Failed to create stacked column at {bottomColumn.Location}.");
-                                            continue;
-                                        }
-
-                                        // Rotate the column to match the model orientation
-                                        try
-                                        {
-                                            // Create a vertical line (Z-axis) at the column location to use as rotation axis
-                                            DB.XYZ basePoint = bottomColumn.Location;
-                                            DB.XYZ topPoint = new DB.XYZ(basePoint.X, basePoint.Y, basePoint.Z + 1.0); // 1 foot up in Z direction
-                                            DB.Line rotationAxis = DB.Line.CreateBound(basePoint, topPoint);
-
-                                            // Calculate rotation angle - default is 90 degrees different from model
-                                            // Add the column's orientation from the model (already in degrees)
-                                            double rotationAngle = (90.0 + bottomColumn.Orientation) * Math.PI / 180.0; // Convert to radians
-
-                                            // Rotate the column using ElementTransformUtils
-                                            DB.ElementTransformUtils.RotateElement(
-                                                _doc,
-                                                column.Id,
-                                                rotationAxis,
-                                                rotationAngle
-                                            );
-
-                                            Debug.WriteLine($"Rotated column by {rotationAngle} radians ({90.0 + bottomColumn.Orientation} degrees)");
-                                        }
-                                        catch (Exception rotateEx)
-                                        {
-                                            Debug.WriteLine($"Error rotating column: {rotateEx.Message}");
-                                            // Continue with column creation even if rotation fails
-                                        }
-
-                                        // Set top level to the top column's top level
-                                        try
-                                        {
-                                            DB.Parameter topLevelParam = column.get_Parameter(DB.BuiltInParameter.FAMILY_TOP_LEVEL_PARAM);
-                                            if (topLevelParam != null && !topLevelParam.IsReadOnly)
-                                            {
-                                                topLevelParam.Set(topColumn.TopLevelId);
-                                            }
-
-                                            // Set top offset based on floor thickness
-                                            DB.Parameter topOffsetParam = column.get_Parameter(DB.BuiltInParameter.FAMILY_TOP_LEVEL_OFFSET_PARAM);
-                                            if (topOffsetParam != null && !topOffsetParam.IsReadOnly)
-                                            {
-                                                topOffsetParam.Set(topColumn.TopOffset);
-                                                Debug.WriteLine($"Set top offset to {topColumn.TopOffset} feet for column at {bottomColumn.Location}");
-                                            }
-                                        }
-                                        catch (Exception paramEx)
-                                        {
-                                            Debug.WriteLine($"Error setting column parameters: {paramEx.Message}");
-                                        }
-
-                                        // Log stacked column creation
-                                        string columnIds = string.Join(", ", stack.Select(c => c.Id));
-                                        Debug.WriteLine($"Created stacked column from {stack.Count} columns ({columnIds}) from level {bottomColumn.BaseLevel.Name} to {topColumn.TopLevel.Name}");
-                                        count++;
-                                    }
-                                    catch (Exception stackEx)
-                                    {
-                                        Debug.WriteLine($"Error creating stacked column: {stackEx.Message}");
-                                    }
+                                    // Try to create optimally stacked columns
+                                    count += CreateStackedColumns(columnsOfType);
                                 }
                             }
                         }
-                        catch (Exception groupEx)
+                        catch (Exception locEx)
                         {
-                            Debug.WriteLine($"Error processing column group at {locationGroup.Key.X}, {locationGroup.Key.Y}: {groupEx.Message}");
+                            Debug.WriteLine($"Error processing location group: {locEx.Message}");
+                        }
+                    }
+
+                    // After creating all columns, process beam attachments
+                    AttachColumnsToElements();
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Critical error in CreateColumns: {ex.Message}");
+                }
+
+                Debug.WriteLine($"Created a total of {count} columns");
+                return count;
+            }
+
+            // Attach columns to floors and beams on the same level
+            private void AttachColumnsToElements()
+            {
+                try
+                {
+                    Debug.WriteLine("Beginning column attachment process");
+                    int beamAttachmentCount = 0;
+                    int floorAttachmentCount = 0;
+
+                    // Get all floors in the model
+                    var allFloors = new FilteredElementCollector(_doc)
+                        .OfCategory(BuiltInCategory.OST_Floors)
+                        .WhereElementIsNotElementType()
+                        .Cast<Floor>()
+                        .ToList();
+
+                    Debug.WriteLine($"Found {allFloors.Count} floors in the model");
+
+                    foreach (var columnEntry in _createdColumns)
+                    {
+                        var columnId = columnEntry.Key;
+                        var column = columnEntry.Value;
+
+                        try
+                        {
+                            // Get column top level
+                            var topLevelParam = column.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_PARAM);
+                            if (topLevelParam == null) continue;
+
+                            var columnTopLevelId = topLevelParam.AsElementId();
+
+                            // Get column location
+                            LocationPoint location = column.Location as LocationPoint;
+                            if (location == null) continue;
+                            XYZ columnPoint = location.Point;
+
+                            // Try to attach to a beam first
+                            var beamToAttach = FindBeamForColumnAttachment(columnPoint, columnTopLevelId);
+
+                            if (beamToAttach != null)
+                            {
+                                try
+                                {
+                                    ColumnAttachment.AddColumnAttachment(
+                                        _doc,
+                                        column,
+                                        beamToAttach,
+                                        1, // 1 = Top attachment
+                                        ColumnAttachmentCutStyle.CutColumn,
+                                        ColumnAttachmentJustification.Minimum,
+                                        0.0 // No offset
+                                    );
+
+                                    beamAttachmentCount++;
+                                    Debug.WriteLine($"Attached column {columnId} to beam {beamToAttach.Id}");
+                                    continue; // Skip to next column if beam attachment worked
+                                }
+                                catch (Exception attachEx)
+                                {
+                                    Debug.WriteLine($"Error attaching column to beam: {attachEx.Message}");
+                                    // Continue to try floor attachment
+                                }
+                            }
+
+                            // If beam attachment failed or no beam found, try to attach to floor
+                            var floorToAttach = FindFloorForColumnAttachment(columnPoint, columnTopLevelId, allFloors);
+
+                            if (floorToAttach != null)
+                            {
+                                try
+                                {
+                                    ColumnAttachment.AddColumnAttachment(
+                                        _doc,
+                                        column,
+                                        floorToAttach,
+                                        1, // 1 = Top attachment
+                                        ColumnAttachmentCutStyle.CutColumn,
+                                        ColumnAttachmentJustification.Minimum,
+                                        0.0 // No offset
+                                    );
+
+                                    floorAttachmentCount++;
+                                    Debug.WriteLine($"Attached column {columnId} to floor {floorToAttach.Id}");
+                                }
+                                catch (Exception floorAttachEx)
+                                {
+                                    Debug.WriteLine($"Error attaching column to floor: {floorAttachEx.Message}");
+                                }
+                            }
+                        }
+                        catch (Exception colEx)
+                        {
+                            Debug.WriteLine($"Error processing column {columnId} for attachment: {colEx.Message}");
+                        }
+                    }
+
+                    Debug.WriteLine($"Attachment complete. Attached {beamAttachmentCount} columns to beams and {floorAttachmentCount} columns to floors.");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error in AttachColumnsToElements: {ex.Message}");
+                }
+            }
+
+
+            private FamilyInstance FindBeamForColumnAttachment(XYZ columnPoint, ElementId columnTopLevelId)
+            {
+                try
+                {
+                    // Filter beams at this level
+                    var beamsAtLevel = _beamsInModel.Where(b =>
+                    {
+                        var refLevel = b.get_Parameter(BuiltInParameter.INSTANCE_REFERENCE_LEVEL_PARAM).AsElementId();
+                        return refLevel.IntegerValue == columnTopLevelId.IntegerValue;
+                    }).ToList();
+
+                    if (beamsAtLevel.Count == 0)
+                        return null;
+
+                    // Project column point to XY plane
+                    XYZ columnXY = new XYZ(columnPoint.X, columnPoint.Y, 0);
+
+                    // Find beams that the column is under
+                    foreach (var beam in beamsAtLevel)
+                    {
+                        var locationCurve = beam.Location as LocationCurve;
+                        if (locationCurve == null) continue;
+
+                        var curve = locationCurve.Curve;
+                        if (!(curve is Line)) continue;
+
+                        // Get beam line
+                        Line beamLine = curve as Line;
+                        var beamStart = beamLine.GetEndPoint(0);
+                        var beamEnd = beamLine.GetEndPoint(1);
+
+                        // Project beam points to XY plane
+                        XYZ startXY = new XYZ(beamStart.X, beamStart.Y, 0);
+                        XYZ endXY = new XYZ(beamEnd.X, beamEnd.Y, 0);
+
+                        // Don't attach if column is at beam endpoint
+                        const double ENDPOINT_TOLERANCE = 0.5; // 0.5 feet
+                        if (columnXY.DistanceTo(startXY) <= ENDPOINT_TOLERANCE ||
+                            columnXY.DistanceTo(endXY) <= ENDPOINT_TOLERANCE)
+                        {
+                            continue;
+                        }
+
+                        // Check if column is under this beam
+                        if (IsPointUnderBeamLine(columnXY, startXY, endXY))
+                        {
+                            return beam;
                         }
                     }
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"Error creating columns: {ex.Message}");
+                    Debug.WriteLine($"Error finding beam for attachment: {ex.Message}");
+                }
+
+                return null;
+            }
+            // Check if a point is under a beam line
+            private bool IsPointUnderBeamLine(XYZ pointXY, XYZ lineStartXY, XYZ lineEndXY)
+            {
+                try
+                {
+                    // Create line vector
+                    XYZ lineVector = lineEndXY - lineStartXY;
+                    double lineLength = lineVector.GetLength();
+
+                    if (lineLength < 0.001) return false;
+
+                    // Normalize line vector
+                    XYZ lineDir = lineVector.Normalize();
+
+                    // Vector from line start to point
+                    XYZ startToPoint = pointXY - lineStartXY;
+
+                    // Project onto line direction
+                    double projection = startToPoint.DotProduct(lineDir);
+
+                    // Check if projection is within line segment
+                    if (projection < 0 || projection > lineLength)
+                        return false;
+
+                    // Distance from point to line
+                    XYZ projectedPoint = lineStartXY + lineDir.Multiply(projection);
+                    double distance = pointXY.DistanceTo(projectedPoint);
+
+                    // Return true if point is within tolerance distance of the line
+                    const double BEAM_PROXIMITY_TOLERANCE = 1.0; // 1 foot tolerance
+                    return distance <= BEAM_PROXIMITY_TOLERANCE;
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error in IsPointUnderBeamLine: {ex.Message}");
+                    return false;
+                }
+            }
+
+            // Determine if we should use individual columns instead of stacking
+            private bool ShouldCreateAsIndividualColumns(List<ColumnData> columns)
+            {
+                // Criteria for using individual columns:
+                // 1. Only one column in the group
+                if (columns.Count <= 1)
+                    return true;
+
+                // 2. Check for problematic level connections
+                // Get all levels in sorted order
+                var allLevels = columns.SelectMany(c => new[] { c.BaseLevel, c.TopLevel })
+                    .Distinct()
+                    .OrderBy(l => l.Elevation)
+                    .ToList();
+
+                // Check if we have gaps or overlaps in the column stack
+                for (int i = 0; i < columns.Count - 1; i++)
+                {
+                    var currentCol = columns[i];
+                    var nextCol = columns[i + 1];
+
+                    // If the top level of current isn't the base level of next,
+                    // there's a discontinuity in the stack
+                    if (currentCol.TopLevelId != nextCol.BaseLevelId)
+                        return true;
+                }
+
+                // 3. If base and top levels of columns form a continuous stack, use stacking
+                return false;
+            }
+
+            // Create individual columns when stacking isn't appropriate
+            private int CreateIndividualColumns(List<ColumnData> columns)
+            {
+                int count = 0;
+
+                foreach (var columnData in columns)
+                {
+                    try
+                    {
+                        // Create column from base to top level
+                        DB.FamilyInstance column = _doc.Create.NewFamilyInstance(
+                            columnData.Location,
+                            columnData.FamilySymbol,
+                            columnData.BaseLevel,
+                            DB.Structure.StructuralType.Column);
+
+                        if (column == null)
+                        {
+                            Debug.WriteLine($"Failed to create column {columnData.Id} at {columnData.Location}");
+                            continue;
+                        }
+
+                        // Set top level
+                        try
+                        {
+                            DB.Parameter topLevelParam = column.get_Parameter(DB.BuiltInParameter.FAMILY_TOP_LEVEL_PARAM);
+                            if (topLevelParam != null && !topLevelParam.IsReadOnly)
+                            {
+                                topLevelParam.Set(columnData.TopLevelId);
+                            }
+
+                            // Set top offset
+                            DB.Parameter topOffsetParam = column.get_Parameter(DB.BuiltInParameter.FAMILY_TOP_LEVEL_OFFSET_PARAM);
+                            if (topOffsetParam != null && !topOffsetParam.IsReadOnly)
+                            {
+                                topOffsetParam.Set(columnData.TopOffset);
+                            }
+
+                            // Apply rotation if needed
+                            ApplyColumnRotation(column, columnData);
+
+                            Debug.WriteLine($"Created individual column {columnData.Id} from {columnData.BaseLevel.Name} to {columnData.TopLevel.Name}");
+                            _createdColumns[columnData.Id] = column;
+                            count++;
+                        }
+                        catch (Exception paramEx)
+                        {
+                            Debug.WriteLine($"Error setting parameters for column {columnData.Id}: {paramEx.Message}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Error creating individual column {columnData.Id}: {ex.Message}");
+                    }
                 }
 
                 return count;
+            }
+
+            // Create optimally stacked columns
+            private int CreateStackedColumns(List<ColumnData> columns)
+            {
+                int count = 0;
+
+                try
+                {
+                    // Sort columns by base level elevation
+                    var sortedColumns = columns.OrderBy(c => c.BaseLevel.Elevation).ToList();
+
+                    // Identify continuous column stacks
+                    List<List<ColumnData>> stacks = FindContinuousStacks(sortedColumns);
+
+                    // Create each stack
+                    foreach (var stack in stacks)
+                    {
+                        try
+                        {
+                            if (stack.Count == 0) continue;
+
+                            var bottomColumn = stack.First();
+                            var topColumn = stack.Last();
+
+                            // Create the column
+                            DB.FamilyInstance column = _doc.Create.NewFamilyInstance(
+                                bottomColumn.Location,
+                                bottomColumn.FamilySymbol,
+                                bottomColumn.BaseLevel,
+                                DB.Structure.StructuralType.Column);
+
+                            if (column == null)
+                            {
+                                Debug.WriteLine($"Failed to create stacked column at {bottomColumn.Location}");
+                                continue;
+                            }
+
+                            // Set top level
+                            try
+                            {
+                                DB.Parameter topLevelParam = column.get_Parameter(DB.BuiltInParameter.FAMILY_TOP_LEVEL_PARAM);
+                                if (topLevelParam != null && !topLevelParam.IsReadOnly)
+                                {
+                                    topLevelParam.Set(topColumn.TopLevelId);
+                                }
+
+                                // Set top offset
+                                DB.Parameter topOffsetParam = column.get_Parameter(DB.BuiltInParameter.FAMILY_TOP_LEVEL_OFFSET_PARAM);
+                                if (topOffsetParam != null && !topOffsetParam.IsReadOnly)
+                                {
+                                    topOffsetParam.Set(topColumn.TopOffset);
+                                }
+
+                                // Apply rotation to the column
+                                ApplyColumnRotation(column, bottomColumn);
+
+                                // Record created column for all IDs in the stack
+                                foreach (var col in stack)
+                                {
+                                    _createdColumns[col.Id] = column;
+                                }
+
+                                string columnIds = string.Join(", ", stack.Select(c => c.Id));
+                                Debug.WriteLine($"Created stacked column from {stack.Count} columns ({columnIds}) from level {bottomColumn.BaseLevel.Name} to {topColumn.TopLevel.Name}");
+                                count++;
+                            }
+                            catch (Exception paramEx)
+                            {
+                                Debug.WriteLine($"Error setting parameters for stacked column: {paramEx.Message}");
+                            }
+                        }
+                        catch (Exception stackEx)
+                        {
+                            Debug.WriteLine($"Error creating stacked column: {stackEx.Message}");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error in CreateStackedColumns: {ex.Message}");
+                }
+
+                return count;
+            }
+
+            // Find continuous column stacks from a sorted set of columns
+            private List<List<ColumnData>> FindContinuousStacks(List<ColumnData> sortedColumns)
+            {
+                List<List<ColumnData>> stacks = new List<List<ColumnData>>();
+                if (sortedColumns.Count == 0) return stacks;
+
+                List<ColumnData> currentStack = new List<ColumnData>();
+                currentStack.Add(sortedColumns[0]);
+
+                for (int i = 1; i < sortedColumns.Count; i++)
+                {
+                    var prevColumn = sortedColumns[i - 1];
+                    var currColumn = sortedColumns[i];
+
+                    // Check for continuity (top of previous = base of current)
+                    if (prevColumn.TopLevelId.IntegerValue == currColumn.BaseLevelId.IntegerValue)
+                    {
+                        // Continue the stack
+                        currentStack.Add(currColumn);
+                    }
+                    else
+                    {
+                        // End current stack and start a new one
+                        stacks.Add(new List<ColumnData>(currentStack));
+                        currentStack.Clear();
+                        currentStack.Add(currColumn);
+                    }
+                }
+
+                // Add the final stack if it's not empty
+                if (currentStack.Count > 0)
+                {
+                    stacks.Add(currentStack);
+                }
+
+                return stacks;
+            }
+
+            // Find a floor for column attachment
+            private Floor FindFloorForColumnAttachment(XYZ columnPoint, ElementId columnTopLevelId, List<Floor> allFloors)
+            {
+                try
+                {
+                    // Filter floors at this level
+                    var floorsAtLevel = allFloors.Where(f =>
+                    {
+                        var floorLevelId = f.LevelId;
+                        return floorLevelId.IntegerValue == columnTopLevelId.IntegerValue;
+                    }).ToList();
+
+                    if (floorsAtLevel.Count == 0)
+                        return null;
+
+                    // Option 1: Just use the first floor on this level (as requested in fallback)
+                    return floorsAtLevel.FirstOrDefault();
+
+                    // Option 2: Check if column is inside floor boundary
+                    // Uncomment this section if you want to implement the point-in-polygon check
+                    /*
+                    foreach (var floor in floorsAtLevel)
+                    {
+                        if (IsPointWithinFloor(columnPoint, floor))
+                        {
+                            return floor;
+                        }
+                    }
+                    */
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error finding floor for attachment: {ex.Message}");
+                }
+
+                return null;
+            }
+
+
+            // Apply rotation to a column
+            private void ApplyColumnRotation(DB.FamilyInstance column, ColumnData columnData)
+            {
+                try
+                {
+                    if (columnData.Orientation == 0)
+                        return; // No rotation needed
+
+                    // Create rotation axis (vertical line at column location)
+                    DB.XYZ basePoint = columnData.Location;
+                    DB.XYZ topPoint = new DB.XYZ(basePoint.X, basePoint.Y, basePoint.Z + 1.0);
+                    DB.Line rotationAxis = DB.Line.CreateBound(basePoint, topPoint);
+
+                    // Convert orientation to radians - use 90 degree offset to match Revit conventions
+                    double rotationAngle = (90.0 + columnData.Orientation) * Math.PI / 180.0;
+
+                    // Apply rotation
+                    DB.ElementTransformUtils.RotateElement(
+                        _doc,
+                        column.Id,
+                        rotationAxis,
+                        rotationAngle
+                    );
+
+                    Debug.WriteLine($"Applied rotation of {columnData.Orientation} degrees to column");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error applying column rotation: {ex.Message}");
+                }
             }
         }
 

@@ -18,6 +18,9 @@ WindowStartupLocation="CenterScreen">
         <!-- Invert Boolean Converter -->
         <vm:InverseBooleanConverter x:Key="InverseBoolConverter"/>
 
+        <!-- Bool to Opacity Converter -->
+        <vm:BoolToOpacityConverter x:Key="BoolToOpacity"/>
+
         <!-- Styles -->
         <Style x:Key="SectionText" TargetType="TextBlock">
             <Setter Property="FontSize" Value="14"/>
@@ -194,50 +197,111 @@ WindowStartupLocation="CenterScreen">
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <TextBox x:Name="structuralOutputLocation" Text="{Binding OutputLocation, UpdateSourceTrigger=PropertyChanged}"
-                                Grid.Column="0" Margin="0,0,10,0" Height="30" VerticalContentAlignment="Center"/>
+                                Grid.Column="0" Margin="0,0,10,0" Height="30" VerticalContentAlignment="Center"
+                                ToolTip="Path to save the export file" />
                             <Button Content="Browse..." Command="{Binding BrowseOutputCommand}"
                                 Style="{StaticResource SecondaryButton}" Grid.Column="1" Width="80" Height="30"/>
                         </Grid>
                     </GroupBox>
                 </Grid>
 
-                <!-- Elements to Export -->
-                <GroupBox Grid.Row="1" Header="Elements to Export" Margin="0,15,0,0">
-                    <TabControl>
-                        <!-- By Category Tab -->
-                        <TabItem Header="By Category">
-                            <Grid Margin="5">
+                <!-- Elements to Export & Floor Layouts -->
+                <Grid Grid.Row="1" Margin="0,15,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Elements to Export -->
+                    <GroupBox Grid.Column="0" Header="Elements to Export" Margin="0,0,10,0" 
+                             IsEnabled="{Binding ExportToGrasshopper, Converter={StaticResource InverseBoolConverter}}">
+                        <TabControl>
+                            <!-- By Category Tab -->
+                            <TabItem Header="By Category">
+                                <Grid Margin="5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Left Column -->
+                                    <StackPanel Grid.Column="0" Margin="0,0,5,0">
+                                        <CheckBox Content="Grids" IsChecked="{Binding ExportGrids}" Margin="0,2,0,2"/>
+                                        <CheckBox Content="Beams" IsChecked="{Binding ExportBeams}" Margin="0,2,0,2"/>
+                                        <CheckBox Content="Braces" IsChecked="{Binding ExportBraces}" Margin="0,2,0,2"/>
+                                        <CheckBox Content="Columns" IsChecked="{Binding ExportColumns}" Margin="0,2,0,2"/>
+                                    </StackPanel>
+
+                                    <!-- Right Column -->
+                                    <StackPanel Grid.Column="1" Margin="5,0,0,0" HorizontalAlignment="Left">
+                                        <CheckBox Content="Floors" IsChecked="{Binding ExportFloors}" Margin="0,2,0,2"/>
+                                        <CheckBox Content="Walls" IsChecked="{Binding ExportWalls}" Margin="0,2,0,2"/>
+                                        <CheckBox Content="Footings" IsChecked="{Binding ExportFootings}" Margin="0,2,0,2"/>
+                                    </StackPanel>
+                                </Grid>
+                            </TabItem>
+
+                            <!-- By Material Tab -->
+                            <TabItem Header="By Material">
+                                <StackPanel Margin="5">
+                                    <CheckBox Content="Steel" IsChecked="{Binding ExportSteel}" Margin="0,5,0,5"/>
+                                    <CheckBox Content="Concrete" IsChecked="{Binding ExportConcrete}" Margin="0,5,0,5"/>
+                                </StackPanel>
+                            </TabItem>
+                        </TabControl>
+                    </GroupBox>
+
+                    <!-- Floor Layouts -->
+                    <GroupBox Grid.Column="1" Header="Floor Layouts" Margin="10,0,0,0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Header with Info Button -->
+                            <Grid Grid.Column="0" Grid.Row="0" Grid.ColumnSpan="2">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-
-                                <!-- Left Column -->
-                                <StackPanel Grid.Column="0" Margin="0,5,10,5">
-                                    <CheckBox Content="Grids" IsChecked="{Binding ExportGrids}" Margin="0,5,0,5"/>
-                                    <CheckBox Content="Beams" IsChecked="{Binding ExportBeams}" Margin="0,5,0,5"/>
-                                    <CheckBox Content="Braces" IsChecked="{Binding ExportBraces}" Margin="0,5,0,5"/>
-                                    <CheckBox Content="Columns" IsChecked="{Binding ExportColumns}" Margin="0,5,0,5"/>
-                                </StackPanel>
-
-                                <!-- Right Column -->
-                                <StackPanel Grid.Column="1" Margin="10,5,0,5">
-                                    <CheckBox Content="Floors" IsChecked="{Binding ExportFloors}" Margin="0,5,0,5"/>
-                                    <CheckBox Content="Walls" IsChecked="{Binding ExportWalls}" Margin="0,5,0,5"/>
-                                    <CheckBox Content="Footings" IsChecked="{Binding ExportFootings}" Margin="0,5,0,5"/>
-                                </StackPanel>
+                                <TextBox x:Name="structuralNewFloorType" Text="{Binding NewFloorTypeName, UpdateSourceTrigger=PropertyChanged}"
+                                     Grid.Column="0" Margin="0,0,10,5" Height="30" VerticalContentAlignment="Center"
+                                     IsEnabled="{Binding IsFloorLayoutEnabled}"/>
+                                <Button Content="Add Type" Command="{Binding AddFloorTypeCommand}"
+                                    Style="{StaticResource StandardButton}" Grid.Column="1" Width="96" Margin="0,0,0,5"
+                                    Opacity="{Binding IsFloorLayoutEnabled, Converter={StaticResource BoolToOpacity}}"/>
                             </Grid>
-                        </TabItem>
 
-                        <!-- By Material Tab -->
-                        <TabItem Header="By Material">
-                            <StackPanel Margin="5">
-                                <CheckBox Content="Steel" IsChecked="{Binding ExportSteel}" Margin="0,5,0,5"/>
-                                <CheckBox Content="Concrete" IsChecked="{Binding ExportConcrete}" Margin="0,5,0,5"/>
-                            </StackPanel>
-                        </TabItem>
-                    </TabControl>
-                </GroupBox>
+                            <!-- Floor Types List -->
+                            <ListBox x:Name="structuralFloorLayouts" Grid.Column="0" Grid.Row="1" Grid.ColumnSpan="2"
+                                 Height="150" Margin="0,0,0,0"
+                                 ItemsSource="{Binding FloorTypes}"
+                                 SelectedItem="{Binding SelectedFloorType}"
+                                 IsEnabled="{Binding IsFloorLayoutEnabled}">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding Name}" Grid.Column="0" VerticalAlignment="Center"/>
+                                            <Button Content="✕" Command="{Binding DataContext.RemoveFloorTypeCommand, 
+                                                     RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                CommandParameter="{Binding}"
+                                                Grid.Column="1" Padding="5,0" Margin="5,0,0,0"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Grid>
+                    </GroupBox>
+                </Grid>
 
                 <!-- Level Export Section - Common across all exports but with different content -->
                 <GroupBox Grid.Row="2" Header="Level Export" Margin="0,15,0,0">
@@ -287,7 +351,8 @@ WindowStartupLocation="CenterScreen">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
                                                 <CheckBox IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}" 
-                                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                          HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                          IsEnabled="{Binding IsEnabledForExport}"/>
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
@@ -307,12 +372,12 @@ WindowStartupLocation="CenterScreen">
                                 </DataGrid.Columns>
                             </DataGrid>
 
-                            <!-- ETABS/RAM Levels DataGrid -->
-                            <DataGrid x:Name="structuralLevelsAnalysisGrid" AutoGenerateColumns="False" Height="200"
+                            <!-- RAM Levels DataGrid -->
+                            <DataGrid x:Name="structuralLevelsRAMGrid" AutoGenerateColumns="False" Height="200"
                                     ItemsSource="{Binding LevelCollection}" 
                                     CanUserAddRows="False" CanUserDeleteRows="False"
                                     RowStyle="{StaticResource LevelDataGridRowStyle}"
-                                    Visibility="{Binding IsAnalysisExport, Converter={StaticResource BoolToVis}}">
+                                    Visibility="{Binding ExportToRAM, Converter={StaticResource BoolToVis}}">
                                 <DataGrid.Columns>
                                     <DataGridTemplateColumn Header="Export" Width="60">
                                         <DataGridTemplateColumn.CellTemplate>
@@ -325,6 +390,38 @@ WindowStartupLocation="CenterScreen">
                                     </DataGridTemplateColumn>
                                     <DataGridTextColumn Header="Level Name" Binding="{Binding Name}" Width="*"/>
                                     <DataGridTextColumn Header="Elevation" Binding="{Binding Elevation}" Width="120"/>
+                                    <DataGridTemplateColumn Header="Floor Type" Width="150">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <ComboBox ItemsSource="{Binding DataContext.FloorTypes, 
+                                                          RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    SelectedItem="{Binding SelectedFloorType, UpdateSourceTrigger=PropertyChanged}"
+                                                    DisplayMemberPath="Name" Margin="2"
+                                                    IsEnabled="{Binding IsSelected}"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+
+                            <!-- ETABS Levels DataGrid -->
+                            <DataGrid x:Name="structuralLevelsETABSGrid" AutoGenerateColumns="False" Height="200"
+                                    ItemsSource="{Binding LevelCollection}" 
+                                    CanUserAddRows="False" CanUserDeleteRows="False"
+                                    RowStyle="{StaticResource LevelDataGridRowStyle}"
+                                    Visibility="{Binding ExportToETABS, Converter={StaticResource BoolToVis}}">
+                                <DataGrid.Columns>
+                                    <DataGridTemplateColumn Header="Export" Width="60">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <CheckBox IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}" 
+                                                          HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                          IsEnabled="{Binding IsEnabledForExport}"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTextColumn Header="Level Name" Binding="{Binding Name}" Width="*"/>
+                                    <DataGridTextColumn Header="Elevation" Binding="{Binding Elevation, StringFormat=N2}" Width="120"/>
                                     <DataGridTemplateColumn Header="Master Story" Width="100">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
@@ -342,9 +439,6 @@ WindowStartupLocation="CenterScreen">
                                                     SelectedItem="{Binding SimilarToLevel, UpdateSourceTrigger=PropertyChanged}"
                                                     DisplayMemberPath="Name" Margin="2"
                                                     IsEnabled="{Binding IsSelected}">
-                                                    <ComboBox.Items>
-                                                        <ComboBoxItem Content="None" IsSelected="True"/>
-                                                    </ComboBox.Items>
                                                 </ComboBox>
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>

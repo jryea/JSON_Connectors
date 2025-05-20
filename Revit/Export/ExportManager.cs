@@ -26,6 +26,32 @@ namespace Revit.Export
 
         public int ExportToJson(string filePath)
         {
+            // Create default filters (all enabled)
+            Dictionary<string, bool> elementFilters = new Dictionary<string, bool>
+            {
+                { "Grids", true },
+                { "Beams", true },
+                { "Braces", true },
+                { "Columns", true },
+                { "Floors", true },
+                { "Walls", true },
+                { "Footings", true }
+            };
+
+            Dictionary<string, bool> materialFilters = new Dictionary<string, bool>
+            {
+                { "Steel", true },
+                { "Concrete", true }
+            };
+
+            return ExportToJson(filePath, elementFilters, materialFilters, null, null);
+        }
+
+        public int ExportToJson(string filePath, Dictionary<string, bool> elementFilters,
+                               Dictionary<string, bool> materialFilters,
+                               List<ElementId> selectedLevelIds = null,
+                               ElementId baseLevelId = null)
+        {
             int totalExported = 0;
 
             try
@@ -34,19 +60,19 @@ namespace Revit.Export
                 InitializeMetadata();
 
                 // Export layout elements first
-                totalExported += ExportLayoutElements();
+                totalExported += ExportLayoutElements(selectedLevelIds, baseLevelId);
 
                 // Create unique FloorTypes from Levels specifically for Revit
                 CreateFloorTypesFromLevels();
 
                 // Export materials first so we have their IDs for referencing
-                totalExported += ExportMaterials();
+                totalExported += ExportMaterials(materialFilters);
 
                 // Then export other property definitions that reference materials
-                totalExported += ExportProperties();
+                totalExported += ExportProperties(materialFilters);
 
                 // Export structural elements
-                totalExported += ExportStructuralElements();
+                totalExported += ExportStructuralElements(elementFilters, selectedLevelIds);
 
                 // Save the model to file
                 JsonConverter.SaveToFile(_model, filePath);
@@ -112,13 +138,19 @@ namespace Revit.Export
             _model.Metadata.Coordinates = coordinates;
         }
 
-        private int ExportLayoutElements()
+        private int ExportLayoutElements(List<ElementId> selectedLevelIds = null, ElementId baseLevelId = null)
         {
             int count = 0;
 
             // Export levels
             Export.ModelLayout.LevelExport levelExport = new Export.ModelLayout.LevelExport(_doc);
-            count += levelExport.Export(_model.ModelLayout.Levels);
+            count += levelExport.Export(_model.ModelLayout.Levels, selectedLevelIds);
+
+            // If a base level is specified, adjust elevations relative to it
+            if (baseLevelId != null)
+            {
+                AdjustElevationsForBaseLevel(baseLevelId);
+            }
 
             // Export grids
             Export.ModelLayout.GridExport gridExport = new Export.ModelLayout.GridExport(_doc);
@@ -127,17 +159,42 @@ namespace Revit.Export
             return count;
         }
 
-        private int ExportMaterials()
+        private void AdjustElevationsForBaseLevel(ElementId baseLevelId)
+        {
+            // Find the base level in Revit
+            Level baseLevel = _doc.GetElement(baseLevelId) as Level;
+            if (baseLevel == null) return;
+
+            double baseElevation = baseLevel.Elevation;
+
+            // Find the corresponding level in our model
+            var modelBaseLevel = _model.ModelLayout.Levels.Find(l =>
+                Math.Abs(l.Elevation - (baseElevation * 12.0)) < 0.1 || // Compare elevation
+                l.Name == baseLevel.Name); // Or compare name as fallback
+
+            if (modelBaseLevel == null) return;
+
+            // Use the elevation of the base level as zero reference
+            double offset = modelBaseLevel.Elevation;
+
+            // Adjust all level elevations
+            foreach (var level in _model.ModelLayout.Levels)
+            {
+                level.Elevation -= offset;
+            }
+        }
+
+        private int ExportMaterials(Dictionary<string, bool> materialFilters)
         {
             // Export materials first so we can reference them
             Export.Properties.MaterialExport materialExport = new Export.Properties.MaterialExport(_doc);
-            int materialCount = materialExport.Export(_model.Properties.Materials);
+            int materialCount = materialExport.Export(_model.Properties.Materials, materialFilters);
 
             System.Diagnostics.Debug.WriteLine($"Exported {materialCount} materials");
             return materialCount;
         }
 
-        private int ExportProperties()
+        private int ExportProperties(Dictionary<string, bool> materialFilters)
         {
             int count = 0;
 
@@ -156,36 +213,50 @@ namespace Revit.Export
             return count;
         }
 
-        private int ExportStructuralElements()
+        private int ExportStructuralElements(Dictionary<string, bool> elementFilters, List<ElementId> selectedLevelIds = null)
         {
             int count = 0;
 
-            // Export walls
-            Export.Elements.WallExport wallExport = new Export.Elements.WallExport(_doc);
-            count += wallExport.Export(_model.Elements.Walls, _model);
+            // Export elements based on filter settings
+            if (elementFilters["Walls"])
+            {
+                Export.Elements.WallExport wallExport = new Export.Elements.WallExport(_doc);
+                count += wallExport.Export(_model.Elements.Walls, _model);
+            }
 
-            // Export floors
-            Export.Elements.FloorExport floorExport = new Export.Elements.FloorExport(_doc);
-            count += floorExport.Export(_model.Elements.Floors, _model);
+            if (elementFilters["Floors"])
+            {
+                Export.Elements.FloorExport floorExport = new Export.Elements.FloorExport(_doc);
+                count += floorExport.Export(_model.Elements.Floors, _model);
+            }
 
-            // Export columns
-            Export.Elements.ColumnExport columnExport = new Export.Elements.ColumnExport(_doc);
-            count += columnExport.Export(_model.Elements.Columns, _model);
+            if (elementFilters["Columns"])
+            {
+                Export.Elements.ColumnExport columnExport = new Export.Elements.ColumnExport(_doc);
+                count += columnExport.Export(_model.Elements.Columns, _model);
+            }
 
-            // Export beams
-            Export.Elements.BeamExport beamExport = new Export.Elements.BeamExport(_doc);
-            count += beamExport.Export(_model.Elements.Beams, _model);
+            if (elementFilters["Beams"])
+            {
+                Export.Elements.BeamExport beamExport = new Export.Elements.BeamExport(_doc);
+                count += beamExport.Export(_model.Elements.Beams, _model);
+            }
 
-            // Export braces
-            Export.Elements.BraceExport braceExport = new Export.Elements.BraceExport(_doc);
-            count += braceExport.Export(_model.Elements.Braces, _model);
+            if (elementFilters["Braces"])
+            {
+                Export.Elements.BraceExport braceExport = new Export.Elements.BraceExport(_doc);
+                count += braceExport.Export(_model.Elements.Braces, _model);
+            }
 
-            // Export spread footings
-            Export.Elements.IsolatedFootingExport isolatedFootingExport = new Export.Elements.IsolatedFootingExport(_doc);
-            System.Diagnostics.Debug.WriteLine($"Starting isolated footing export, collection initialized: {_model.Elements.IsolatedFootings != null}");
-            int footingsExported = isolatedFootingExport.Export(_model.Elements.IsolatedFootings, _model);
-            System.Diagnostics.Debug.WriteLine($"Finished isolated footing export: {footingsExported} footings exported");
-            count += footingsExported;
+            if (elementFilters["Footings"])
+            {
+                // Export spread footings
+                Export.Elements.IsolatedFootingExport isolatedFootingExport = new Export.Elements.IsolatedFootingExport(_doc);
+                System.Diagnostics.Debug.WriteLine($"Starting isolated footing export, collection initialized: {_model.Elements.IsolatedFootings != null}");
+                int footingsExported = isolatedFootingExport.Export(_model.Elements.IsolatedFootings, _model);
+                System.Diagnostics.Debug.WriteLine($"Finished isolated footing export: {footingsExported} footings exported");
+                count += footingsExported;
+            }
 
             return count;
         }

@@ -66,11 +66,14 @@ namespace Revit.Export.Models
                     _isSelected = value;
                     OnPropertyChanged();
 
-                    // When selection changes, notify the view model to update master story list
-                    if (PropertyChanged != null)
+                    // If a level is deselected, it can't be a master story
+                    if (!_isSelected && _isMasterStory)
                     {
-                        OnPropertyChanged(nameof(IsMasterStory)); // Trigger update of dependent properties
+                        IsMasterStory = false;
                     }
+
+                    // Trigger master story update
+                    OnPropertyChanged(nameof(IsMasterStory));
                 }
             }
         }
@@ -121,6 +124,7 @@ namespace Revit.Export.Models
             }
         }
 
+        // Event required by INotifyPropertyChanged interface
         public event PropertyChangedEventHandler PropertyChanged;
 
         protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
@@ -131,7 +135,6 @@ namespace Revit.Export.Models
         private void NotifyMasterStoryChanged()
         {
             // This is a way to notify the parent view model that it should update its master story list
-            // The actual implementation would depend on your architecture
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("MasterStoryCollectionChanged"));
         }
     }

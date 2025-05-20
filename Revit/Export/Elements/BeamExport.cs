@@ -6,6 +6,7 @@ using CE = Core.Models.Elements;
 using CG = Core.Models.Geometry;
 using Core.Models;
 using Revit.Utilities;
+using System.Diagnostics;
 
 namespace Revit.Export.Elements
 {
@@ -87,33 +88,132 @@ namespace Revit.Export.Elements
 
             return count;
         }
-
         private bool IsBeamLateral(DB.FamilyInstance beam)
         {
-            // Try to determine if beam is part of lateral system
             try
             {
-                // Look for lateral parameter
-                DB.Parameter lateralParam = beam.LookupParameter("Lateral");
-                if (lateralParam != null && lateralParam.HasValue)
+                // Check if both beam ends have moment connections
+                bool hasStartMomentConnection = false;
+                bool hasEndMomentConnection = false;
+
+                // Check start connection
+                DB.Parameter startConnectionParam = beam.get_Parameter(DB.BuiltInParameter.STRUCT_CONNECTION_BEAM_START);
+                if (startConnectionParam != null && startConnectionParam.HasValue)
                 {
-                    if (lateralParam.StorageType == DB.StorageType.Integer)
-                        return lateralParam.AsInteger() != 0;
-                    else if (lateralParam.StorageType == DB.StorageType.String)
-                        return lateralParam.AsString().ToUpper() == "YES" || lateralParam.AsString() == "1";
+                    string connectionType = startConnectionParam.AsValueString();
+                    hasStartMomentConnection = connectionType.Equals("Moment Connection", StringComparison.OrdinalIgnoreCase);
                 }
 
-                // Check based on family and type name
+                // Check end connection
+                DB.Parameter endConnectionParam = beam.get_Parameter(DB.BuiltInParameter.STRUCT_CONNECTION_BEAM_END);
+                if (endConnectionParam != null && endConnectionParam.HasValue)
+                {
+                    string connectionType = endConnectionParam.AsValueString();
+                    hasEndMomentConnection = connectionType.Equals("Moment Connection", StringComparison.OrdinalIgnoreCase);
+                }
+
+                // If both ends have moment connections, beam is part of lateral system
+                if (hasStartMomentConnection && hasEndMomentConnection)
+                {
+                    Debug.WriteLine($"Beam identified as lateral: both ends have moment connections");
+                    return true;
+                }
+
+                // Get beam endpoints
+                DB.LocationCurve locationCurve = beam.Location as DB.LocationCurve;
+                if (locationCurve == null)
+                    return false;
+
+                DB.Curve curve = locationCurve.Curve;
+                if (!(curve is DB.Line))
+                    return false;
+
+                DB.XYZ beamStart = curve.GetEndPoint(0);
+                DB.XYZ beamEnd = curve.GetEndPoint(1);
+
+                // Create XY-only points for comparison (ignore Z)
+                DB.XYZ beamStartXY = new DB.XYZ(beamStart.X, beamStart.Y, 0);
+                DB.XYZ beamEndXY = new DB.XYZ(beamEnd.X, beamEnd.Y, 0);
+
+                // Get all braces in the document
+                DB.FilteredElementCollector braceCollector = new DB.FilteredElementCollector(_doc);
+                IList<DB.FamilyInstance> braces = braceCollector.OfClass(typeof(DB.FamilyInstance))
+                    .OfCategory(DB.BuiltInCategory.OST_StructuralFraming)
+                    .Cast<DB.FamilyInstance>()
+                    .Where(f => f.StructuralType == DB.Structure.StructuralType.Brace)
+                    .ToList();
+
+                const double TOL_XY = 2.0;  // 2 feet tolerance for XY endpoint proximity
+
+                // Track whether we found a brace close to each beam endpoint
+                bool startEndpointHasNearbyBrace = false;
+                bool endEndpointHasNearbyBrace = false;
+
+                // For each brace, check if its endpoints are close to beam endpoints in XY
+                foreach (var brace in braces)
+                {
+                    DB.LocationCurve braceCurve = brace.Location as DB.LocationCurve;
+                    if (braceCurve == null)
+                        continue;
+
+                    DB.Curve bCurve = braceCurve.Curve;
+                    if (!(bCurve is DB.Line))
+                        continue;
+
+                    DB.XYZ braceStart = bCurve.GetEndPoint(0);
+                    DB.XYZ braceEnd = bCurve.GetEndPoint(1);
+
+                    // Create XY-only points for brace endpoints
+                    DB.XYZ braceStartXY = new DB.XYZ(braceStart.X, braceStart.Y, 0);
+                    DB.XYZ braceEndXY = new DB.XYZ(braceEnd.X, braceEnd.Y, 0);
+
+                    // Check if beam start is close to either brace endpoint
+                    if (!startEndpointHasNearbyBrace)
+                    {
+                        if (beamStartXY.DistanceTo(braceStartXY) <= TOL_XY ||
+                            beamStartXY.DistanceTo(braceEndXY) <= TOL_XY)
+                        {
+                            startEndpointHasNearbyBrace = true;
+                        }
+                    }
+
+                    // Check if beam end is close to either brace endpoint
+                    if (!endEndpointHasNearbyBrace)
+                    {
+                        if (beamEndXY.DistanceTo(braceStartXY) <= TOL_XY ||
+                            beamEndXY.DistanceTo(braceEndXY) <= TOL_XY)
+                        {
+                            endEndpointHasNearbyBrace = true;
+                        }
+                    }
+
+                    // If both beam endpoints have a nearby brace, beam is part of lateral system
+                    if (startEndpointHasNearbyBrace && endEndpointHasNearbyBrace)
+                    {
+                        Debug.WriteLine($"Beam identified as lateral: both endpoints close to brace endpoints");
+                        return true;
+                    }
+                }
+
+                // As a fallback, check naming conventions if still not identified
                 string familyName = beam.Symbol.FamilyName.ToUpper();
                 string typeName = beam.Symbol.Name.ToUpper();
 
-                return familyName.Contains("MOMENT") ||
-                       familyName.Contains("LATERAL") ||
-                       typeName.Contains("MOMENT") ||
-                       typeName.Contains("LATERAL");
+                bool isLateralByName = familyName.Contains("MOMENT") ||
+                                     familyName.Contains("LATERAL") ||
+                                     typeName.Contains("MOMENT") ||
+                                     typeName.Contains("LATERAL");
+
+                if (isLateralByName)
+                {
+                    Debug.WriteLine($"Beam identified as lateral by name: {familyName} / {typeName}");
+                }
+
+                return isLateralByName;
             }
-            catch
+            catch (Exception ex)
             {
+                Debug.WriteLine($"Error checking if beam is lateral: {ex.Message}");
                 // Default to false if any error occurs
             }
 
@@ -186,7 +286,6 @@ namespace Revit.Export.Elements
                     propsMap[symbol.Id] = frameProperty.Id;
                 }
             }
-
             return propsMap;
         }
     }

@@ -8,6 +8,7 @@ using Core.Converters;
 using Core.Models;
 using CM = Core.Models.Metadata;
 using Revit.Utilities;
+using System.Linq;
 
 namespace Revit.Export
 {
@@ -47,10 +48,12 @@ namespace Revit.Export
             return ExportToJson(filePath, elementFilters, materialFilters, null, null);
         }
 
-        public int ExportToJson(string filePath, Dictionary<string, bool> elementFilters, 
-                               Dictionary<string, bool> materialFilters, 
-                               List<ElementId> selectedLevelIds = null,
-                               ElementId baseLevelId = null)
+        public int ExportToJson(string filePath, Dictionary<string, bool> elementFilters,
+                       Dictionary<string, bool> materialFilters,
+                       List<ElementId> selectedLevelIds = null,
+                       ElementId baseLevelId = null,
+                       List<Core.Models.ModelLayout.FloorType> customFloorTypes = null,
+                       List<Core.Models.ModelLayout.Level> customLevels = null)
         {
             int totalExported = 0;
 
@@ -59,11 +62,39 @@ namespace Revit.Export
                 // Initialize metadata
                 InitializeMetadata();
 
-                // Export layout elements first
-                totalExported += ExportLayoutElements(selectedLevelIds, baseLevelId);
+                // Handle custom levels or export regular levels
+                if (customLevels != null && customLevels.Count > 0)
+                {
+                    // Use the provided custom levels
+                    _model.ModelLayout.Levels = customLevels;
+                    totalExported += customLevels.Count;
+                }
+                else
+                {
+                    // Export standard layout elements
+                    totalExported += ExportLayoutElements(selectedLevelIds, baseLevelId);
+                }
 
-                // Create unique FloorTypes from Levels specifically for Revit
-                CreateFloorTypesFromLevels();
+                // Process the base level (if specified) to rename it, set elevation to 0, and create a Base floor type
+                if (baseLevelId != null)
+                {
+                    ProcessBaseLevel(baseLevelId);
+                }
+
+                // Handle custom floor types or create default ones
+                if (customFloorTypes != null && customFloorTypes.Count > 0)
+                {
+                    // Use the provided custom floor types
+                    _model.ModelLayout.FloorTypes = customFloorTypes;
+
+                    // Don't perform CreateFloorTypesFromLevels() as we're using custom floor types
+                    // Note: The levels should already have FloorTypeId set correctly
+                }
+                else
+                {
+                    // Create default floor types based on level names
+                    CreateFloorTypesFromLevels();
+                }
 
                 // Export materials first so we have their IDs for referencing
                 totalExported += ExportMaterials(materialFilters);
@@ -71,8 +102,8 @@ namespace Revit.Export
                 // Then export other property definitions that reference materials
                 totalExported += ExportProperties(materialFilters);
 
-                // Export structural elements
-                totalExported += ExportStructuralElements(elementFilters, selectedLevelIds);
+                // Export structural elements with level filtering
+                totalExported += ExportStructuralElements(elementFilters, selectedLevelIds, baseLevelId);
 
                 // Save the model to file
                 JsonConverter.SaveToFile(_model, filePath);
@@ -83,6 +114,59 @@ namespace Revit.Export
             }
 
             return totalExported;
+        }
+
+        private void ProcessBaseLevel(ElementId baseLevelId)
+        {
+            if (baseLevelId == null || _model.ModelLayout.Levels == null || _model.ModelLayout.Levels.Count == 0)
+                return;
+
+            // Find the base level in the model
+            Level baseRevitLevel = _doc.GetElement(baseLevelId) as Level;
+            if (baseRevitLevel == null)
+                return;
+
+            // Find the corresponding level in our model
+            var baseModelLevel = _model.ModelLayout.Levels.FirstOrDefault(l =>
+                l.Name == baseRevitLevel.Name ||
+                Math.Abs(l.Elevation - (baseRevitLevel.Elevation * 12.0)) < 0.1);
+
+            if (baseModelLevel == null)
+                return;
+
+            // Save original elevation for adjusting other levels if needed
+            double originalElevation = baseModelLevel.Elevation;
+
+            // Rename the level to "Base" and set elevation to 0
+            baseModelLevel.Name = "Base";
+            baseModelLevel.Elevation = 0.0;
+
+            // Create a special "Base" floor type for this level
+            var baseFloorType = new Core.Models.ModelLayout.FloorType
+            {
+                Name = "Base"
+            };
+
+            // Add the floor type to the model
+            if (_model.ModelLayout.FloorTypes == null)
+                _model.ModelLayout.FloorTypes = new List<Core.Models.ModelLayout.FloorType>();
+
+            _model.ModelLayout.FloorTypes.Add(baseFloorType);
+
+            // Associate the base level with this floor type
+            baseModelLevel.FloorTypeId = baseFloorType.Id;
+
+            // Adjust all other levels relative to the base level
+            if (Math.Abs(originalElevation) > 0.001) // Only adjust if there was a change
+            {
+                foreach (var level in _model.ModelLayout.Levels)
+                {
+                    if (level != baseModelLevel)
+                    {
+                        level.Elevation -= originalElevation;
+                    }
+                }
+            }
         }
 
         // Create unique FloorTypes based on Levels for Revit export only
@@ -212,50 +296,269 @@ namespace Revit.Export
 
             return count;
         }
-
-        private int ExportStructuralElements(Dictionary<string, bool> elementFilters, List<ElementId> selectedLevelIds = null)
+        private int ExportStructuralElements(Dictionary<string, bool> elementFilters, List<ElementId> selectedLevelIds, ElementId baseLevelId = null)
         {
             int count = 0;
 
-            // Export elements based on filter settings
-            if (elementFilters["Walls"])
+            try
             {
-                Export.Elements.WallExport wallExport = new Export.Elements.WallExport(_doc);
-                count += wallExport.Export(_model.Elements.Walls, _model);
-            }
+                // Convert ElementIds to level IDs that we can use for filtering
+                HashSet<string> selectedLevelIdStrings = new HashSet<string>();
+                Dictionary<ElementId, string> revitToModelLevelIds = new Dictionary<ElementId, string>();
 
-            if (elementFilters["Floors"])
-            {
-                Export.Elements.FloorExport floorExport = new Export.Elements.FloorExport(_doc);
-                count += floorExport.Export(_model.Elements.Floors, _model);
-            }
+                if (selectedLevelIds != null && selectedLevelIds.Count > 0)
+                {
+                    // Build mapping between Revit and model level IDs
+                    foreach (var level in _model.ModelLayout.Levels)
+                    {
+                        foreach (var revitLevelId in selectedLevelIds)
+                        {
+                            Level revitLevel = _doc.GetElement(revitLevelId) as Level;
+                            if (revitLevel != null && (revitLevel.Name == level.Name ||
+                                Math.Abs(revitLevel.Elevation * 12.0 - level.Elevation) < 0.1))
+                            {
+                                revitToModelLevelIds[revitLevelId] = level.Id;
+                                selectedLevelIdStrings.Add(level.Id);
+                                break;
+                            }
+                        }
+                    }
+                }
 
-            if (elementFilters["Columns"])
-            {
-                Export.Elements.ColumnExport columnExport = new Export.Elements.ColumnExport(_doc);
-                count += columnExport.Export(_model.Elements.Columns, _model);
-            }
+                // Determine base level ID to exclude
+                string baseLevelIdString = null;
+                if (baseLevelId != null)
+                {
+                    Level baseLevel = _doc.GetElement(baseLevelId) as Level;
+                    if (baseLevel != null)
+                    {
+                        // Find corresponding level in our model
+                        foreach (var level in _model.ModelLayout.Levels)
+                        {
+                            if (baseLevel.Name == level.Name ||
+                                Math.Abs(baseLevel.Elevation * 12.0 - level.Elevation) < 0.1)
+                            {
+                                baseLevelIdString = level.Id;
+                                break;
+                            }
+                        }
+                    }
+                }
 
-            if (elementFilters["Beams"])
-            {
-                Export.Elements.BeamExport beamExport = new Export.Elements.BeamExport(_doc);
-                count += beamExport.Export(_model.Elements.Beams, _model);
-            }
+                // Export elements based on filter settings
+                if (elementFilters["Walls"])
+                {
+                    Export.Elements.WallExport wallExport = new Export.Elements.WallExport(_doc);
+                    count += wallExport.Export(_model.Elements.Walls, _model);
 
-            if (elementFilters["Braces"])
-            {
-                Export.Elements.BraceExport braceExport = new Export.Elements.BraceExport(_doc);
-                count += braceExport.Export(_model.Elements.Braces, _model);
-            }
+                    // Filter walls based on TopLevelId
+                    if (_model.Elements.Walls != null && _model.Elements.Walls.Count > 0)
+                    {
+                        if ((selectedLevelIdStrings.Count > 0 || baseLevelIdString != null))
+                        {
+                            int initialCount = _model.Elements.Walls.Count;
 
-            if (elementFilters["Footings"])
+                            // Get a filtered list of walls
+                            _model.Elements.Walls = _model.Elements.Walls
+                                .Where(wall =>
+                                    // Include only walls that have a top level ID
+                                    !string.IsNullOrEmpty(wall.TopLevelId) &&
+                                    // AND the top level is in our selected levels
+                                    (selectedLevelIdStrings.Count == 0 || selectedLevelIdStrings.Contains(wall.TopLevelId)) &&
+                                    // AND the top level is not the base level
+                                    (baseLevelIdString == null || wall.TopLevelId != baseLevelIdString))
+                                .ToList();
+
+                            // Update count to reflect the filtered number
+                            count -= (initialCount - _model.Elements.Walls.Count);
+                        }
+                    }
+                }
+
+                if (elementFilters["Floors"])
+                {
+                    Export.Elements.FloorExport floorExport = new Export.Elements.FloorExport(_doc);
+                    count += floorExport.Export(_model.Elements.Floors, _model);
+
+                    // Filter floors based on LevelId
+                    if (_model.Elements.Floors != null && _model.Elements.Floors.Count > 0)
+                    {
+                        if ((selectedLevelIdStrings.Count > 0 || baseLevelIdString != null))
+                        {
+                            int initialCount = _model.Elements.Floors.Count;
+
+                            // Get a filtered list of floors
+                            _model.Elements.Floors = _model.Elements.Floors
+                                .Where(floor =>
+                                    // Include only floors that have a level ID
+                                    !string.IsNullOrEmpty(floor.LevelId) &&
+                                    // AND the level is in our selected levels
+                                    (selectedLevelIdStrings.Count == 0 || selectedLevelIdStrings.Contains(floor.LevelId)) &&
+                                    // AND the level is not the base level
+                                    (baseLevelIdString == null || floor.LevelId != baseLevelIdString))
+                                .ToList();
+
+                            // Update count to reflect the filtered number
+                            count -= (initialCount - _model.Elements.Floors.Count);
+                        }
+                    }
+                }
+
+                if (elementFilters["Columns"])
+                {
+                    Export.Elements.ColumnExport columnExport = new Export.Elements.ColumnExport(_doc);
+                    count += columnExport.Export(_model.Elements.Columns, _model);
+                    // Filter columns - diagnostic version
+                    if (_model.Elements.Columns != null && _model.Elements.Columns.Count > 0)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"COLUMN DIAGNOSTIC: Starting with {_model.Elements.Columns.Count} columns");
+
+                        // Log selected level IDs
+                        System.Diagnostics.Debug.WriteLine($"COLUMN DIAGNOSTIC: Selected level IDs: {string.Join(", ", selectedLevelIdStrings)}");
+                        System.Diagnostics.Debug.WriteLine($"COLUMN DIAGNOSTIC: Base level ID: {baseLevelIdString}");
+
+                        // Log column properties before filtering
+                        foreach (var column in _model.Elements.Columns)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"COLUMN DIAGNOSTIC: Column has BaseLevelId={column.BaseLevelId}, TopLevelId={column.TopLevelId}");
+                        }
+
+                        // DISABLE THE FILTERING ENTIRELY FOR NOW - Just log what would have happened
+                        System.Diagnostics.Debug.WriteLine("COLUMN DIAGNOSTIC: Skipping filtering to keep all columns");
+
+                        /*
+                        // Original filtering logic - commented out to analyze the data first
+                        if ((selectedLevelIdStrings.Count > 0 || baseLevelIdString != null))
+                        {
+                            int initialCount = _model.Elements.Columns.Count;
+
+                            // Get a filtered list of columns
+                            var filteredColumns = _model.Elements.Columns
+                                .Where(column => 
+                                    (!string.IsNullOrEmpty(column.TopLevelId) && 
+                                     (selectedLevelIdStrings.Count == 0 || selectedLevelIdStrings.Contains(column.TopLevelId)) &&
+                                     (baseLevelIdString == null || column.TopLevelId != baseLevelIdString)))
+                                .ToList();
+
+                            // Log which columns would be kept or filtered
+                            foreach (var column in _model.Elements.Columns)
+                            {
+                                bool wouldKeep = 
+                                    (!string.IsNullOrEmpty(column.TopLevelId) && 
+                                     (selectedLevelIdStrings.Count == 0 || selectedLevelIdStrings.Contains(column.TopLevelId)) &&
+                                     (baseLevelIdString == null || column.TopLevelId != baseLevelIdString));
+
+                                System.Diagnostics.Debug.WriteLine($"COLUMN DIAGNOSTIC: Column with BaseLevelId={column.BaseLevelId}, TopLevelId={column.TopLevelId} would be {(wouldKeep ? "KEPT" : "FILTERED OUT")}");
+                            }
+
+                            _model.Elements.Columns = filteredColumns;
+
+                            // Update count to reflect the filtered number
+                            count -= (initialCount - _model.Elements.Columns.Count);
+
+                            System.Diagnostics.Debug.WriteLine($"COLUMN DIAGNOSTIC: After filtering, {_model.Elements.Columns.Count} columns remain");
+                        }
+                        */
+                    }
+                }
+
+                if (elementFilters["Beams"])
+                {
+                    // Export beams, but we'll filter them after export
+                    Export.Elements.BeamExport beamExport = new Export.Elements.BeamExport(_doc);
+                    count += beamExport.Export(_model.Elements.Beams, _model);
+
+                    // Filter out beams not associated with selected levels or associated with base level
+                    if (_model.Elements.Beams != null && _model.Elements.Beams.Count > 0)
+                    {
+                        // If we have selected levels and a base level to filter by
+                        if ((selectedLevelIdStrings.Count > 0 || baseLevelIdString != null))
+                        {
+                            int initialCount = _model.Elements.Beams.Count;
+
+                            // Get a filtered list of beams
+                            _model.Elements.Beams = _model.Elements.Beams
+                                .Where(beam =>
+                                    // Include only beams that have a level ID
+                                    !string.IsNullOrEmpty(beam.LevelId) &&
+                                    // AND the level is in our selected levels
+                                    (selectedLevelIdStrings.Count == 0 || selectedLevelIdStrings.Contains(beam.LevelId)) &&
+                                    // AND the level is not the base level
+                                    (baseLevelIdString == null || beam.LevelId != baseLevelIdString))
+                                .ToList();
+
+                            // Update count to reflect the filtered number
+                            count -= (initialCount - _model.Elements.Beams.Count);
+                        }
+                    }
+                }
+
+                if (elementFilters["Braces"])
+                {
+                    Export.Elements.BraceExport braceExport = new Export.Elements.BraceExport(_doc);
+                    count += braceExport.Export(_model.Elements.Braces, _model);
+
+                    // Filter braces - diagnostic version
+                    if (_model.Elements.Braces != null && _model.Elements.Braces.Count > 0)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"BRACE DIAGNOSTIC: Starting with {_model.Elements.Braces.Count} braces");
+
+                        // Log selected level IDs
+                        System.Diagnostics.Debug.WriteLine($"BRACE DIAGNOSTIC: Selected level IDs: {string.Join(", ", selectedLevelIdStrings)}");
+                        System.Diagnostics.Debug.WriteLine($"BRACE DIAGNOSTIC: Base level ID: {baseLevelIdString}");
+
+                        // Log brace properties before filtering
+                        foreach (var brace in _model.Elements.Braces)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"BRACE DIAGNOSTIC: Brace has BaseLevelId={brace.BaseLevelId}, TopLevelId={brace.TopLevelId}");
+                        }
+
+                        if ((selectedLevelIdStrings.Count > 0 || baseLevelIdString != null))
+                        {
+                            int initialCount = _model.Elements.Braces.Count;
+
+                            // Log which braces would be kept or filtered
+                            foreach (var brace in _model.Elements.Braces)
+                            {
+                                bool wouldKeep =
+                                    (!string.IsNullOrEmpty(brace.TopLevelId) &&
+                                     (selectedLevelIdStrings.Count == 0 || selectedLevelIdStrings.Contains(brace.TopLevelId)) &&
+                                     (baseLevelIdString == null || brace.TopLevelId != baseLevelIdString));
+
+                                System.Diagnostics.Debug.WriteLine($"BRACE DIAGNOSTIC: Brace with BaseLevelId={brace.BaseLevelId}, TopLevelId={brace.TopLevelId} would be {(wouldKeep ? "KEPT" : "FILTERED OUT")}");
+                            }
+
+                            // Get a filtered list of braces
+                            var filteredBraces = _model.Elements.Braces
+                                .Where(brace =>
+                                    (!string.IsNullOrEmpty(brace.TopLevelId) &&
+                                     (selectedLevelIdStrings.Count == 0 || selectedLevelIdStrings.Contains(brace.TopLevelId)) &&
+                                     (baseLevelIdString == null || brace.TopLevelId != baseLevelIdString)))
+                                .ToList();
+
+                            _model.Elements.Braces = filteredBraces;
+
+                            // Update count to reflect the filtered number
+                            count -= (initialCount - _model.Elements.Braces.Count);
+
+                            System.Diagnostics.Debug.WriteLine($"BRACE DIAGNOSTIC: After filtering, {_model.Elements.Braces.Count} braces remain");
+                        }
+                    }
+                }
+
+                if (elementFilters["Footings"])
+                {
+                    // Export spread footings
+                    Export.Elements.IsolatedFootingExport isolatedFootingExport = new Export.Elements.IsolatedFootingExport(_doc);
+                    System.Diagnostics.Debug.WriteLine($"Starting isolated footing export, collection initialized: {_model.Elements.IsolatedFootings != null}");
+                    int footingsExported = isolatedFootingExport.Export(_model.Elements.IsolatedFootings, _model);
+                    System.Diagnostics.Debug.WriteLine($"Finished isolated footing export: {footingsExported} footings exported");
+                    count += footingsExported;
+                }
+            }
+            catch (Exception ex)
             {
-                // Export spread footings
-                Export.Elements.IsolatedFootingExport isolatedFootingExport = new Export.Elements.IsolatedFootingExport(_doc);
-                System.Diagnostics.Debug.WriteLine($"Starting isolated footing export, collection initialized: {_model.Elements.IsolatedFootings != null}");
-                int footingsExported = isolatedFootingExport.Export(_model.Elements.IsolatedFootings, _model);
-                System.Diagnostics.Debug.WriteLine($"Finished isolated footing export: {footingsExported} footings exported");
-                count += footingsExported;
+                System.Diagnostics.Debug.WriteLine($"Error in ExportStructuralElements: {ex.Message}");
             }
 
             return count;

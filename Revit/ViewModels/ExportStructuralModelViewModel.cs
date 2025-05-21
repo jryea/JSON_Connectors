@@ -457,7 +457,8 @@ namespace Revit.ViewModels
                     {
                         Id = level.UniqueId,
                         Name = level.Name,
-                        // Convert to feet and round to 2 decimal places
+                        // Store elevation in feet for UI display purposes only
+                        // Revit provides it in feet already, so no conversion needed here
                         Elevation = Math.Round(level.Elevation, 2)
                     };
 
@@ -785,39 +786,22 @@ namespace Revit.ViewModels
 
             try
             {
-                // Check if we're doing a grids-only export
-                bool isGridsOnlyExport = ExportGrids &&
-                                       !ExportBeams &&
-                                       !ExportColumns &&
-                                       !ExportWalls &&
-                                       !ExportFloors &&
-                                       !ExportBraces &&
-                                       !ExportFootings;
+                // Get selected export format
+                string exportFormat = "UNKNOWN";
+                if (ExportToETABS) exportFormat = "ETABS";
+                else if (ExportToRAM) exportFormat = "RAM";
+                else if (ExportToGrasshopper) exportFormat = "Grasshopper";
 
-                // Get selected levels - for non-grids export, if no levels are explicitly selected,
-                // select all levels at or above the base level
-                List<LevelViewModel> selectedLevels;
+                // Get selected levels
+                var selectedLevels = LevelCollection
+                    .Where(level => level.IsSelected)
+                    .ToList();
 
-                if (!isGridsOnlyExport && !LevelCollection.Any(l => l.IsSelected))
+                if (!selectedLevels.Any())
                 {
-                    // Auto-select levels at or above base level
-                    if (BaseLevel != null)
-                    {
-                        double baseElevation = BaseLevel.Elevation;
-
-                        // Select all levels at or above the base level
-                        foreach (var level in LevelCollection)
-                        {
-                            if (level.Elevation >= baseElevation)
-                            {
-                                level.IsSelected = true;
-                            }
-                        }
-                    }
+                    MessageBox.Show("Please select at least one level to export.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
                 }
-
-                // Get the final list of selected levels
-                selectedLevels = LevelCollection.Where(level => level.IsSelected).ToList();
 
                 // Create filter dictionary for elements to export
                 Dictionary<string, bool> elementFilters = new Dictionary<string, bool>
@@ -844,101 +828,235 @@ namespace Revit.ViewModels
                     .Where(id => id != null)
                     .ToList();
 
-                // Prepare data for the export
+                // For custom floor types and levels (RAM and Grasshopper)
                 List<Core.Models.ModelLayout.FloorType> floorTypesList = null;
-                List<Core.Models.ModelLayout.Level> coreLevelsList = null;
-                Dictionary<string, ElementId> floorTypeToViewMap = null;
+                List<Core.Models.ModelLayout.Level> customLevels = null;
+                Core.Models.ModelLayout.FloorType baseFloorType = null;
 
-                // Get the file extension based on export format
-                string fileExt = ExportToETABS ? ".e2k" :
-                                ExportToRAM ? ".rss" :
-                                ".json"; // Default for Grasshopper
-
-                // Make sure output path has the correct extension
-                string outputPath = OutputLocation;
-                if (Path.GetExtension(outputPath).ToLowerInvariant() != fileExt)
+                // Only use custom floor types if they've been added in the UI and
+                // the export type uses floor types (Grasshopper or RAM)
+                if (FloorTypes.Count > 0 && (ExportToGrasshopper || ExportToRAM))
                 {
-                    outputPath = Path.Combine(
-                        Path.GetDirectoryName(OutputLocation),
-                        Path.GetFileNameWithoutExtension(OutputLocation) + fileExt);
-                }
-
-                // This controls whether we send floor types & levels to the exporter
-                // or let the exporter create them automatically
-                bool useCustomTypesAndLevels = FloorTypes.Count > 0;
-
-                if (useCustomTypesAndLevels)
-                {
-                    // Create core model floor types from the UI floor types
-                    floorTypesList = new List<Core.Models.ModelLayout.FloorType>();
-                    foreach (var uiType in FloorTypes)
-                    {
-                        floorTypesList.Add(new Core.Models.ModelLayout.FloorType
-                        {
-                            Id = uiType.Id,
-                            Name = uiType.Name
-                        });
-                    }
-
-                    // For selected levels that don't have floor types assigned,
-                    // assign them the first available floor type
+                    // For Grasshopper or RAM, validate each selected level has a floor type assigned
                     foreach (var level in selectedLevels)
                     {
-                        if (level.SelectedFloorType == null && FloorTypes.Count > 0)
+                        if (level.SelectedFloorType == null)
                         {
-                            level.SelectedFloorType = FloorTypes[0];
+                            MessageBox.Show($"Please assign a floor type to level: {level.Name}",
+                                "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                            return;
                         }
                     }
 
-                    // Convert the view model levels to core model levels
-                    coreLevelsList = ConvertToCoreLevels(selectedLevels);
-
-                    // For Grasshopper, create floor type to view mapping
-                    if (ExportToGrasshopper)
+                    // Convert floor types to core model format
+                    floorTypesList = FloorTypes.Select(ft => new Core.Models.ModelLayout.FloorType
                     {
-                        floorTypeToViewMap = new Dictionary<string, ElementId>();
-                        foreach (var mapping in FloorTypeViewMappingCollection)
+                        Id = ft.Id,
+                        Name = ft.Name
+                    }).ToList();
+
+                    // Convert selected levels to core model format with base level processing
+                    customLevels = ConvertToCoreLevelsWithBaseProcessing(selectedLevels);
+
+                    // If base level was specified, make sure we have a Base floor type in our list
+                    if (BaseLevel != null)
+                    {
+                        // Add or replace the Base floor type
+                        baseFloorType = new Core.Models.ModelLayout.FloorType
                         {
-                            if (mapping.SelectedViewPlan != null)
+                            Id = Guid.NewGuid().ToString(),
+                            Name = "Base"
+                        };
+
+                        // Remove any existing Base floor type
+                        floorTypesList.RemoveAll(ft => ft.Name == "Base");
+
+                        // Add the new Base floor type
+                        floorTypesList.Add(baseFloorType);
+                    }
+                }
+
+                // Perform export based on type
+                // ETABS export section
+                if (ExportToETABS)
+                {
+                    // JSON export with filtering - same approach as RAM
+                    string tempJsonPath = Path.Combine(Path.GetDirectoryName(OutputLocation),
+                        Path.GetFileNameWithoutExtension(OutputLocation) + ".json");
+
+                    // Use the ExportManager to create the JSON file with default floor types
+                    // Pass the base level ID to filter out beams at that level
+                    ExportManager exportManager = new ExportManager(_document, _uiApp);
+                    int count = exportManager.ExportToJson(tempJsonPath, elementFilters, materialFilters,
+                        selectedLevelIds, BaseLevel?.LevelId);
+
+                    // Convert JSON to ETABS E2K format
+                    try
+                    {
+                        // Read the JSON file content
+                        string jsonContent = File.ReadAllText(tempJsonPath);
+
+                        // Create the converter and process the model
+                        var converter = new ETABS.ETABSImport();
+                        string e2kContent = converter.ProcessModel(jsonContent);
+
+                        // Save the E2K content to file
+                        File.WriteAllText(OutputLocation, e2kContent);
+
+                        MessageBox.Show($"Successfully exported {count} elements to {OutputLocation}",
+                            "Export Complete", MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Error converting to ETABS format: {ex.Message}",
+                            "ETABS Export Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        return;
+                    }
+                }
+                else if (ExportToRAM)
+                {
+                    // RAM export with custom floor types
+                    string tempJsonPath = Path.Combine(Path.GetDirectoryName(OutputLocation),
+                        Path.GetFileNameWithoutExtension(OutputLocation) + ".json");
+
+                    ExportManager exportManager = new ExportManager(_document, _uiApp);
+                    int count = exportManager.ExportToJson(tempJsonPath, elementFilters, materialFilters,
+                        selectedLevelIds, BaseLevel?.LevelId, floorTypesList, customLevels);
+
+                    // Convert JSON to RAM format
+                    try
+                    {
+                        RAM.RAMImporter ramImporter = new RAM.RAMImporter();
+                        var conversionResult = ramImporter.ConvertJSONFileToRAM(tempJsonPath, OutputLocation);
+
+                        if (!conversionResult.Success)
+                        {
+                            MessageBox.Show($"Error converting to RAM format: {conversionResult.Message}",
+                                "RAM Export Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                            return;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Error converting to RAM format: {ex.Message}",
+                            "RAM Export Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        return;
+                    }
+
+                    MessageBox.Show($"Successfully exported {count} elements to {OutputLocation}",
+                        "Export Complete", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                else if (ExportToGrasshopper)
+                {
+                    // For Grasshopper, the floor type handling for CAD export
+                    var floorTypeToViewMap = new Dictionary<string, ElementId>();
+                    foreach (var mapping in FloorTypeViewMappingCollection)
+                    {
+                        if (mapping.SelectedViewPlan != null)
+                        {
+                            // Find the floor type by name
+                            var floorType = FloorTypes.FirstOrDefault(ft => ft.Name == mapping.FloorTypeName);
+                            if (floorType != null)
                             {
-                                // Find the floor type by name
-                                var floorType = FloorTypes.FirstOrDefault(ft => ft.Name == mapping.FloorTypeName);
-                                if (floorType != null)
-                                {
-                                    floorTypeToViewMap[floorType.Id] = mapping.SelectedViewPlan.ViewId;
-                                }
+                                floorTypeToViewMap[floorType.Id] = mapping.SelectedViewPlan.ViewId;
                             }
                         }
                     }
+
+                    // Create folder for DWG exports
+                    string dwgFolder = Path.Combine(Path.GetDirectoryName(OutputLocation), "CAD");
+                    Directory.CreateDirectory(dwgFolder);
+
+                    // Use the GrasshopperExporter which will do the JSON export internally
+                    GrasshopperExporter exporter = new GrasshopperExporter(_document, _uiApp);
+
+                    // We're using our custom floor types and levels from UI instead of generating them
+                    exporter.ExportWithFloorTypeViewMappings(
+                        OutputLocation,
+                        dwgFolder,
+                        floorTypesList ?? new List<Core.Models.ModelLayout.FloorType>(),
+                        customLevels ?? new List<Core.Models.ModelLayout.Level>(),
+                        null, // No reference point needed in this context
+                        floorTypeToViewMap,
+                        selectedLevelIds
+                    );
+
+                    MessageBox.Show($"Successfully exported to {OutputLocation}",
+                        "Export Complete", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
-                // If no floor types are defined, pass null for floorTypesList 
-                // and coreLevelsList to let ExportManager create them automatically
 
-                // Use the centralized export functionality
-                StructuralModelExportCommand.PerformExport(
-                    _uiApp,
-                    _document,
-                    outputPath,
-                    ExportToETABS,
-                    ExportToRAM,
-                    ExportToGrasshopper,
-                    elementFilters,
-                    materialFilters,
-                    selectedLevelIds,
-                    BaseLevel?.LevelId,
-                    coreLevelsList,
-                    floorTypesList,
-                    floorTypeToViewMap
-                );
-
-                // Close the dialog with success
-                DialogResult = true;
+                // Close the dialog
                 RequestClose?.Invoke();
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"Error during export: {ex.Message}", "Export Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
+        }
+
+        private List<Core.Models.ModelLayout.Level> ConvertToCoreLevelsWithBaseProcessing(List<LevelViewModel> levels)
+        {
+            var result = new List<Core.Models.ModelLayout.Level>();
+            LevelViewModel baseLevel = BaseLevel;
+
+            // First pass - convert all levels
+            foreach (var level in levels)
+            {
+                var coreLevel = new Core.Models.ModelLayout.Level
+                {
+                    Name = level.Name,
+                    // Convert elevation from feet (UI display) to inches (model units)
+                    Elevation = level.Elevation * 12.0
+                };
+
+                if (level.SelectedFloorType != null)
+                {
+                    coreLevel.FloorTypeId = level.SelectedFloorType.Id;
+                }
+
+                result.Add(coreLevel);
+            }
+
+            // If we have a base level, process it
+            if (baseLevel != null)
+            {
+                // Find the corresponding core level
+                var baseModelLevel = result.FirstOrDefault(l =>
+                    l.Name == baseLevel.Name ||
+                    Math.Abs(l.Elevation - (baseLevel.Elevation * 12.0)) < 0.001);
+
+                if (baseModelLevel != null)
+                {
+                    // Store the original elevation for adjustment
+                    double originalElevation = baseModelLevel.Elevation;
+
+                    // Create a special Base floor type
+                    var baseFloorType = new Core.Models.ModelLayout.FloorType
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Name = "Base"
+                    };
+
+                    // Rename the level to "Base" and set elevation to 0
+                    baseModelLevel.Name = "Base";
+                    baseModelLevel.Elevation = 0.0;
+                    baseModelLevel.FloorTypeId = baseFloorType.Id;
+
+                    // Adjust all other levels relative to the base level
+                    foreach (var level in result)
+                    {
+                        if (level != baseModelLevel)
+                        {
+                            level.Elevation -= originalElevation;
+                        }
+                    }
+
+                    // Return the base floor type separately
+                    return result;
+                }
+            }
+
+            return result;
         }
 
         private List<Core.Models.ModelLayout.Level> ConvertToCoreLevels(List<LevelViewModel> levels)
@@ -950,10 +1068,10 @@ namespace Revit.ViewModels
                 var coreLevel = new Core.Models.ModelLayout.Level
                 {
                     Name = level.Name,
-                    Elevation = level.Elevation
+                    // Convert elevation from feet (UI display) to inches (model units)
+                    Elevation = level.Elevation * 12.0
                 };
 
-                // If this level has a floor type assigned in the UI, use that assignment
                 if (level.SelectedFloorType != null)
                 {
                     coreLevel.FloorTypeId = level.SelectedFloorType.Id;

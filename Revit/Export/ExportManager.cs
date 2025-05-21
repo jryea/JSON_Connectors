@@ -6,6 +6,7 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Core.Converters;
 using Core.Models;
+using CE = Core.Models.Elements;
 using CM = Core.Models.Metadata;
 using Revit.Utilities;
 using System.Linq;
@@ -404,61 +405,61 @@ namespace Revit.Export
                     }
                 }
 
+                // Inside ExportStructuralElements, for the column filtering section:
+
                 if (elementFilters["Columns"])
                 {
+                    // Step 1: Export columns with normal segmentation
                     Export.Elements.ColumnExport columnExport = new Export.Elements.ColumnExport(_doc);
                     count += columnExport.Export(_model.Elements.Columns, _model);
-                    // Filter columns - diagnostic version
-                    if (_model.Elements.Columns != null && _model.Elements.Columns.Count > 0)
+
+                    // Step 2: Simple filtering - remove segments entirely below base level
+                    if (_model.Elements.Columns != null && _model.Elements.Columns.Count > 0 && baseLevelId != null)
                     {
-                        System.Diagnostics.Debug.WriteLine($"COLUMN DIAGNOSTIC: Starting with {_model.Elements.Columns.Count} columns");
+                        System.Diagnostics.Debug.WriteLine($"COLUMN SIMPLE: Starting with {_model.Elements.Columns.Count} column segments");
 
-                        // Log selected level IDs
-                        System.Diagnostics.Debug.WriteLine($"COLUMN DIAGNOSTIC: Selected level IDs: {string.Join(", ", selectedLevelIdStrings)}");
-                        System.Diagnostics.Debug.WriteLine($"COLUMN DIAGNOSTIC: Base level ID: {baseLevelIdString}");
-
-                        // Log column properties before filtering
-                        foreach (var column in _model.Elements.Columns)
+                        // Get base level elevation
+                        Level baseRevitLevel = _doc.GetElement(baseLevelId) as Level;
+                        if (baseRevitLevel != null)
                         {
-                            System.Diagnostics.Debug.WriteLine($"COLUMN DIAGNOSTIC: Column has BaseLevelId={column.BaseLevelId}, TopLevelId={column.TopLevelId}");
-                        }
+                            double baseElevation = baseRevitLevel.Elevation * 12.0; // Convert to inches
+                            System.Diagnostics.Debug.WriteLine($"COLUMN SIMPLE: Base elevation = {baseElevation}");
 
-                        // DISABLE THE FILTERING ENTIRELY FOR NOW - Just log what would have happened
-                        System.Diagnostics.Debug.WriteLine("COLUMN DIAGNOSTIC: Skipping filtering to keep all columns");
-
-                        /*
-                        // Original filtering logic - commented out to analyze the data first
-                        if ((selectedLevelIdStrings.Count > 0 || baseLevelIdString != null))
-                        {
-                            int initialCount = _model.Elements.Columns.Count;
-
-                            // Get a filtered list of columns
-                            var filteredColumns = _model.Elements.Columns
-                                .Where(column => 
-                                    (!string.IsNullOrEmpty(column.TopLevelId) && 
-                                     (selectedLevelIdStrings.Count == 0 || selectedLevelIdStrings.Contains(column.TopLevelId)) &&
-                                     (baseLevelIdString == null || column.TopLevelId != baseLevelIdString)))
-                                .ToList();
-
-                            // Log which columns would be kept or filtered
-                            foreach (var column in _model.Elements.Columns)
+                            // Get level elevations
+                            Dictionary<string, double> levelElevations = new Dictionary<string, double>();
+                            foreach (var level in _model.ModelLayout.Levels)
                             {
-                                bool wouldKeep = 
-                                    (!string.IsNullOrEmpty(column.TopLevelId) && 
-                                     (selectedLevelIdStrings.Count == 0 || selectedLevelIdStrings.Contains(column.TopLevelId)) &&
-                                     (baseLevelIdString == null || column.TopLevelId != baseLevelIdString));
-
-                                System.Diagnostics.Debug.WriteLine($"COLUMN DIAGNOSTIC: Column with BaseLevelId={column.BaseLevelId}, TopLevelId={column.TopLevelId} would be {(wouldKeep ? "KEPT" : "FILTERED OUT")}");
+                                levelElevations[level.Id] = level.Elevation;
                             }
 
-                            _model.Elements.Columns = filteredColumns;
+                            int initialCount = _model.Elements.Columns.Count;
 
-                            // Update count to reflect the filtered number
+                            // Filter: Keep only segments where the TOP level is at or above base elevation
+                            _model.Elements.Columns = _model.Elements.Columns
+                                .Where(column =>
+                                {
+                                    // Keep if we can't determine elevation
+                                    if (string.IsNullOrEmpty(column.TopLevelId) ||
+                                        !levelElevations.ContainsKey(column.TopLevelId))
+                                    {
+                                        System.Diagnostics.Debug.WriteLine($"COLUMN SIMPLE: Keeping column - can't determine top elevation");
+                                        return true;
+                                    }
+
+                                    double topColumnElev = levelElevations[column.TopLevelId];
+
+                                    // Keep if top level is at or above base elevation
+                                    bool keep = topColumnElev >= baseElevation;
+
+                                    System.Diagnostics.Debug.WriteLine($"COLUMN SIMPLE: Column top={topColumnElev}, base={baseElevation} -> {(keep ? "KEEP" : "FILTER")}");
+
+                                    return keep;
+                                })
+                                .ToList();
+
                             count -= (initialCount - _model.Elements.Columns.Count);
-
-                            System.Diagnostics.Debug.WriteLine($"COLUMN DIAGNOSTIC: After filtering, {_model.Elements.Columns.Count} columns remain");
+                            System.Diagnostics.Debug.WriteLine($"COLUMN SIMPLE: After filtering, {_model.Elements.Columns.Count} column segments remain");
                         }
-                        */
                     }
                 }
 

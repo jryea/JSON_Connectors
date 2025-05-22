@@ -167,9 +167,11 @@
     <Compile Include="Export\Elements\IsolatedFootingExport.cs" />
     <Compile Include="Export\Elements\WallExport.cs" />
     <Compile Include="Export\ETABSExportCommand.cs" />
+    <Compile Include="Export\ExportContext.cs" />
     <Compile Include="Export\ExportManager.cs" />
     <Compile Include="Export\GrasshopperExportCommand.cs" />
     <Compile Include="Export\GrasshopperExporter.cs" />
+    <Compile Include="Export\ModelFilter.cs" />
     <Compile Include="Export\ModelLayout\FloorTypeExport.cs" />
     <Compile Include="Export\ModelLayout\GridExport.cs" />
     <Compile Include="Export\ModelLayout\LevelExport.cs" />
@@ -178,7 +180,9 @@
     <Compile Include="Export\Properties\MaterialExport.cs" />
     <Compile Include="Export\Properties\WallPropertiesExport.cs" />
     <Compile Include="Export\RAMExportCommand.cs" />
+    <Compile Include="Export\StructuralModelBuilder.cs" />
     <Compile Include="Export\StructuralModelExportCommand.cs" />
+    <Compile Include="Export\StructuralModelExporter.cs" />
     <Compile Include="Import\Elements\BeamImport.cs" />
     <Compile Include="Import\Elements\BraceImport.cs" />
     <Compile Include="Import\Elements\ColumnImport.cs" />

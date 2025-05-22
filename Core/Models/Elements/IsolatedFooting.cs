@@ -4,7 +4,7 @@ using Core.Utilities;
 
 namespace Core.Models.Elements
 {
-    public class IsolatedFooting : IIdentifiable
+    public class IsolatedFooting : IIdentifiable, ITransformable
     {
         // Unique identifier for the isolated footing
         public string Id { get; set; }
@@ -25,13 +25,23 @@ namespace Core.Models.Elements
         public string LevelId { get; set; }
 
         // Material Id
-        public string MaterialId { get; set; }  
+        public string MaterialId { get; set; }
 
         // Creates a new IsolatedFooting with a generated ID
         public IsolatedFooting()
         {
             Id = IdGenerator.Generate(IdGenerator.Elements.ISOLATED_FOOTING);
         }
+
+        // ITransformable implementation
+        public void Rotate(double angleDegrees, Point2D center)
+        {
+            Point?.Rotate(angleDegrees, center);
+        }
+
+        public void Translate(Point3D offset)
+        {
+            Point?.Translate(offset);
+        }
     }
-        
 }

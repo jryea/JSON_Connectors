@@ -5,7 +5,7 @@ using Core.Utilities;
 namespace Core.Models.Elements
 {
     // Represents a wall element in the structural model
-    public class Wall : IIdentifiable
+    public class Wall : IIdentifiable, ITransformable
     {
         // Unique identifier for the wall
         public string Id { get; set; }
@@ -26,7 +26,7 @@ namespace Core.Models.Elements
         public string PierId { get; set; }
         public string SpandrelId { get; set; }
 
-        public bool IsLateral { get; set; } = false;    
+        public bool IsLateral { get; set; } = false;
 
         // Creates a new Wall with a generated ID
         public Wall()
@@ -40,6 +40,29 @@ namespace Core.Models.Elements
         {
             Points = points ?? new List<Point2D>();
             PropertiesId = propertiesId;
+        }
+
+        // ITransformable implementation
+        public void Rotate(double angleDegrees, Point2D center)
+        {
+            if (Points != null)
+            {
+                foreach (var point in Points)
+                {
+                    point.Rotate(angleDegrees, center);
+                }
+            }
+        }
+
+        public void Translate(Point3D offset)
+        {
+            if (Points != null)
+            {
+                foreach (var point in Points)
+                {
+                    point.Translate(offset);
+                }
+            }
         }
     }
 }

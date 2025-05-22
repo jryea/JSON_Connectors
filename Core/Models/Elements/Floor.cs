@@ -6,7 +6,7 @@ using static Core.Models.Properties.Modifiers;
 namespace Core.Models.Elements
 {
     // Represents a floor element in the structural model
-    public class Floor : IIdentifiable
+    public class Floor : IIdentifiable, ITransformable
     {
         // Unique identifier for the floor
         public string Id { get; set; }
@@ -44,6 +44,35 @@ namespace Core.Models.Elements
             Points = points ?? new List<Point2D>();
             DiaphragmId = diaphragmId;
             SurfaceLoadId = surfaceLoadId;
+        }
+
+        // ITransformable implementation
+        public void Rotate(double angleDegrees, Point2D center)
+        {
+            if (Points != null)
+            {
+                foreach (var point in Points)
+                {
+                    point.Rotate(angleDegrees, center);
+                }
+            }
+
+            // Rotate span direction
+            SpanDirection += angleDegrees;
+            // Normalize to 0-360 range
+            while (SpanDirection >= 360.0) SpanDirection -= 360.0;
+            while (SpanDirection < 0.0) SpanDirection += 360.0;
+        }
+
+        public void Translate(Point3D offset)
+        {
+            if (Points != null)
+            {
+                foreach (var point in Points)
+                {
+                    point.Translate(offset);
+                }
+            }
         }
     }
 }

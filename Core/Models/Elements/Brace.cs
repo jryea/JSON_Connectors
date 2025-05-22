@@ -6,7 +6,7 @@ using static Core.Models.Properties.Modifiers;
 namespace Core.Models.Elements
 {
     // Represents a brace element in the structural model
-    public class Brace : IIdentifiable
+    public class Brace : IIdentifiable, ITransformable
     {
         // Unique identifier for the brace
         public string Id { get; set; }
@@ -15,7 +15,7 @@ namespace Core.Models.Elements
         public string MaterialId { get; set; }
 
         // Frame Section Id
-        public string FramePropertiesId { get; set; }  
+        public string FramePropertiesId { get; set; }
 
         // BaseLevel ID
         public string BaseLevelId { get; set; }
@@ -36,6 +36,19 @@ namespace Core.Models.Elements
         public Brace()
         {
             Id = IdGenerator.Generate(IdGenerator.Elements.BRACE);
+        }
+
+        // ITransformable implementation
+        public void Rotate(double angleDegrees, Point2D center)
+        {
+            StartPoint?.Rotate(angleDegrees, center);
+            EndPoint?.Rotate(angleDegrees, center);
+        }
+
+        public void Translate(Point3D offset)
+        {
+            StartPoint?.Translate(offset);
+            EndPoint?.Translate(offset);
         }
     }
 }

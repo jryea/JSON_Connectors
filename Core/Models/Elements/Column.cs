@@ -6,7 +6,7 @@ using static Core.Models.Properties.Modifiers;
 namespace Core.Models.Elements
 {
     // Represents a column element in the structural model
-    public class Column : IIdentifiable
+    public class Column : IIdentifiable, ITransformable
     {
         // Unique identifier for the column
         public string Id { get; set; }
@@ -40,7 +40,6 @@ namespace Core.Models.Elements
             Id = IdGenerator.Generate(IdGenerator.Elements.COLUMN);
         }
 
-    
         // Creates a new Column with the specified properties
         public Column(Point2D startPoint, Point2D endPoint, string baseLevelId, string topLevelId, string sectionId) : this()
         {
@@ -49,6 +48,25 @@ namespace Core.Models.Elements
             BaseLevelId = baseLevelId;
             TopLevelId = topLevelId;
             FramePropertiesId = sectionId;
+        }
+
+        // ITransformable implementation
+        public void Rotate(double angleDegrees, Point2D center)
+        {
+            StartPoint?.Rotate(angleDegrees, center);
+            EndPoint?.Rotate(angleDegrees, center);
+
+            // Rotate orientation
+            Orientation += angleDegrees;
+            // Normalize to 0-180 range (columns have 180-degree symmetry)
+            while (Orientation >= 180.0) Orientation -= 180.0;
+            while (Orientation < 0.0) Orientation += 180.0;
+        }
+
+        public void Translate(Point3D offset)
+        {
+            StartPoint?.Translate(offset);
+            EndPoint?.Translate(offset);
         }
     }
 }

@@ -6,7 +6,7 @@ using static Core.Models.Properties.Modifiers;
 namespace Core.Models.Elements
 {
     // Represents a beam element in the structural model
-    public class Beam : IIdentifiable
+    public class Beam : IIdentifiable, ITransformable
     {
         // Unique identifier for the beam
         public string Id { get; set; }
@@ -37,6 +37,18 @@ namespace Core.Models.Elements
         {
             Id = IdGenerator.Generate(IdGenerator.Elements.BEAM);
         }
-        
+
+        // ITransformable implementation
+        public void Rotate(double angleDegrees, Point2D center)
+        {
+            StartPoint?.Rotate(angleDegrees, center);
+            EndPoint?.Rotate(angleDegrees, center);
+        }
+
+        public void Translate(Point3D offset)
+        {
+            StartPoint?.Translate(offset);
+            EndPoint?.Translate(offset);
+        }
     }
 }

@@ -5,22 +5,11 @@ namespace Core.Models.Geometry
     // Represents a 3D line segment defined by start and end points
     public class Line
     {
-      
         public double FromX { get; set; }
-
-        // Y-coordinate of the start point
         public double FromY { get; set; }
-
-        // Z-coordinate of the start point
         public double FromZ { get; set; }
-
-        // X-coordinate of the end point
         public double ToX { get; set; }
-
-        // Y-coordinate of the end point
         public double ToY { get; set; }
-
-        // Z-coordinate of the end point
         public double ToZ { get; set; }
 
         // Creates a new Line with the specified start and end points
@@ -65,7 +54,6 @@ namespace Core.Models.Geometry
         }
 
         // Gets the mid-point of the line
-    
         public Point3D MidPoint()
         {
             return new Point3D(
@@ -75,10 +63,45 @@ namespace Core.Models.Geometry
         }
 
         // Returns a string representation of the line
-    
         public override string ToString()
         {
             return $"Line: ({FromX},{FromY},{FromZ}) to ({ToX},{ToY},{ToZ})";
+        }
+
+        // Internal transformation methods
+        internal void Rotate(double angleDegrees, Point2D center)
+        {
+            double angleRad = angleDegrees * Math.PI / 180.0;
+            double cos = Math.Cos(angleRad);
+            double sin = Math.Sin(angleRad);
+
+            // Transform start point
+            double dx1 = FromX - center.X;
+            double dy1 = FromY - center.Y;
+            double newFromX = dx1 * cos - dy1 * sin + center.X;
+            double newFromY = dx1 * sin + dy1 * cos + center.Y;
+
+            // Transform end point
+            double dx2 = ToX - center.X;
+            double dy2 = ToY - center.Y;
+            double newToX = dx2 * cos - dy2 * sin + center.X;
+            double newToY = dx2 * sin + dy2 * cos + center.Y;
+
+            FromX = newFromX;
+            FromY = newFromY;
+            ToX = newToX;
+            ToY = newToY;
+            // Z coordinates remain unchanged
+        }
+
+        internal void Translate(Point3D offset)
+        {
+            FromX += offset.X;
+            FromY += offset.Y;
+            FromZ += offset.Z;
+            ToX += offset.X;
+            ToY += offset.Y;
+            ToZ += offset.Z;
         }
     }
 }

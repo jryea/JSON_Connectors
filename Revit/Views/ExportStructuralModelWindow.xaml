@@ -166,7 +166,7 @@ WindowStartupLocation="CenterScreen">
                     <RowDefinition Height="Auto"/>
                     <!-- Export Options & Output File -->
                     <RowDefinition Height="Auto"/>
-                    <!-- Base Level -->
+                    <!-- Base Level & Model Rotation -->
                     <RowDefinition Height="Auto"/>
                     <!-- Elements to Export -->
                     <RowDefinition Height="Auto"/>
@@ -207,25 +207,69 @@ WindowStartupLocation="CenterScreen">
                     </GroupBox>
                 </Grid>
 
-                <!-- Base Level Section -->
-                <GroupBox Grid.Row="1" Header="Base Level" Margin="0,0,0,15">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="Select Base Level:" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                        <ComboBox Grid.Column="1" Height="30" Margin="0,0,0,0" 
-                                  ItemsSource="{Binding LevelCollection}"
-                                  SelectedItem="{Binding BaseLevel}">
-                            <ComboBox.ItemTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding Name}"/>
-                                </DataTemplate>
-                            </ComboBox.ItemTemplate>
-                        </ComboBox>
-                    </Grid>
-                </GroupBox>
+                <!-- Base Level & Model Rotation -->
+                <Grid Grid.Row="1" Margin="0,0,0,15">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Base Level Section -->
+                    <GroupBox Grid.Column="0" Header="Base Level" Margin="0,0,10,0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Select Base Level:" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <ComboBox Grid.Column="1" Height="30" Margin="0,0,0,0" 
+                                      ItemsSource="{Binding LevelCollection}"
+                                      SelectedItem="{Binding BaseLevel}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Name}"/>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </Grid>
+                    </GroupBox>
+
+                    <!-- Model Rotation Section -->
+                    <GroupBox Grid.Column="1" Header="Model Rotation" Margin="10,0,0,0">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Enable Rotation -->
+                            <CheckBox Grid.Row="0" Content="Apply rotation to square model" 
+                                      IsChecked="{Binding ApplyRotation}" 
+                                      Margin="0,0,0,10"/>
+
+                            <!-- Rotation Angle -->
+                            <Grid Grid.Row="1" Margin="0,0,0,10" IsEnabled="{Binding ApplyRotation}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Angle:" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                <TextBox Grid.Column="1" Height="30" VerticalContentAlignment="Center"
+                                         Text="{Binding RotationAngle, UpdateSourceTrigger=PropertyChanged}"
+                                         ToolTip="Rotation angle in degrees (positive = counterclockwise)"/>
+                                <TextBlock Text="°" Grid.Column="2" VerticalAlignment="Center" Margin="5,0,0,0"/>
+                            </Grid>
+
+                            <!-- Description -->
+                            <TextBox Grid.Row="2" Height="30" VerticalContentAlignment="Center"
+                                     Text="{Binding RotationDescription, UpdateSourceTrigger=PropertyChanged}"
+                                     IsEnabled="{Binding ApplyRotation}"
+                                     ToolTip="Optional description of the rotation (e.g., 'Align with building grid')"/>
+                        </Grid>
+                    </GroupBox>
+                </Grid>
 
                 <!-- Elements to Export & Floor Layouts -->
                 <Grid Grid.Row="2" Margin="0,0,0,15">

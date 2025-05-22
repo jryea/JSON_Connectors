@@ -49,6 +49,11 @@ namespace Revit.ViewModels
         // Material types
         private bool _exportSteel = true;
         private bool _exportConcrete = true;
+
+        // Rotation settings
+        private bool _applyRotation = false;
+        private double _rotationAngle = 0.0;
+
         #endregion
 
         #region Properties
@@ -311,6 +316,27 @@ namespace Revit.ViewModels
                 OnPropertyChanged();
             }
         }
+
+        public bool ApplyRotation
+        {
+            get => _applyRotation;
+            set
+            {
+                _applyRotation = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public double RotationAngle
+        {
+            get => _rotationAngle;
+            set
+            {
+                _rotationAngle = value;
+                OnPropertyChanged();
+            }
+        }
+
         #endregion
 
         #region Commands
@@ -786,12 +812,6 @@ namespace Revit.ViewModels
 
             try
             {
-                // Get selected export format
-                string exportFormat = "UNKNOWN";
-                if (ExportToETABS) exportFormat = "ETABS";
-                else if (ExportToRAM) exportFormat = "RAM";
-                else if (ExportToGrasshopper) exportFormat = "Grasshopper";
-
                 // Get selected levels
                 var selectedLevels = LevelCollection
                     .Where(level => level.IsSelected)
@@ -1054,30 +1074,6 @@ namespace Revit.ViewModels
                     // Return the base floor type separately
                     return result;
                 }
-            }
-
-            return result;
-        }
-
-        private List<Core.Models.ModelLayout.Level> ConvertToCoreLevels(List<LevelViewModel> levels)
-        {
-            var result = new List<Core.Models.ModelLayout.Level>();
-
-            foreach (var level in levels)
-            {
-                var coreLevel = new Core.Models.ModelLayout.Level
-                {
-                    Name = level.Name,
-                    // Convert elevation from feet (UI display) to inches (model units)
-                    Elevation = level.Elevation * 12.0
-                };
-
-                if (level.SelectedFloorType != null)
-                {
-                    coreLevel.FloorTypeId = level.SelectedFloorType.Id;
-                }
-
-                result.Add(coreLevel);
             }
 
             return result;

@@ -6,14 +6,10 @@ using RAMDATAACCESSLib;
 
 namespace RAM.Utilities
 {
-    /// <summary>
-    /// Helper methods for RAM model operations
-    /// </summary>
+    // Helper methods for RAM model operations
     public static class RAMHelpers
     {
-        /// <summary>
-        /// Helper to get floor types from RAM model by names
-        /// </summary>
+        // Helper to get floor types from RAM model by names
         public static List<IFloorType> GetFloorTypes(IModel model, List<string> floorTypeNames)
         {
             List<IFloorType> floorTypes = new List<IFloorType>();
@@ -55,9 +51,7 @@ namespace RAM.Utilities
             return floorTypes;
         }
 
-        /// <summary>
-        /// Get story by UID from the RAM model
-        /// </summary>
+        // Get story by UID from the RAM model
         public static IStory GetStoryByUid(IModel model, string storyUid)
         {
             if (model == null || string.IsNullOrEmpty(storyUid))
@@ -79,9 +73,7 @@ namespace RAM.Utilities
             return null;
         }
 
-        /// <summary>
-        /// Find the lowest story in the RAM model (for foundation level)
-        /// </summary>
+        // Find the lowest story in the RAM model (for foundation level)
         public static IStory FindLowestStory(IModel model)
         {
             if (model == null)
@@ -108,25 +100,27 @@ namespace RAM.Utilities
         }
     }
 
-    /// <summary>
-    /// Utility for filtering model layout components
-    /// </summary>
+    // Utility for filtering model layout components
     public static class ModelLayoutFilter
     {
-        /// <summary>
-        /// Filters levels to exclude those with zero or negative elevation
-        /// </summary>
+        // Filters levels to exclude the lowest level by elevation
         public static IEnumerable<Level> GetValidLevels(IEnumerable<Level> levels)
         {
             if (levels == null)
                 return new List<Level>();
 
-            return levels.Where(level => level.Elevation > 0);
+            var levelsList = levels.ToList();
+            if (levelsList.Count <= 1)
+                return levelsList; // Don't filter if only one or no levels
+
+            // Find the lowest elevation
+            double lowestElevation = levelsList.Min(level => level.Elevation);
+
+            // Return all levels except those at the lowest elevation
+            return levelsList.Where(level => Math.Abs(level.Elevation - lowestElevation) > 1e-6);
         }
 
-        /// <summary>
-        /// Filters floor types to include only those associated with valid levels
-        /// </summary>
+        // Filters floor types to include only those associated with valid levels
         public static IEnumerable<FloorType> GetValidFloorTypes(IEnumerable<FloorType> floorTypes, IEnumerable<Level> levels)
         {
             if (floorTypes == null || levels == null)

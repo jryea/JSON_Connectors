@@ -101,6 +101,14 @@ namespace Revit.Export
 
             // Process base level if specified
             ProcessBaseLevel();
+            // Build grids (part of ModelLayout)
+            if (_context.ShouldExportElement("Grids"))
+            {
+                _model.ModelLayout.Grids = new List<Core.Models.ModelLayout.Grid>();
+                var gridExport = new ModelLayout.GridExport(_context.RevitDoc);
+                int gridCount = gridExport.Export(_model.ModelLayout.Grids);
+                Debug.WriteLine($"Built {gridCount} grids");
+            }
         }
 
         private void ProcessBaseLevel()
@@ -178,23 +186,29 @@ namespace Revit.Export
         {
             Debug.WriteLine("Building properties...");
 
+            // Initialize collections
+            _model.Properties.Materials = new List<Core.Models.Properties.Material>();
+            _model.Properties.WallProperties = new List<Core.Models.Properties.WallProperties>();
+            _model.Properties.FloorProperties = new List<Core.Models.Properties.FloorProperties>();
+            _model.Properties.FrameProperties = new List<Core.Models.Properties.FrameProperties>();
+
             // 1. Materials first (others reference these)
-            var materialExport = new MaterialExport(_context.RevitDoc);
+            var materialExport = new Properties.MaterialExport(_context.RevitDoc);
             int materialCount = materialExport.Export(_model.Properties.Materials, _context.MaterialFilters);
             Debug.WriteLine($"Built {materialCount} materials");
 
             // 2. Wall properties
-            var wallPropsExport = new WallPropertiesExport(_context.RevitDoc);
+            var wallPropsExport = new Properties.WallPropertiesExport(_context.RevitDoc);
             int wallPropsCount = wallPropsExport.Export(_model.Properties.WallProperties);
             Debug.WriteLine($"Built {wallPropsCount} wall properties");
 
             // 3. Floor properties
-            var floorPropsExport = new FloorPropertiesExport(_context.RevitDoc);
+            var floorPropsExport = new Properties.FloorPropertiesExport(_context.RevitDoc);
             int floorPropsCount = floorPropsExport.Export(_model.Properties.FloorProperties);
             Debug.WriteLine($"Built {floorPropsCount} floor properties");
 
             // 4. Frame properties (depends on materials)
-            var framePropsExport = new FramePropertiesExport(_context.RevitDoc);
+            var framePropsExport = new Properties.FramePropertiesExport(_context.RevitDoc);
             int framePropsCount = framePropsExport.Export(_model.Properties.FrameProperties, _model.Properties.Materials);
             Debug.WriteLine($"Built {framePropsCount} frame properties");
         }
@@ -202,6 +216,14 @@ namespace Revit.Export
         private void BuildElements()
         {
             Debug.WriteLine("Building elements...");
+
+            // Initialize element collections
+            _model.Elements.Walls = new List<Core.Models.Elements.Wall>();
+            _model.Elements.Floors = new List<Core.Models.Elements.Floor>();
+            _model.Elements.Columns = new List<Core.Models.Elements.Column>();
+            _model.Elements.Beams = new List<Core.Models.Elements.Beam>();
+            _model.Elements.Braces = new List<Core.Models.Elements.Brace>();
+            _model.Elements.IsolatedFootings = new List<Core.Models.Elements.IsolatedFooting>();
 
             // Build grids
             if (_context.ShouldExportElement("Grids"))
@@ -227,13 +249,12 @@ namespace Revit.Export
                 Debug.WriteLine($"Built {floorCount} floors");
             }
 
-            // Build columns using simplified exporter
+            // Build columns
             if (_context.ShouldExportElement("Columns"))
             {
-                var columnExport = new SimpleColumnExporter(_context);
-                var columns = columnExport.Export();
-                _model.Elements.Columns = columns;
-                Debug.WriteLine($"Built {columns.Count} columns");
+                var columnExport = new Elements.ColumnExport(_context.RevitDoc);
+                int columnCount = columnExport.Export(_model.Elements.Columns, _model);
+                Debug.WriteLine($"Built {columnCount} columns");
             }
 
             // Build beams

@@ -51,6 +51,7 @@ namespace Revit.Export
 
             // Filter model components
             FilterLevels(model, selectedModelLevelIds, baseLevelModelId);
+            FilterFloorTypes(model);
             FilterElements(model, selectedModelLevelIds, baseLevelModelId);
             CleanupOrphanedProperties(model);
 
@@ -183,6 +184,30 @@ namespace Revit.Export
             // This could be implemented to clean up unused materials, frame properties, etc.
             // For now, keep all properties as they might be needed
             Debug.WriteLine("ModelFilter: Property cleanup skipped (keeping all properties)");
+        }
+
+        private void FilterFloorTypes(BaseModel model)
+        {
+            if (model.ModelLayout?.FloorTypes == null || model.ModelLayout?.Levels == null) return;
+
+            int initialCount = model.ModelLayout.FloorTypes.Count;
+
+            // Get FloorType IDs that are referenced by remaining levels
+            var referencedFloorTypeIds = new HashSet<string>();
+            foreach (var level in model.ModelLayout.Levels)
+            {
+                if (!string.IsNullOrEmpty(level.FloorTypeId))
+                {
+                    referencedFloorTypeIds.Add(level.FloorTypeId);
+                }
+            }
+
+            // Keep only referenced FloorTypes
+            model.ModelLayout.FloorTypes = model.ModelLayout.FloorTypes
+                .Where(ft => referencedFloorTypeIds.Contains(ft.Id))
+                .ToList();
+
+            Debug.WriteLine($"ModelFilter: FloorTypes {initialCount} -> {model.ModelLayout.FloorTypes.Count}");
         }
     }
 }

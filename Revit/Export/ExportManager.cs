@@ -8,6 +8,7 @@ using Core.Converters;
 using Core.Models;
 using CE = Core.Models.Elements;
 using CM = Core.Models.Metadata;
+using CG = Core.Models.Geometry;
 using Revit.Utilities;
 using System.Linq;
 
@@ -76,6 +77,7 @@ namespace Revit.Export
                     totalExported += ExportLayoutElements(selectedLevelIds, baseLevelId);
                 }
 
+                // MOVE THIS BEFORE FLOOR TYPES AND ELEMENT EXPORT
                 // Process the base level (if specified) to rename it, set elevation to 0, and create a Base floor type
                 if (baseLevelId != null)
                 {
@@ -104,6 +106,7 @@ namespace Revit.Export
                 totalExported += ExportProperties(materialFilters);
 
                 // Export structural elements with level filtering
+                // NOW the base level has already been renamed to "Base"
                 totalExported += ExportStructuralElements(elementFilters, selectedLevelIds, baseLevelId);
 
                 // Save the model to file
@@ -409,58 +412,82 @@ namespace Revit.Export
 
                 if (elementFilters["Columns"])
                 {
-                    // Step 1: Export columns with normal segmentation
-                    Export.Elements.ColumnExport columnExport = new Export.Elements.ColumnExport(_doc);
-                    count += columnExport.Export(_model.Elements.Columns, _model);
+                    System.Diagnostics.Debug.WriteLine("COLUMN SIMPLE: Starting simple column export");
 
-                    // Step 2: Simple filtering - remove segments entirely below base level
-                    if (_model.Elements.Columns != null && _model.Elements.Columns.Count > 0 && baseLevelId != null)
+                    // Get all columns from Revit
+                    FilteredElementCollector collector = new FilteredElementCollector(_doc);
+                    IList<FamilyInstance> revitColumns = collector.OfClass(typeof(FamilyInstance))
+                        .OfCategory(BuiltInCategory.OST_StructuralColumns)
+                        .Cast<FamilyInstance>()
+                        .ToList();
+
+                    System.Diagnostics.Debug.WriteLine($"COLUMN SIMPLE: Found {revitColumns.Count} columns in Revit");
+
+                    // Create level mapping
+                    Dictionary<ElementId, string> levelIdMap = new Dictionary<ElementId, string>();
+                    FilteredElementCollector levelCollector = new FilteredElementCollector(_doc);
+                    IList<Level> revitLevels = levelCollector.OfClass(typeof(Level))
+                        .Cast<Level>()
+                        .ToList();
+
+                    foreach (var revitLevel in revitLevels)
                     {
-                        System.Diagnostics.Debug.WriteLine($"COLUMN SIMPLE: Starting with {_model.Elements.Columns.Count} column segments");
-
-                        // Get base level elevation
-                        Level baseRevitLevel = _doc.GetElement(baseLevelId) as Level;
-                        if (baseRevitLevel != null)
+                        foreach (var modelLevel in _model.ModelLayout.Levels)
                         {
-                            double baseElevation = baseRevitLevel.Elevation * 12.0; // Convert to inches
-                            System.Diagnostics.Debug.WriteLine($"COLUMN SIMPLE: Base elevation = {baseElevation}");
-
-                            // Get level elevations
-                            Dictionary<string, double> levelElevations = new Dictionary<string, double>();
-                            foreach (var level in _model.ModelLayout.Levels)
+                            if (revitLevel.Name == modelLevel.Name ||
+                                Math.Abs(revitLevel.Elevation * 12.0 - modelLevel.Elevation) < 0.1)
                             {
-                                levelElevations[level.Id] = level.Elevation;
+                                levelIdMap[revitLevel.Id] = modelLevel.Id;
+                                System.Diagnostics.Debug.WriteLine($"COLUMN SIMPLE: Mapped {revitLevel.Name} -> {modelLevel.Name}");
+                                break;
                             }
-
-                            int initialCount = _model.Elements.Columns.Count;
-
-                            // Filter: Keep only segments where the TOP level is at or above base elevation
-                            _model.Elements.Columns = _model.Elements.Columns
-                                .Where(column =>
-                                {
-                                    // Keep if we can't determine elevation
-                                    if (string.IsNullOrEmpty(column.TopLevelId) ||
-                                        !levelElevations.ContainsKey(column.TopLevelId))
-                                    {
-                                        System.Diagnostics.Debug.WriteLine($"COLUMN SIMPLE: Keeping column - can't determine top elevation");
-                                        return true;
-                                    }
-
-                                    double topColumnElev = levelElevations[column.TopLevelId];
-
-                                    // Keep if top level is at or above base elevation
-                                    bool keep = topColumnElev >= baseElevation;
-
-                                    System.Diagnostics.Debug.WriteLine($"COLUMN SIMPLE: Column top={topColumnElev}, base={baseElevation} -> {(keep ? "KEEP" : "FILTER")}");
-
-                                    return keep;
-                                })
-                                .ToList();
-
-                            count -= (initialCount - _model.Elements.Columns.Count);
-                            System.Diagnostics.Debug.WriteLine($"COLUMN SIMPLE: After filtering, {_model.Elements.Columns.Count} column segments remain");
                         }
                     }
+
+                    // Create simple columns (no segmentation)
+                    int columnCount = 0;
+                    foreach (var revitColumn in revitColumns)
+                    {
+                        try
+                        {
+                            LocationPoint location = revitColumn.Location as LocationPoint;
+                            if (location == null) continue;
+
+                            // Get levels
+                            ElementId columnBaseLevelId = revitColumn.get_Parameter(BuiltInParameter.FAMILY_BASE_LEVEL_PARAM)?.AsElementId();
+                            ElementId columnTopLevelId = revitColumn.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_PARAM)?.AsElementId();
+
+                            if (!levelIdMap.ContainsKey(columnBaseLevelId) || !levelIdMap.ContainsKey(columnTopLevelId))
+                                continue;
+
+                            // Only keep columns where top level is in our exported levels
+                            string mappedTopLevelId = levelIdMap[columnTopLevelId];
+                            if (!_model.ModelLayout.Levels.Any(l => l.Id == mappedTopLevelId))
+                                continue;
+
+                            CE.Column column = new CE.Column();
+                            XYZ point = location.Point;
+                            column.StartPoint = new CG.Point2D(point.X * 12.0, point.Y * 12.0);
+                            column.EndPoint = column.StartPoint;
+                            column.BaseLevelId = levelIdMap[columnBaseLevelId];
+                            column.TopLevelId = levelIdMap[columnTopLevelId];
+
+                            if (_model.Elements.Columns == null)
+                                _model.Elements.Columns = new List<CE.Column>();
+
+                            _model.Elements.Columns.Add(column);
+                            columnCount++;
+
+                            System.Diagnostics.Debug.WriteLine($"COLUMN SIMPLE: Added column {column.BaseLevelId} to {column.TopLevelId}");
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"COLUMN SIMPLE: Error: {ex.Message}");
+                        }
+                    }
+
+                    count += columnCount;
+                    System.Diagnostics.Debug.WriteLine($"COLUMN SIMPLE: Added {columnCount} columns total");
                 }
 
                 if (elementFilters["Beams"])

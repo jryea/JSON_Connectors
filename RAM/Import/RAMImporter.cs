@@ -169,7 +169,7 @@ namespace RAM
                         if (model.ModelLayout.Levels != null && model.ModelLayout.Levels.Count > 0)
                         {
                             storyImporter.SetFloorTypeMapping(model.ModelLayout.FloorTypes);
-                            storyCount = storyImporter.Import(validLevels);
+                            storyCount = storyImporter.Import(model.ModelLayout.Levels);
                             Console.WriteLine($"Imported {storyCount} stories");
                         }
 

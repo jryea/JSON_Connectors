@@ -1,4 +1,5 @@
-﻿using System;
+﻿// StoryImport.cs
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Core.Models.ModelLayout;
@@ -45,40 +46,49 @@ namespace RAM.Import.ModelLayout
             }
         }
 
-        public int Import(IEnumerable<Level> levels)
+        public int Import(IEnumerable<Level> allLevels)
         {
             try
             {
                 int count = 0;
                 IStories ramStories = _model.GetStories();
 
-                // Calculate heights using ALL levels (including the lowest) before filtering
-                var allLevels = levels.OrderBy(l => l.Elevation).ToList();
+                // Calculate heights using ALL levels first
+                var levelsList = allLevels.OrderBy(l => l.Elevation).ToList();
                 var storyHeights = new List<(Level level, double height)>();
 
+                Console.WriteLine("Calculating heights for all levels:");
+
                 // Calculate heights between consecutive levels
-                for (int i = 0; i < allLevels.Count; i++)
+                for (int i = 0; i < levelsList.Count; i++)
                 {
                     double height;
                     if (i == 0)
                     {
-                        // First level (lowest) - use its elevation as height
-                        height = UnitConversionUtils.ConvertToInches(allLevels[i].Elevation, _lengthUnit);
+                        // First level (lowest) - height from ground (0) to this level
+                        height = UnitConversionUtils.ConvertToInches(levelsList[i].Elevation, _lengthUnit);
                     }
                     else
                     {
                         // Calculate height as difference from previous level
-                        double currentElevation = UnitConversionUtils.ConvertToInches(allLevels[i].Elevation, _lengthUnit);
-                        double previousElevation = UnitConversionUtils.ConvertToInches(allLevels[i - 1].Elevation, _lengthUnit);
+                        double currentElevation = UnitConversionUtils.ConvertToInches(levelsList[i].Elevation, _lengthUnit);
+                        double previousElevation = UnitConversionUtils.ConvertToInches(levelsList[i - 1].Elevation, _lengthUnit);
                         height = currentElevation - previousElevation;
                     }
 
-                    storyHeights.Add((allLevels[i], height));
+                    storyHeights.Add((levelsList[i], height));
+                    Console.WriteLine($"Level {levelsList[i].Name}: elevation={levelsList[i].Elevation}, calculated height={height} inches ({height / 12:F1} feet)");
                 }
 
-                // Now filter out the lowest level but keep the calculated heights
-                var validLevels = ModelLayoutFilter.GetValidLevels(levels);
+                // NOW filter out the lowest level but keep the calculated heights
+                var validLevels = ModelLayoutFilter.GetValidLevels(allLevels);
                 var validStoryHeights = storyHeights.Where(sh => validLevels.Contains(sh.level)).ToList();
+
+                Console.WriteLine($"After filtering: {validStoryHeights.Count} valid levels remain");
+                foreach (var (level, height) in validStoryHeights)
+                {
+                    Console.WriteLine($"Valid level {level.Name}: will use height={height} inches ({height / 12:F1} feet)");
+                }
 
                 int storyCount = 1;
                 foreach (var (level, height) in validStoryHeights)
@@ -116,6 +126,7 @@ namespace RAM.Import.ModelLayout
                         continue;
                     }
 
+                    Console.WriteLine($"Created RAM story '{storyName}' with height {height} inches ({height / 12:F1} feet) for level {level.Name}");
                     count++;
                 }
 

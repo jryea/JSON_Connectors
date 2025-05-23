@@ -88,70 +88,150 @@ namespace Revit.Import
 
                 try
                 {
+                    Debug.WriteLine($"Starting import transaction");
+
                     // Create level mapping first
                     Dictionary<string, ElementId> levelIdMap = CreateLevelMapping(model);
+                    Debug.WriteLine($"Initial level mapping created with {levelIdMap.Count} entries");
 
                     // Import grids first
                     if (context.ShouldImportElement("Grids") && model.ModelLayout?.Grids != null)
                     {
+                        Debug.WriteLine($"Importing {model.ModelLayout.Grids.Count} grids");
                         var gridImport = new ModelLayout.GridImport(_doc);
-                        totalImported += gridImport.Import(model.ModelLayout.Grids);
+                        int gridCount = gridImport.Import(model.ModelLayout.Grids);
+                        totalImported += gridCount;
+                        Debug.WriteLine($"Grid import completed: {gridCount} grids imported");
+                    }
+                    else
+                    {
+                        Debug.WriteLine("Skipping grid import - not enabled or no grids found");
                     }
 
-                    // Import levels
+                    // Import levels first (before creating level mapping)
                     if (model.ModelLayout?.Levels != null)
                     {
+                        Debug.WriteLine($"Starting level import for {model.ModelLayout.Levels.Count} levels");
                         var levelImport = new ModelLayout.LevelImport(_doc);
-                        totalImported += levelImport.Import(model.ModelLayout.Levels, levelIdMap);
+                        Dictionary<string, ElementId> tempLevelMapping = new Dictionary<string, ElementId>();
+
+                        int levelCount = levelImport.Import(model.ModelLayout.Levels, tempLevelMapping);
+                        totalImported += levelCount;
+
+                        Debug.WriteLine($"Level import completed: {levelCount} levels imported");
+                        Debug.WriteLine($"Level mapping contains {tempLevelMapping.Count} entries");
+
+                        // Update our level mapping with the results
+                        foreach (var kvp in tempLevelMapping)
+                        {
+                            levelIdMap[kvp.Key] = kvp.Value;
+                            Debug.WriteLine($"Mapped level {kvp.Key} to ElementId {kvp.Value}");
+                        }
+
+                        // Verify levels still exist after creation
+                        var createdLevels = new FilteredElementCollector(_doc)
+                            .OfClass(typeof(Level))
+                            .Cast<Level>()
+                            .Where(l => tempLevelMapping.Values.Contains(l.Id))
+                            .ToList();
+                        Debug.WriteLine($"Verified {createdLevels.Count} levels still exist in document");
                     }
+
+                    Debug.WriteLine("Checking element import conditions...");
 
                     // Import beams
                     if (context.ShouldImportElement("Beams") && model.Elements?.Beams != null)
                     {
+                        Debug.WriteLine($"Importing {model.Elements.Beams.Count} beams");
                         var beamImport = new Elements.BeamImport(_doc);
-                        totalImported += beamImport.Import(model.Elements.Beams, levelIdMap, model);
+                        int beamCount = beamImport.Import(model.Elements.Beams, levelIdMap, model);
+                        totalImported += beamCount;
+                        Debug.WriteLine($"Beam import completed: {beamCount} beams imported");
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"Skipping beam import - enabled: {context.ShouldImportElement("Beams")}, beam count: {model.Elements?.Beams?.Count ?? 0}");
                     }
 
                     // Import columns
                     if (context.ShouldImportElement("Columns") && model.Elements?.Columns != null)
                     {
+                        Debug.WriteLine($"Importing {model.Elements.Columns.Count} columns");
                         var columnImport = new Elements.ColumnImport(_doc);
-                        totalImported += columnImport.Import(model.Elements.Columns, levelIdMap, model);
+                        int columnCount = columnImport.Import(model.Elements.Columns, levelIdMap, model);
+                        totalImported += columnCount;
+                        Debug.WriteLine($"Column import completed: {columnCount} columns imported");
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"Skipping column import - enabled: {context.ShouldImportElement("Columns")}, column count: {model.Elements?.Columns?.Count ?? 0}");
                     }
 
                     // Import braces
                     if (context.ShouldImportElement("Braces") && model.Elements?.Braces != null)
                     {
+                        Debug.WriteLine($"Importing {model.Elements.Braces.Count} braces");
                         var braceImport = new Elements.BraceImport(_doc);
-                        totalImported += braceImport.Import(model.Elements.Braces, levelIdMap, model);
+                        int braceCount = braceImport.Import(model.Elements.Braces, levelIdMap, model);
+                        totalImported += braceCount;
+                        Debug.WriteLine($"Brace import completed: {braceCount} braces imported");
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"Skipping brace import - enabled: {context.ShouldImportElement("Braces")}, brace count: {model.Elements?.Braces?.Count ?? 0}");
                     }
 
                     // Import walls
                     if (context.ShouldImportElement("Walls") && model.Elements?.Walls != null)
                     {
+                        Debug.WriteLine($"Importing {model.Elements.Walls.Count} walls");
                         var wallImport = new Elements.WallImport(_doc);
-                        totalImported += wallImport.Import(model.Elements.Walls, levelIdMap, model);
+                        int wallCount = wallImport.Import(model.Elements.Walls, levelIdMap, model);
+                        totalImported += wallCount;
+                        Debug.WriteLine($"Wall import completed: {wallCount} walls imported");
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"Skipping wall import - enabled: {context.ShouldImportElement("Walls")}, wall count: {model.Elements?.Walls?.Count ?? 0}");
                     }
 
                     // Import floors
                     if (context.ShouldImportElement("Floors") && model.Elements?.Floors != null)
                     {
+                        Debug.WriteLine($"Importing {model.Elements.Floors.Count} floors");
                         var floorImport = new Elements.FloorImport(_doc);
-                        totalImported += floorImport.Import(levelIdMap, model);
+                        int floorCount = floorImport.Import(levelIdMap, model);
+                        totalImported += floorCount;
+                        Debug.WriteLine($"Floor import completed: {floorCount} floors imported");
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"Skipping floor import - enabled: {context.ShouldImportElement("Floors")}, floor count: {model.Elements?.Floors?.Count ?? 0}");
                     }
 
                     // Import footings
                     if (context.ShouldImportElement("Footings") && model.Elements?.IsolatedFootings != null)
                     {
+                        Debug.WriteLine($"Importing {model.Elements.IsolatedFootings.Count} footings");
                         var footingImport = new Elements.IsolatedFootingImport(_doc);
-                        totalImported += footingImport.Import(model.Elements.IsolatedFootings, levelIdMap, model);
+                        int footingCount = footingImport.Import(model.Elements.IsolatedFootings, levelIdMap, model);
+                        totalImported += footingCount;
+                        Debug.WriteLine($"Footing import completed: {footingCount} footings imported");
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"Skipping footing import - enabled: {context.ShouldImportElement("Footings")}, footing count: {model.Elements?.IsolatedFootings?.Count ?? 0}");
                     }
 
+                    Debug.WriteLine($"About to commit transaction with {totalImported} total imported elements");
                     transaction.Commit();
+                    Debug.WriteLine("Transaction committed successfully");
                 }
                 catch (Exception ex)
                 {
                     transaction.RollBack();
+                    Debug.WriteLine($"Transaction rolled back due to error: {ex.Message}");
+                    Debug.WriteLine($"Stack trace: {ex.StackTrace}");
                     throw;
                 }
             }
@@ -172,17 +252,42 @@ namespace Revit.Import
 
             foreach (var modelLevel in model.ModelLayout.Levels)
             {
-                var revitLevel = revitLevels.FirstOrDefault(l =>
-                    l.Name == modelLevel.Name ||
-                    Math.Abs(l.Elevation - (modelLevel.Elevation / 12.0)) < 0.1);
+                // Try to find existing level by name first
+                var revitLevel = revitLevels.FirstOrDefault(l => l.Name == modelLevel.Name);
+
+                // If not found by name, try by elevation
+                if (revitLevel == null)
+                {
+                    revitLevel = revitLevels.FirstOrDefault(l =>
+                        Math.Abs(l.Elevation - (modelLevel.Elevation / 12.0)) < 0.1);
+                }
 
                 if (revitLevel != null)
                 {
                     mapping[modelLevel.Id] = revitLevel.Id;
+                    Debug.WriteLine($"Mapped existing level {modelLevel.Name} to {revitLevel.Name}");
+                }
+                else
+                {
+                    Debug.WriteLine($"No existing level found for {modelLevel.Name}");
                 }
             }
 
             return mapping;
+        }
+
+        private string GetUniqueLevelName(string baseName, List<Level> existingLevels)
+        {
+            string testName = baseName;
+            int copyCount = 1;
+
+            while (existingLevels.Any(l => l.Name == testName))
+            {
+                testName = $"{baseName} Copy{(copyCount > 1 ? $" {copyCount}" : "")}";
+                copyCount++;
+            }
+
+            return testName;
         }
     }
 }

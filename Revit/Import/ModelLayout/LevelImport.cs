@@ -35,6 +35,22 @@ namespace Revit.Import.ModelLayout
             return jsonLevelName;
         }
 
+        private string GetUniqueLevelName(string baseName, DB.FilteredElementCollector existingLevels)
+        {
+            var existingNames = existingLevels.Cast<DB.Level>().Select(l => l.Name).ToHashSet();
+
+            string testName = baseName;
+            int copyCount = 1;
+
+            while (existingNames.Contains(testName))
+            {
+                testName = copyCount == 1 ? $"{baseName} Copy" : $"{baseName} Copy {copyCount}";
+                copyCount++;
+            }
+
+            return testName;
+        }
+
         // Imports levels from the JSON model into Revit
         public int Import(List<CL.Level> levels, Dictionary<string, DB.ElementId> levelMapping)
         {
@@ -43,9 +59,6 @@ namespace Revit.Import.ModelLayout
             // Get all existing Revit levels
             DB.FilteredElementCollector collector = new DB.FilteredElementCollector(_doc);
             collector.OfClass(typeof(DB.Level));
-            Dictionary<string, DB.Level> existingLevels = collector
-                .Cast<DB.Level>()
-                .ToDictionary(level => level.Name, level => level);
 
             for (int i = 0; i < levels.Count; i++)
             {
@@ -55,26 +68,15 @@ namespace Revit.Import.ModelLayout
                     // Format the level name according to requirements
                     string levelName = FormatLevelName(jsonLevel.Name);
 
-                    // Check if the level is already in the mapping
-                    if (levelMapping.ContainsKey(jsonLevel.Id))
-                    {
-                        continue;
-                    }
-
-                    // Check if a level with the formatted name already exists in Revit
-                    if (existingLevels.TryGetValue(levelName, out DB.Level existingLevel))
-                    {
-                        // Add the existing level to the mapping
-                        levelMapping[jsonLevel.Id] = existingLevel.Id;
-                        continue;
-                    }
+                    // Get unique name to handle conflicts
+                    string uniqueName = GetUniqueLevelName(levelName, collector);
 
                     // Convert elevation from inches to feet for Revit
                     double elevation = jsonLevel.Elevation / 12.0;
 
                     // Create a new level in Revit
                     DB.Level revitLevel = DB.Level.Create(_doc, elevation);
-                    revitLevel.Name = levelName;
+                    revitLevel.Name = uniqueName;
 
                     // Add the new level to the mapping
                     levelMapping[jsonLevel.Id] = revitLevel.Id;

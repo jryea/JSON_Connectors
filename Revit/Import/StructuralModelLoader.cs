@@ -6,9 +6,7 @@ using Core.Converters;
 
 namespace Revit.Import
 {
-    /// <summary>
-    /// Loads model from various file formats, converting to BaseModel
-    /// </summary>
+    // Loads model from various file formats, converting to BaseModel
     public class StructuralModelLoader
     {
         private readonly ImportContext _context;
@@ -72,24 +70,56 @@ namespace Revit.Import
 
         private string ConvertETABSToJson()
         {
-            // Use existing ETABS import logic
+            // Create temporary JSON file path
             string tempJsonPath = Path.Combine(Path.GetTempPath(),
                 Path.GetFileNameWithoutExtension(_context.FilePath) + "_temp.json");
 
-            // This would use the existing ETABS import functionality
-            // For now, throw not implemented - will be handled by ETABS project
-            throw new NotImplementedException("ETABS E2K import conversion not yet implemented. Please convert to JSON format first.");
+            try
+            {
+                // Read E2K file content
+                string e2kContent = File.ReadAllText(_context.FilePath);
+
+                // Convert ETABS to JSON using ETABS project
+                var converter = new ETABS.ETABSToGrasshopper();
+                string jsonContent = converter.ProcessE2K(e2kContent);
+
+                // Save JSON to temporary file
+                File.WriteAllText(tempJsonPath, jsonContent);
+
+                return tempJsonPath;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Failed to convert ETABS file: {ex.Message}", ex);
+            }
         }
 
         private string ConvertRAMToJson()
         {
-            // Use existing RAM import logic
+            // Create temporary JSON file path
             string tempJsonPath = Path.Combine(Path.GetTempPath(),
                 Path.GetFileNameWithoutExtension(_context.FilePath) + "_temp.json");
 
-            // This would use the existing RAM import functionality
-            // For now, throw not implemented - will be handled by RAM project
-            throw new NotImplementedException("RAM RSS import conversion not yet implemented. Please convert to JSON format first.");
+            try
+            {
+                // Convert RAM to JSON using RAM project
+                RAM.RAMExporter ramExporter = new RAM.RAMExporter();
+                var conversionResult = ramExporter.ConvertRAMToJSON(_context.FilePath);
+
+                if (!conversionResult.Success)
+                {
+                    throw new Exception($"RAM conversion failed: {conversionResult.Message}");
+                }
+
+                // Save JSON output to temporary file
+                File.WriteAllText(tempJsonPath, conversionResult.JsonOutput);
+
+                return tempJsonPath;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Failed to convert RAM file: {ex.Message}", ex);
+            }
         }
     }
 }

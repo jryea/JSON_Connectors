@@ -64,6 +64,10 @@ namespace Revit
             PushButton buttonRAMImport = RAMPanel.AddItem(btnRAMImport) as PushButton;
             PushButton buttonRAMExport = RAMPanel.AddItem(btnRAMExport) as PushButton;
 
+            // In App.cs OnStartup method
+            PushButtonData btnStructuralModelImport = ImportStructuralModelCommand.GetButtonData();
+            PushButton buttonStructuralModelImport = modelPanel.AddItem(btnStructuralModelImport) as PushButton;
+
             // Add buttons to ETABS panel
             PushButton buttonETABSImport = ETABSPanel.AddItem(btnETABSImport) as PushButton;
             PushButton buttonETABSExport = ETABSPanel.AddItem(btnETABSExport) as PushButton;

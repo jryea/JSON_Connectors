@@ -191,6 +191,7 @@
     <Compile Include="Import\Elements\WallImport.cs" />
     <Compile Include="Import\ETABSImportCommand.cs" />
     <Compile Include="Import\ImportManager.cs" />
+    <Compile Include="Import\ImportStructuralModelCommand.cs" />
     <Compile Include="Import\ModelLayout\GridImport.cs" />
     <Compile Include="Import\ModelImportCommand.cs" />
     <Compile Include="Import\ModelLayout\LevelImport.cs" />
@@ -214,7 +215,11 @@
     <Compile Include="ViewModels\Converters.cs" />
     <Compile Include="ViewModels\ExportGrasshopperViewModel.cs" />
     <Compile Include="ViewModels\ExportStructuralModelViewModel.cs" />
+    <Compile Include="ViewModels\ImportStructuralModelViewModel.cs" />
     <Compile Include="ViewModels\RelayCommand.cs" />
+    <Compile Include="Views\ImportStructuralModelWindow.xaml.cs">
+      <DependentUpon>ImportStructuralModelWindow.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Views\ExportStructuralModelWindow.xaml.cs">
       <DependentUpon>ExportStructuralModelWindow.xaml</DependentUpon>
     </Compile>
@@ -254,6 +259,10 @@
   </ItemGroup>
   <ItemGroup />
   <ItemGroup>
+    <Page Include="Views\ImportStructuralModelWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
     <Page Include="Views\ExportStructuralModelWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>

@@ -369,59 +369,15 @@ namespace Revit.ViewModels
                 return;
             }
 
-            try
-            {
-                // Create import filters
-                var elementFilters = new Dictionary<string, bool>
-                {
-                    { "Grids", ImportGrids },
-                    { "Beams", ImportBeams },
-                    { "Braces", ImportBraces },
-                    { "Columns", ImportColumns },
-                    { "Floors", ImportFloors },
-                    { "Walls", ImportWalls },
-                    { "Footings", ImportFootings }
-                };
-
-                var materialFilters = new Dictionary<string, bool>
-                {
-                    { "Steel", ImportSteel },
-                    { "Concrete", ImportConcrete }
-                };
-
-                // Create transformation parameters
-                var transformParams = new ImportTransformationParameters
-                {
-                    UseGridIntersection = UseGridIntersection,
-                    UseManualRotation = UseManualRotation,
-                    UseImportedGrids = UseImportedGrids,
-                    Grid1Name = Grid1Name,
-                    Grid2Name = Grid2Name,
-                    ImportedGrid1Name = ImportedGrid1Name,
-                    ImportedGrid2Name = ImportedGrid2Name,
-                    RotationAngle = RotationAngle,
-                    BaseLevelElevation = BaseLevelElevation
-                };
-
-                // Perform import
-                var importManager = new ImportManager(_document, _uiApp);
-                int importedCount = importManager.ImportFromFile(InputLocation, elementFilters, materialFilters, transformParams);
-
-                MessageBox.Show($"Successfully imported {importedCount} elements.",
-                    "Import Complete", MessageBoxButton.OK, MessageBoxImage.Information);
-
-                DialogResult = true;
-                RequestClose?.Invoke();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error during import: {ex.Message}", "Import Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
+            // Just close the dialog with success - let the command handle the actual import
+            DialogResult = true;
+            RequestClose?.Invoke();
         }
 
         private bool CanImport(object parameter)
         {
-            return !string.IsNullOrEmpty(InputLocation);
+            return true;
+            //return !string.IsNullOrEmpty(InputLocation);
         }
         #endregion
 

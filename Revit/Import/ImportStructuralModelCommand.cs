@@ -5,6 +5,8 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Revit.Views;
 using Revit.Utilities;
+using Revit.Import;
+using System.Collections.Generic;
 
 namespace Revit.Import
 {
@@ -19,18 +21,71 @@ namespace Revit.Import
 
             try
             {
-                // Show the custom import dialog
+                // Show the custom import dialog to get parameters
                 ImportStructuralModelWindow importWindow = new ImportStructuralModelWindow(uiApp);
                 bool? dialogResult = importWindow.ShowDialog();
 
-                // If dialog was completed successfully, result will be true
-                if (dialogResult.HasValue && dialogResult.Value)
-                {
-                    return Result.Succeeded;
-                }
+                System.Diagnostics.Debug.WriteLine($"Dialog result: {dialogResult}");
+                System.Diagnostics.Debug.WriteLine($"DataContext type: {importWindow.DataContext?.GetType()}");
 
                 // If dialog was canceled, return cancelled
-                return Result.Cancelled;
+                if (!dialogResult.HasValue || !dialogResult.Value)
+                {
+                    return Result.Cancelled;
+                }
+
+                // Get import parameters from the dialog
+                var viewModel = importWindow.DataContext as Revit.ViewModels.ImportStructuralModelViewModel;
+                if (viewModel == null || string.IsNullOrEmpty(viewModel.InputLocation))
+                {
+                    message = "No input file selected";
+                    return Result.Failed;
+                }
+
+                // Create import filters from dialog settings
+                var elementFilters = new Dictionary<string, bool>
+                {
+                    { "Grids", viewModel.ImportGrids },
+                    { "Beams", viewModel.ImportBeams },
+                    { "Braces", viewModel.ImportBraces },
+                    { "Columns", viewModel.ImportColumns },
+                    { "Floors", viewModel.ImportFloors },
+                    { "Walls", viewModel.ImportWalls },
+                    { "Footings", viewModel.ImportFootings }
+                };
+
+                var materialFilters = new Dictionary<string, bool>
+                {
+                    { "Steel", viewModel.ImportSteel },
+                    { "Concrete", viewModel.ImportConcrete }
+                };
+
+                // Create transformation parameters
+                var transformParams = new Revit.ViewModels.ImportTransformationParameters
+                {
+                    UseGridIntersection = viewModel.UseGridIntersection,
+                    UseManualRotation = viewModel.UseManualRotation,
+                    UseImportedGrids = viewModel.UseImportedGrids,
+                    Grid1Name = viewModel.Grid1Name,
+                    Grid2Name = viewModel.Grid2Name,
+                    ImportedGrid1Name = viewModel.ImportedGrid1Name,
+                    ImportedGrid2Name = viewModel.ImportedGrid2Name,
+                    RotationAngle = viewModel.RotationAngle,
+                    BaseLevelElevation = viewModel.BaseLevelElevation
+                };
+
+                // Perform import within the command context (like ETABSImportCommand)
+                var importManager = new ImportManager(doc, uiApp);
+                int importedCount = importManager.ImportFromFile(
+                    viewModel.InputLocation,
+                    elementFilters,
+                    materialFilters,
+                    transformParams);
+
+                TaskDialog.Show("Import Complete",
+                    $"Successfully imported {importedCount} elements.");
+
+                return Result.Succeeded;
             }
             catch (Exception ex)
             {

@@ -11,7 +11,7 @@ using System.Windows.Input;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Microsoft.Win32;
-using Revit.Export;
+using Revit.Import;
 using CG = Core.Models.Geometry;
 using Revit.Export.Models;
 
@@ -28,11 +28,14 @@ namespace Revit.ViewModels
         private bool _importFromGrasshopper;
 
         // Transformation options
-        private bool _applyRotation = false;
+        private bool _useGridIntersection = false;
+        private bool _useManualRotation = true;
+        private bool _useImportedGrids = false;
+        private string _grid1Name = "A";
+        private string _grid2Name = "1";
+        private string _importedGrid1Name = "A";
+        private string _importedGrid2Name = "1";
         private double _rotationAngle = 0.0;
-        private bool _importByGridIntersection = false;
-        private string _grid1Name;
-        private string _grid2Name;
         private double _baseLevelElevation = 0.0;
 
         // Element categories
@@ -101,32 +104,42 @@ namespace Revit.ViewModels
             }
         }
 
-        public bool ApplyRotation
+        public bool UseGridIntersection
         {
-            get => _applyRotation;
+            get => _useGridIntersection;
             set
             {
-                _applyRotation = value;
-                OnPropertyChanged();
+                if (_useGridIntersection != value)
+                {
+                    _useGridIntersection = value;
+                    if (value) _useManualRotation = false;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(UseManualRotation));
+                }
             }
         }
 
-        public double RotationAngle
+        public bool UseManualRotation
         {
-            get => _rotationAngle;
+            get => _useManualRotation;
             set
             {
-                _rotationAngle = value;
-                OnPropertyChanged();
+                if (_useManualRotation != value)
+                {
+                    _useManualRotation = value;
+                    if (value) _useGridIntersection = false;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(UseGridIntersection));
+                }
             }
         }
 
-        public bool ImportByGridIntersection
+        public bool UseImportedGrids
         {
-            get => _importByGridIntersection;
+            get => _useImportedGrids;
             set
             {
-                _importByGridIntersection = value;
+                _useImportedGrids = value;
                 OnPropertyChanged();
             }
         }
@@ -147,6 +160,36 @@ namespace Revit.ViewModels
             set
             {
                 _grid2Name = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public string ImportedGrid1Name
+        {
+            get => _importedGrid1Name;
+            set
+            {
+                _importedGrid1Name = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public string ImportedGrid2Name
+        {
+            get => _importedGrid2Name;
+            set
+            {
+                _importedGrid2Name = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public double RotationAngle
+        {
+            get => _rotationAngle;
+            set
+            {
+                _rotationAngle = value;
                 OnPropertyChanged();
             }
         }
@@ -320,10 +363,60 @@ namespace Revit.ViewModels
 
         private void Import(object parameter)
         {
-            // TODO: Implement import logic
-            MessageBox.Show("Import functionality to be implemented", "Import", MessageBoxButton.OK, MessageBoxImage.Information);
-            DialogResult = true;
-            RequestClose?.Invoke();
+            if (string.IsNullOrEmpty(InputLocation))
+            {
+                MessageBox.Show("Please select an input file first.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            try
+            {
+                // Create import filters
+                var elementFilters = new Dictionary<string, bool>
+                {
+                    { "Grids", ImportGrids },
+                    { "Beams", ImportBeams },
+                    { "Braces", ImportBraces },
+                    { "Columns", ImportColumns },
+                    { "Floors", ImportFloors },
+                    { "Walls", ImportWalls },
+                    { "Footings", ImportFootings }
+                };
+
+                var materialFilters = new Dictionary<string, bool>
+                {
+                    { "Steel", ImportSteel },
+                    { "Concrete", ImportConcrete }
+                };
+
+                // Create transformation parameters
+                var transformParams = new ImportTransformationParameters
+                {
+                    UseGridIntersection = UseGridIntersection,
+                    UseManualRotation = UseManualRotation,
+                    UseImportedGrids = UseImportedGrids,
+                    Grid1Name = Grid1Name,
+                    Grid2Name = Grid2Name,
+                    ImportedGrid1Name = ImportedGrid1Name,
+                    ImportedGrid2Name = ImportedGrid2Name,
+                    RotationAngle = RotationAngle,
+                    BaseLevelElevation = BaseLevelElevation
+                };
+
+                // Perform import
+                var importManager = new ImportManager(_document, _uiApp);
+                int importedCount = importManager.ImportFromFile(InputLocation, elementFilters, materialFilters, transformParams);
+
+                MessageBox.Show($"Successfully imported {importedCount} elements.",
+                    "Import Complete", MessageBoxButton.OK, MessageBoxImage.Information);
+
+                DialogResult = true;
+                RequestClose?.Invoke();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error during import: {ex.Message}", "Import Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         private bool CanImport(object parameter)
@@ -346,5 +439,18 @@ namespace Revit.ViewModels
             }
         }
         #endregion
+    }
+
+    public class ImportTransformationParameters
+    {
+        public bool UseGridIntersection { get; set; }
+        public bool UseManualRotation { get; set; }
+        public bool UseImportedGrids { get; set; }
+        public string Grid1Name { get; set; }
+        public string Grid2Name { get; set; }
+        public string ImportedGrid1Name { get; set; }
+        public string ImportedGrid2Name { get; set; }
+        public double RotationAngle { get; set; }
+        public double BaseLevelElevation { get; set; }
     }
 }

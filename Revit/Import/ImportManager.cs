@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Core.Converters;
 using Core.Models;
 using Revit.ViewModels;
+using System.Diagnostics;
 
 namespace Revit.Import
 {
@@ -18,6 +20,32 @@ namespace Revit.Import
         {
             _doc = doc;
             _uiApp = uiApp;
+        }
+
+        public int ImportFromJson(string filePath)
+        {
+            // Create default filters (import everything)
+            var elementFilters = new Dictionary<string, bool>
+            {
+                { "Grids", true },
+                { "Beams", true },
+                { "Braces", true },
+                { "Columns", true },
+                { "Floors", true },
+                { "Walls", true },
+                { "Footings", true }
+            };
+
+            var materialFilters = new Dictionary<string, bool>
+            {
+                { "Steel", true },
+                { "Concrete", true }
+            };
+
+            // No transformations for basic import
+            var transformParams = new ImportTransformationParameters();
+
+            return ImportFromFile(filePath, elementFilters, materialFilters, transformParams);
         }
 
         public int ImportFromFile(string filePath, Dictionary<string, bool> elementFilters,
@@ -60,6 +88,9 @@ namespace Revit.Import
 
                 try
                 {
+                    // Create level mapping first
+                    Dictionary<string, ElementId> levelIdMap = CreateLevelMapping(model);
+
                     // Import grids first
                     if (context.ShouldImportElement("Grids") && model.ModelLayout?.Grids != null)
                     {
@@ -71,44 +102,49 @@ namespace Revit.Import
                     if (model.ModelLayout?.Levels != null)
                     {
                         var levelImport = new ModelLayout.LevelImport(_doc);
-                        totalImported += levelImport.Import(model.ModelLayout.Levels);
+                        totalImported += levelImport.Import(model.ModelLayout.Levels, levelIdMap);
                     }
 
-                    // Import other elements using existing import classes
+                    // Import beams
                     if (context.ShouldImportElement("Beams") && model.Elements?.Beams != null)
                     {
                         var beamImport = new Elements.BeamImport(_doc);
-                        totalImported += beamImport.Import(model.Elements.Beams, model);
+                        totalImported += beamImport.Import(model.Elements.Beams, levelIdMap, model);
                     }
 
+                    // Import columns
                     if (context.ShouldImportElement("Columns") && model.Elements?.Columns != null)
                     {
                         var columnImport = new Elements.ColumnImport(_doc);
-                        totalImported += columnImport.Import(model.Elements.Columns, model);
+                        totalImported += columnImport.Import(model.Elements.Columns, levelIdMap, model);
                     }
 
+                    // Import braces
                     if (context.ShouldImportElement("Braces") && model.Elements?.Braces != null)
                     {
                         var braceImport = new Elements.BraceImport(_doc);
-                        totalImported += braceImport.Import(model.Elements.Braces, model);
+                        totalImported += braceImport.Import(model.Elements.Braces, levelIdMap, model);
                     }
 
+                    // Import walls
                     if (context.ShouldImportElement("Walls") && model.Elements?.Walls != null)
                     {
                         var wallImport = new Elements.WallImport(_doc);
-                        totalImported += wallImport.Import(model.Elements.Walls, model);
+                        totalImported += wallImport.Import(model.Elements.Walls, levelIdMap, model);
                     }
 
+                    // Import floors
                     if (context.ShouldImportElement("Floors") && model.Elements?.Floors != null)
                     {
                         var floorImport = new Elements.FloorImport(_doc);
-                        totalImported += floorImport.Import(model.Elements.Floors, model);
+                        totalImported += floorImport.Import(levelIdMap, model);
                     }
 
+                    // Import footings
                     if (context.ShouldImportElement("Footings") && model.Elements?.IsolatedFootings != null)
                     {
                         var footingImport = new Elements.IsolatedFootingImport(_doc);
-                        totalImported += footingImport.Import(model.Elements.IsolatedFootings, model);
+                        totalImported += footingImport.Import(model.Elements.IsolatedFootings, levelIdMap, model);
                     }
 
                     transaction.Commit();
@@ -121,6 +157,32 @@ namespace Revit.Import
             }
 
             return totalImported;
+        }
+
+        private Dictionary<string, ElementId> CreateLevelMapping(BaseModel model)
+        {
+            var mapping = new Dictionary<string, ElementId>();
+
+            if (model.ModelLayout?.Levels == null) return mapping;
+
+            var revitLevels = new FilteredElementCollector(_doc)
+                .OfClass(typeof(Level))
+                .Cast<Level>()
+                .ToList();
+
+            foreach (var modelLevel in model.ModelLayout.Levels)
+            {
+                var revitLevel = revitLevels.FirstOrDefault(l =>
+                    l.Name == modelLevel.Name ||
+                    Math.Abs(l.Elevation - (modelLevel.Elevation / 12.0)) < 0.1);
+
+                if (revitLevel != null)
+                {
+                    mapping[modelLevel.Id] = revitLevel.Id;
+                }
+            }
+
+            return mapping;
         }
     }
 }

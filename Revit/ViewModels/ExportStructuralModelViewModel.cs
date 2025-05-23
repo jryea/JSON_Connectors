@@ -12,6 +12,7 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Microsoft.Win32;
 using Revit.Export;
+using CG = Core.Models.Geometry;
 using Revit.Export.Models;
 
 namespace Revit.ViewModels
@@ -801,7 +802,6 @@ namespace Revit.ViewModels
                 }
             }
         }
-
         private void Export(object parameter)
         {
             if (string.IsNullOrEmpty(OutputLocation))
@@ -823,187 +823,23 @@ namespace Revit.ViewModels
                     return;
                 }
 
-                // Create filter dictionary for elements to export
-                Dictionary<string, bool> elementFilters = new Dictionary<string, bool>
-        {
-            { "Grids", ExportGrids },
-            { "Beams", ExportBeams },
-            { "Braces", ExportBraces },
-            { "Columns", ExportColumns },
-            { "Floors", ExportFloors },
-            { "Walls", ExportWalls },
-            { "Footings", ExportFootings }
-        };
+                // Prepare common export data
+                var exportData = PrepareExportData(selectedLevels);
 
-                // Create filter dictionary for materials
-                Dictionary<string, bool> materialFilters = new Dictionary<string, bool>
-        {
-            { "Steel", ExportSteel },
-            { "Concrete", ExportConcrete }
-        };
+                // Step 1: Create uniform JSON
+                string tempJsonPath = CreateUniformJson(exportData);
 
-                // Get selected level IDs
-                var selectedLevelIds = selectedLevels
-                    .Select(level => level.LevelId)
-                    .Where(id => id != null)
-                    .ToList();
-
-                // For custom floor types and levels (RAM and Grasshopper)
-                List<Core.Models.ModelLayout.FloorType> floorTypesList = null;
-                List<Core.Models.ModelLayout.Level> customLevels = null;
-                Core.Models.ModelLayout.FloorType baseFloorType = null;
-
-                // Only use custom floor types if they've been added in the UI and
-                // the export type uses floor types (Grasshopper or RAM)
-                if (FloorTypes.Count > 0 && (ExportToGrasshopper || ExportToRAM))
+                // Step 2: Apply rotation if enabled
+                if (ApplyRotation && Math.Abs(RotationAngle) > 0.001)
                 {
-                    // For Grasshopper or RAM, validate each selected level has a floor type assigned
-                    foreach (var level in selectedLevels)
-                    {
-                        if (level.SelectedFloorType == null)
-                        {
-                            MessageBox.Show($"Please assign a floor type to level: {level.Name}",
-                                "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                            return;
-                        }
-                    }
-
-                    // Convert floor types to core model format
-                    floorTypesList = FloorTypes.Select(ft => new Core.Models.ModelLayout.FloorType
-                    {
-                        Id = ft.Id,
-                        Name = ft.Name
-                    }).ToList();
-
-                    // Convert selected levels to core model format with base level processing
-                    customLevels = ConvertToCoreLevelsWithBaseProcessing(selectedLevels);
-
-                    // If base level was specified, make sure we have a Base floor type in our list
-                    if (BaseLevel != null)
-                    {
-                        // Add or replace the Base floor type
-                        baseFloorType = new Core.Models.ModelLayout.FloorType
-                        {
-                            Id = Guid.NewGuid().ToString(),
-                            Name = "Base"
-                        };
-
-                        // Remove any existing Base floor type
-                        floorTypesList.RemoveAll(ft => ft.Name == "Base");
-
-                        // Add the new Base floor type
-                        floorTypesList.Add(baseFloorType);
-                    }
+                    ApplyModelRotation(tempJsonPath);
                 }
 
-                // Perform export based on type
-                // ETABS export section
-                if (ExportToETABS)
-                {
-                    // JSON export with filtering - same approach as RAM
-                    string tempJsonPath = Path.Combine(Path.GetDirectoryName(OutputLocation),
-                        Path.GetFileNameWithoutExtension(OutputLocation) + ".json");
+                // Step 3: Convert to target format
+                ConvertToTargetFormat(tempJsonPath, exportData);
 
-                    // Use the ExportManager to create the JSON file with default floor types
-                    // Pass the base level ID to filter out beams at that level
-                    ExportManager exportManager = new ExportManager(_document, _uiApp);
-                    int count = exportManager.ExportToJson(tempJsonPath, elementFilters, materialFilters,
-                        selectedLevelIds, BaseLevel?.LevelId);
-
-                    // Convert JSON to ETABS E2K format
-                    try
-                    {
-                        // Read the JSON file content
-                        string jsonContent = File.ReadAllText(tempJsonPath);
-
-                        // Create the converter and process the model
-                        var converter = new ETABS.ETABSImport();
-                        string e2kContent = converter.ProcessModel(jsonContent);
-
-                        // Save the E2K content to file
-                        File.WriteAllText(OutputLocation, e2kContent);
-
-                        MessageBox.Show($"Successfully exported {count} elements to {OutputLocation}",
-                            "Export Complete", MessageBoxButton.OK, MessageBoxImage.Information);
-                    }
-                    catch (Exception ex)
-                    {
-                        MessageBox.Show($"Error converting to ETABS format: {ex.Message}",
-                            "ETABS Export Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                        return;
-                    }
-                }
-                else if (ExportToRAM)
-                {
-                    // RAM export with custom floor types
-                    string tempJsonPath = Path.Combine(Path.GetDirectoryName(OutputLocation),
-                        Path.GetFileNameWithoutExtension(OutputLocation) + ".json");
-
-                    ExportManager exportManager = new ExportManager(_document, _uiApp);
-                    int count = exportManager.ExportToJson(tempJsonPath, elementFilters, materialFilters,
-                        selectedLevelIds, BaseLevel?.LevelId, floorTypesList, customLevels);
-
-                    // Convert JSON to RAM format
-                    try
-                    {
-                        RAM.RAMImporter ramImporter = new RAM.RAMImporter();
-                        var conversionResult = ramImporter.ConvertJSONFileToRAM(tempJsonPath, OutputLocation);
-
-                        if (!conversionResult.Success)
-                        {
-                            MessageBox.Show($"Error converting to RAM format: {conversionResult.Message}",
-                                "RAM Export Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                            return;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        MessageBox.Show($"Error converting to RAM format: {ex.Message}",
-                            "RAM Export Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                        return;
-                    }
-
-                    MessageBox.Show($"Successfully exported {count} elements to {OutputLocation}",
-                        "Export Complete", MessageBoxButton.OK, MessageBoxImage.Information);
-                }
-                else if (ExportToGrasshopper)
-                {
-                    // For Grasshopper, the floor type handling for CAD export
-                    var floorTypeToViewMap = new Dictionary<string, ElementId>();
-                    foreach (var mapping in FloorTypeViewMappingCollection)
-                    {
-                        if (mapping.SelectedViewPlan != null)
-                        {
-                            // Find the floor type by name
-                            var floorType = FloorTypes.FirstOrDefault(ft => ft.Name == mapping.FloorTypeName);
-                            if (floorType != null)
-                            {
-                                floorTypeToViewMap[floorType.Id] = mapping.SelectedViewPlan.ViewId;
-                            }
-                        }
-                    }
-
-                    // Create folder for DWG exports
-                    string dwgFolder = Path.Combine(Path.GetDirectoryName(OutputLocation), "CAD");
-                    Directory.CreateDirectory(dwgFolder);
-
-                    // Use the GrasshopperExporter which will do the JSON export internally
-                    GrasshopperExporter exporter = new GrasshopperExporter(_document, _uiApp);
-
-                    // We're using our custom floor types and levels from UI instead of generating them
-                    exporter.ExportWithFloorTypeViewMappings(
-                        OutputLocation,
-                        dwgFolder,
-                        floorTypesList ?? new List<Core.Models.ModelLayout.FloorType>(),
-                        customLevels ?? new List<Core.Models.ModelLayout.Level>(),
-                        null, // No reference point needed in this context
-                        floorTypeToViewMap,
-                        selectedLevelIds
-                    );
-
-                    MessageBox.Show($"Successfully exported to {OutputLocation}",
-                        "Export Complete", MessageBoxButton.OK, MessageBoxImage.Information);
-                }
+                MessageBox.Show($"Successfully exported to {OutputLocation}",
+                    "Export Complete", MessageBoxButton.OK, MessageBoxImage.Information);
 
                 // Close the dialog
                 RequestClose?.Invoke();
@@ -1011,6 +847,322 @@ namespace Revit.ViewModels
             catch (Exception ex)
             {
                 MessageBox.Show($"Error during export: {ex.Message}", "Export Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private ExportData PrepareExportData(List<LevelViewModel> selectedLevels)
+        {
+            var exportData = new ExportData();
+
+            // Create filter dictionaries
+            exportData.ElementFilters = new Dictionary<string, bool>
+    {
+        { "Grids", ExportGrids },
+        { "Beams", ExportBeams },
+        { "Braces", ExportBraces },
+        { "Columns", ExportColumns },
+        { "Floors", ExportFloors },
+        { "Walls", ExportWalls },
+        { "Footings", ExportFootings }
+    };
+
+            exportData.MaterialFilters = new Dictionary<string, bool>
+    {
+        { "Steel", ExportSteel },
+        { "Concrete", ExportConcrete }
+    };
+
+            // Get selected level IDs
+            exportData.SelectedLevelIds = selectedLevels
+                .Select(level => level.LevelId)
+                .Where(id => id != null)
+                .ToList();
+
+            // Prepare custom floor types and levels for RAM/Grasshopper
+            if (FloorTypes.Count > 0 && (ExportToGrasshopper || ExportToRAM))
+            {
+                // Validate floor type assignments
+                foreach (var level in selectedLevels)
+                {
+                    if (level.SelectedFloorType == null)
+                    {
+                        throw new InvalidOperationException($"Please assign a floor type to level: {level.Name}");
+                    }
+                }
+
+                // Convert to core model format
+                exportData.CustomFloorTypes = FloorTypes.Select(ft => new Core.Models.ModelLayout.FloorType
+                {
+                    Id = ft.Id,
+                    Name = ft.Name
+                }).ToList();
+
+                exportData.CustomLevels = ConvertToCoreLevelsWithBaseProcessing(selectedLevels);
+
+                // Add Base floor type if needed
+                if (BaseLevel != null)
+                {
+                    var baseFloorType = new Core.Models.ModelLayout.FloorType
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Name = "Base"
+                    };
+                    exportData.CustomFloorTypes.RemoveAll(ft => ft.Name == "Base");
+                    exportData.CustomFloorTypes.Add(baseFloorType);
+                }
+            }
+
+            // Prepare Grasshopper-specific data
+            if (ExportToGrasshopper)
+            {
+                exportData.FloorTypeToViewMap = new Dictionary<string, ElementId>();
+                foreach (var mapping in FloorTypeViewMappingCollection)
+                {
+                    if (mapping.SelectedViewPlan != null)
+                    {
+                        var floorType = FloorTypes.FirstOrDefault(ft => ft.Name == mapping.FloorTypeName);
+                        if (floorType != null)
+                        {
+                            exportData.FloorTypeToViewMap[floorType.Id] = mapping.SelectedViewPlan.ViewId;
+                        }
+                    }
+                }
+            }
+
+            return exportData;
+        }
+
+        private string CreateUniformJson(ExportData exportData)
+        {
+            string tempJsonPath = Path.Combine(Path.GetDirectoryName(OutputLocation),
+                Path.GetFileNameWithoutExtension(OutputLocation) + "_temp.json");
+
+            if (ExportToGrasshopper)
+            {
+                // Create CAD folder for Grasshopper
+                string dwgFolder = Path.Combine(Path.GetDirectoryName(OutputLocation), "CAD");
+                Directory.CreateDirectory(dwgFolder);
+
+                // Use GrasshopperExporter to create JSON
+                GrasshopperExporter exporter = new GrasshopperExporter(_document, _uiApp);
+                exporter.ExportWithFloorTypeViewMappings(
+                    tempJsonPath,
+                    dwgFolder,
+                    exportData.CustomFloorTypes ?? new List<Core.Models.ModelLayout.FloorType>(),
+                    exportData.CustomLevels ?? new List<Core.Models.ModelLayout.Level>(),
+                    null, // No reference point needed
+                    exportData.FloorTypeToViewMap,
+                    exportData.SelectedLevelIds
+                );
+            }
+            else
+            {
+                // Use ExportManager for ETABS/RAM
+                ExportManager exportManager = new ExportManager(_document, _uiApp);
+                exportManager.ExportToJson(tempJsonPath,
+                    exportData.ElementFilters,
+                    exportData.MaterialFilters,
+                    exportData.SelectedLevelIds,
+                    BaseLevel?.LevelId,
+                    exportData.CustomFloorTypes,
+                    exportData.CustomLevels);
+            }
+
+            return tempJsonPath;
+        }
+
+        private void ApplyModelRotation(string jsonPath)
+        {
+            try
+            {
+                // Load the model from JSON
+                var model = Core.Converters.JsonConverter.LoadFromFile(jsonPath);
+
+                // Determine rotation center - use model's geometric center for better results
+                var rotationCenter = CalculateModelCenter(model);
+
+                // Apply rotation
+                Core.Models.ModelTransformation.RotateModel(model, RotationAngle, rotationCenter);
+
+                // Save the rotated model back to JSON
+                Core.Converters.JsonConverter.SaveToFile(model, jsonPath);
+
+                System.Diagnostics.Debug.WriteLine($"Applied {RotationAngle}° rotation around center ({rotationCenter.X:F2}, {rotationCenter.Y:F2})");
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Error applying rotation: {ex.Message}", ex);
+            }
+        }
+
+        private CG.Point2D CalculateModelCenter(Core.Models.BaseModel model)
+        {
+            var allPoints = new List<CG.Point2D>();
+
+            // Collect points from grids
+            if (model.ModelLayout?.Grids != null)
+            {
+                foreach (var grid in model.ModelLayout.Grids)
+                {
+                    if (grid.StartPoint != null) allPoints.Add(new CG.Point2D(grid.StartPoint.X, grid.StartPoint.Y));
+                    if (grid.EndPoint != null) allPoints.Add(new CG.Point2D(grid.EndPoint.X, grid.EndPoint.Y));
+                }
+            }
+
+            // Collect points from elements
+            if (model.Elements != null)
+            {
+                if (model.Elements.Beams != null)
+                    foreach (var beam in model.Elements.Beams)
+                    {
+                        if (beam.StartPoint != null) allPoints.Add(beam.StartPoint);
+                        if (beam.EndPoint != null) allPoints.Add(beam.EndPoint);
+                    }
+
+                if (model.Elements.Columns != null)
+                    foreach (var column in model.Elements.Columns)
+                    {
+                        if (column.StartPoint != null) allPoints.Add(column.StartPoint);
+                    }
+            }
+
+            // Return geometric center or origin if no points found
+            if (allPoints.Count == 0)
+                return new CG.Point2D(0, 0);
+
+            double centerX = allPoints.Average(p => p.X);
+            double centerY = allPoints.Average(p => p.Y);
+
+            return new CG.Point2D(centerX, centerY);
+        }
+
+        private CG.Point2D GetGridIntersectionPoint(Core.Models.BaseModel model, string grid1Name, string grid2Name)
+        {
+            if (model.ModelLayout?.Grids == null)
+                return null;
+
+            var grid1 = model.ModelLayout.Grids.FirstOrDefault(g => g.Name == grid1Name);
+            var grid2 = model.ModelLayout.Grids.FirstOrDefault(g => g.Name == grid2Name);
+
+            if (grid1 == null || grid2 == null)
+                return null;
+
+            return CalculateLineIntersection(grid1, grid2);
+        }
+
+            private CG.Point2D CalculateLineIntersection(Core.Models.ModelLayout.Grid grid1, Core.Models.ModelLayout.Grid grid2)
+        {
+            // Grid 1 line: (x1,y1) to (x2,y2)
+            double x1 = grid1.StartPoint.X, y1 = grid1.StartPoint.Y;
+            double x2 = grid1.EndPoint.X, y2 = grid1.EndPoint.Y;
+
+            // Grid 2 line: (x3,y3) to (x4,y4)  
+            double x3 = grid2.StartPoint.X, y3 = grid2.StartPoint.Y;
+            double x4 = grid2.EndPoint.X, y4 = grid2.EndPoint.Y;
+
+            // Calculate intersection using line intersection formula
+            double denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+
+            if (Math.Abs(denom) < 1e-10) // Lines are parallel
+                return null;
+
+            double t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom;
+
+            double intersectionX = x1 + t * (x2 - x1);
+            double intersectionY = y1 + t * (y2 - y1);
+
+            return new CG.Point2D(intersectionX, intersectionY);
+        }
+
+        // Import-specific transformation method
+        public static void ApplyImportTransformation(Core.Models.BaseModel model, string grid1Name, string grid2Name,
+            double rotationAngle, CG.Point3D translation)
+        {
+            if (model == null) return;
+
+            // Only apply transforms if grid intersection is defined
+            var intersectionPoint = GetGridIntersectionPointStatic(model, grid1Name, grid2Name);
+            if (intersectionPoint == null) return;
+
+            // Apply rotation around grid intersection
+            if (Math.Abs(rotationAngle) > 0.001)
+            {
+                Core.Models.ModelTransformation.RotateModel(model, rotationAngle, intersectionPoint);
+            }
+
+            // Apply translation
+            if (Math.Abs(translation.X) > 0.001 || Math.Abs(translation.Y) > 0.001 || Math.Abs(translation.Z) > 0.001)
+            {
+                Core.Models.ModelTransformation.TranslateModel(model, translation);
+            }
+        }
+
+        private static CG.Point2D GetGridIntersectionPointStatic(Core.Models.BaseModel model, string grid1Name, string grid2Name)
+        {
+            if (model.ModelLayout?.Grids == null || string.IsNullOrEmpty(grid1Name) || string.IsNullOrEmpty(grid2Name))
+                return null;
+
+            var grid1 = model.ModelLayout.Grids.FirstOrDefault(g => g.Name == grid1Name);
+            var grid2 = model.ModelLayout.Grids.FirstOrDefault(g => g.Name == grid2Name);
+
+            if (grid1 == null || grid2 == null)
+                return null;
+
+            return CalculateLineIntersectionStatic(grid1, grid2);
+        }
+
+        private static CG.Point2D CalculateLineIntersectionStatic(Core.Models.ModelLayout.Grid grid1, Core.Models.ModelLayout.Grid grid2)
+        {
+            double x1 = grid1.StartPoint.X, y1 = grid1.StartPoint.Y;
+            double x2 = grid1.EndPoint.X, y2 = grid1.EndPoint.Y;
+            double x3 = grid2.StartPoint.X, y3 = grid2.StartPoint.Y;
+            double x4 = grid2.EndPoint.X, y4 = grid2.EndPoint.Y;
+
+            double denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+
+            if (Math.Abs(denom) < 1e-10)
+                return null;
+
+            double t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom;
+
+            return new CG.Point2D(
+                x1 + t * (x2 - x1),
+                y1 + t * (y2 - y1)
+            );
+        }
+
+
+        private void ConvertToTargetFormat(string tempJsonPath, ExportData exportData)
+        {
+            if (ExportToETABS)
+            {
+                // Convert JSON to ETABS E2K format
+                string jsonContent = File.ReadAllText(tempJsonPath);
+                var converter = new ETABS.ETABSImport();
+                string e2kContent = converter.ProcessModel(jsonContent);
+                File.WriteAllText(OutputLocation, e2kContent);
+            }
+            else if (ExportToRAM)
+            {
+                // Convert JSON to RAM format
+                RAM.RAMImporter ramImporter = new RAM.RAMImporter();
+                var conversionResult = ramImporter.ConvertJSONFileToRAM(tempJsonPath, OutputLocation);
+
+                if (!conversionResult.Success)
+                {
+                    throw new Exception($"Error converting to RAM format: {conversionResult.Message}");
+                }
+            }
+            else if (ExportToGrasshopper)
+            {
+                // For Grasshopper, just move the JSON to final location
+                File.Move(tempJsonPath, OutputLocation);
+            }
+
+            // Clean up temp file if it still exists
+            if (File.Exists(tempJsonPath) && tempJsonPath != OutputLocation)
+            {
+                File.Delete(tempJsonPath);
             }
         }
 
@@ -1122,5 +1274,15 @@ namespace Revit.ViewModels
             }
         }
         #endregion
+        // Helper class to organize export data
+        private class ExportData
+        {
+            public Dictionary<string, bool> ElementFilters { get; set; }
+            public Dictionary<string, bool> MaterialFilters { get; set; }
+            public List<ElementId> SelectedLevelIds { get; set; }
+            public List<Core.Models.ModelLayout.FloorType> CustomFloorTypes { get; set; }
+            public List<Core.Models.ModelLayout.Level> CustomLevels { get; set; }
+            public Dictionary<string, ElementId> FloorTypeToViewMap { get; set; }
+        }
     }
 }

@@ -3,8 +3,8 @@ using System.Reflection;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
-using Revit.Utilities;
 using Revit.Views;
+using Revit.Utilities;
 
 namespace Revit.Import
 {
@@ -23,7 +23,7 @@ namespace Revit.Import
                 ImportStructuralModelWindow importWindow = new ImportStructuralModelWindow(uiApp);
                 bool? dialogResult = importWindow.ShowDialog();
 
-                // If dialog was completed successfully, the window will handle import
+                // If dialog was completed successfully, result will be true
                 if (dialogResult.HasValue && dialogResult.Value)
                 {
                     return Result.Succeeded;
@@ -60,7 +60,7 @@ namespace Revit.Import
                 MethodBase.GetCurrentMethod().DeclaringType?.FullName,
                 ByteArrayToBitmap(Revit.Properties.Resources.IMEG_32),
                 ByteArrayToBitmap(Revit.Properties.Resources.IMEG_16),
-                "Import a complete structural model from multiple formats");
+                "Import a structural model from multiple formats");
 
             return myButtonData.Data;
         }

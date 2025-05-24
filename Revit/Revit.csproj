@@ -169,6 +169,7 @@
     <Compile Include="Export\ETABSExportCommand.cs" />
     <Compile Include="Export\ExportContext.cs" />
     <Compile Include="Export\ExportManager.cs" />
+    <Compile Include="Export\ExportOptions.cs" />
     <Compile Include="Export\GrasshopperExportCommand.cs" />
     <Compile Include="Export\GrasshopperExporter.cs" />
     <Compile Include="Export\ModelFilter.cs" />
@@ -183,6 +184,7 @@
     <Compile Include="Export\StructuralModelBuilder.cs" />
     <Compile Include="Export\StructuralModelExportCommand.cs" />
     <Compile Include="Export\StructuralModelExporter.cs" />
+    <Compile Include="Export\UnifiedExporter.cs" />
     <Compile Include="Import\Elements\BeamImport.cs" />
     <Compile Include="Import\Elements\BraceImport.cs" />
     <Compile Include="Import\Elements\ColumnImport.cs" />

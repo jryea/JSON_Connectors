@@ -971,10 +971,16 @@ namespace Revit.ViewModels
             return tempJsonPath;
         }
 
+        // Update ExportStructuralModelViewModel.cs methods:
+
         private void ApplyModelRotation(string jsonPath)
         {
             try
             {
+                // Save pre-transformation JSON for debugging
+                string debugPath = Path.ChangeExtension(OutputLocation, ".json");
+                File.Copy(jsonPath, debugPath, true);
+
                 // Load the model from JSON
                 var model = Core.Converters.JsonConverter.LoadFromFile(jsonPath);
 
@@ -987,11 +993,56 @@ namespace Revit.ViewModels
                 // Save the rotated model back to JSON
                 Core.Converters.JsonConverter.SaveToFile(model, jsonPath);
 
+                // Save post-transformation JSON for debugging
+                string transformedPath = Path.ChangeExtension(OutputLocation, "-transformed.json");
+                File.Copy(jsonPath, transformedPath, true);
+
                 System.Diagnostics.Debug.WriteLine($"Applied {RotationAngle}° rotation around center ({rotationCenter.X:F2}, {rotationCenter.Y:F2})");
             }
             catch (Exception ex)
             {
                 throw new Exception($"Error applying rotation: {ex.Message}", ex);
+            }
+        }
+
+        private void ConvertToTargetFormat(string tempJsonPath, ExportData exportData)
+        {
+            // Save debug JSON files for non-Grasshopper exports
+            if (!ExportToGrasshopper)
+            {
+                string debugJsonPath = Path.ChangeExtension(OutputLocation, ".json");
+                File.Copy(tempJsonPath, debugJsonPath, true);
+            }
+
+            if (ExportToETABS)
+            {
+                // Convert JSON to ETABS E2K format
+                string jsonContent = File.ReadAllText(tempJsonPath);
+                var converter = new ETABS.ETABSImport();
+                string e2kContent = converter.ProcessModel(jsonContent);
+                File.WriteAllText(OutputLocation, e2kContent);
+            }
+            else if (ExportToRAM)
+            {
+                // Convert JSON to RAM format
+                RAM.RAMImporter ramImporter = new RAM.RAMImporter();
+                var conversionResult = ramImporter.ConvertJSONFileToRAM(tempJsonPath, OutputLocation);
+
+                if (!conversionResult.Success)
+                {
+                    throw new Exception($"Error converting to RAM format: {conversionResult.Message}");
+                }
+            }
+            else if (ExportToGrasshopper)
+            {
+                // For Grasshopper, just move the JSON to final location
+                File.Move(tempJsonPath, OutputLocation);
+            }
+
+            // Clean up temp file if it still exists
+            if (File.Exists(tempJsonPath) && tempJsonPath != OutputLocation)
+            {
+                File.Delete(tempJsonPath);
             }
         }
 
@@ -1132,39 +1183,7 @@ namespace Revit.ViewModels
         }
 
 
-        private void ConvertToTargetFormat(string tempJsonPath, ExportData exportData)
-        {
-            if (ExportToETABS)
-            {
-                // Convert JSON to ETABS E2K format
-                string jsonContent = File.ReadAllText(tempJsonPath);
-                var converter = new ETABS.ETABSImport();
-                string e2kContent = converter.ProcessModel(jsonContent);
-                File.WriteAllText(OutputLocation, e2kContent);
-            }
-            else if (ExportToRAM)
-            {
-                // Convert JSON to RAM format
-                RAM.RAMImporter ramImporter = new RAM.RAMImporter();
-                var conversionResult = ramImporter.ConvertJSONFileToRAM(tempJsonPath, OutputLocation);
-
-                if (!conversionResult.Success)
-                {
-                    throw new Exception($"Error converting to RAM format: {conversionResult.Message}");
-                }
-            }
-            else if (ExportToGrasshopper)
-            {
-                // For Grasshopper, just move the JSON to final location
-                File.Move(tempJsonPath, OutputLocation);
-            }
-
-            // Clean up temp file if it still exists
-            if (File.Exists(tempJsonPath) && tempJsonPath != OutputLocation)
-            {
-                File.Delete(tempJsonPath);
-            }
-        }
+       
 
         private List<Core.Models.ModelLayout.Level> ConvertToCoreLevelsWithBaseProcessing(List<LevelViewModel> levels)
         {

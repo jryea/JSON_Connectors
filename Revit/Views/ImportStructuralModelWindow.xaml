@@ -156,7 +156,7 @@ WindowStartupLocation="CenterScreen">
                 <!-- Import Format, Input File, and Elements to Import -->
                 <Grid Grid.Row="0">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="2*"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
 
@@ -238,8 +238,8 @@ WindowStartupLocation="CenterScreen">
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="Elevation:" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0"/>
                             <TextBox Grid.Column="1" Height="30" Width="100" VerticalContentAlignment="Center"
-                                     Text="{Binding BaseLevelElevation, UpdateSourceTrigger=PropertyChanged}"
-                                     ToolTip="Elevation where the base level will be placed" HorizontalAlignment="Left"/>
+                     Text="{Binding BaseLevelElevation, UpdateSourceTrigger=PropertyChanged}"
+                     ToolTip="Elevation where the base level will be placed" HorizontalAlignment="Left"/>
                             <TextBlock Text="feet" Grid.Column="2" VerticalAlignment="Center" Margin="5,0,0,0"/>
                         </Grid>
 
@@ -248,69 +248,15 @@ WindowStartupLocation="CenterScreen">
 
                         <!-- Import by Grid Intersection Section -->
                         <Border BorderBrush="#E0E0E0" BorderThickness="0,0,0,1" Margin="0,0,0,15" Padding="0,0,0,15">
-                            <StackPanel>
-                                <RadioButton Content="Import by Grid Intersection" IsChecked="{Binding UseGridIntersection}" 
-                                             FontWeight="SemiBold" Margin="0,0,0,10" GroupName="TransformationMethod"/>
-
-                                <!-- Revit Grids -->
-                                <Grid Margin="20,0,0,10">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-
-                                    <TextBlock Text="Revit Grid 1:" Grid.Column="0" VerticalAlignment="Center" 
-                                               Margin="0,0,10,0" IsEnabled="{Binding UseGridIntersection}"/>
-
-                                    <TextBox Grid.Column="1" Height="25" Width="80" VerticalContentAlignment="Center"
-                                             Text="{Binding Grid1Name, UpdateSourceTrigger=PropertyChanged}"
-                                             IsEnabled="{Binding UseGridIntersection}"
-                                             Margin="0,0,20,0" HorizontalAlignment="Left"/>
-
-                                    <TextBlock Text="Revit Grid 2:" Grid.Column="2" VerticalAlignment="Center" 
-                                               Margin="0,0,10,0" IsEnabled="{Binding UseGridIntersection}"/>
-
-                                    <TextBox Grid.Column="3" Height="25" Width="80" VerticalContentAlignment="Center"
-                                             Text="{Binding Grid2Name, UpdateSourceTrigger=PropertyChanged}"
-                                             IsEnabled="{Binding UseGridIntersection}" HorizontalAlignment="Left"/>
-                                </Grid>
-
-                                <!-- Imported Grids Option -->
-                                <CheckBox Content="Use Imported Grids" IsChecked="{Binding UseImportedGrids}" 
-                                          Margin="20,0,0,10" IsEnabled="{Binding UseGridIntersection}"/>
-
-                                <!-- Imported Grids -->
-                                <Grid Margin="40,0,0,0" IsEnabled="{Binding UseImportedGrids}">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-
-                                    <TextBlock Text="Model Grid 1:" Grid.Column="0" VerticalAlignment="Center" 
-                                               Margin="0,0,10,0"/>
-
-                                    <TextBox Grid.Column="1" Height="25" Width="80" VerticalContentAlignment="Center"
-                                             Text="{Binding ImportedGrid1Name, UpdateSourceTrigger=PropertyChanged}"
-                                             Margin="0,0,20,0" HorizontalAlignment="Left"/>
-
-                                    <TextBlock Text="Model Grid 2:" Grid.Column="2" VerticalAlignment="Center" 
-                                               Margin="0,0,10,0"/>
-
-                                    <TextBox Grid.Column="3" Height="25" Width="80" VerticalContentAlignment="Center"
-                                             Text="{Binding ImportedGrid2Name, UpdateSourceTrigger=PropertyChanged}" 
-                                             HorizontalAlignment="Left"/>
-                                </Grid>
-                            </StackPanel>
+                            <RadioButton Content="Import by Grid Intersection (Auto-align to lower-left intersection)" 
+                         IsChecked="{Binding UseGridIntersection}" 
+                         FontWeight="SemiBold" Margin="0,0,0,10" GroupName="TransformationMethod"/>
                         </Border>
 
                         <!-- Manual Rotation Section -->
                         <StackPanel>
                             <RadioButton Content="Apply Manual Rotation" IsChecked="{Binding UseManualRotation}" 
-                                         FontWeight="SemiBold" Margin="0,0,0,10" GroupName="TransformationMethod"/>
+                         FontWeight="SemiBold" Margin="0,0,0,10" GroupName="TransformationMethod"/>
 
                             <Grid Margin="20,0,0,0">
                                 <Grid.ColumnDefinitions>
@@ -320,16 +266,16 @@ WindowStartupLocation="CenterScreen">
                                 </Grid.ColumnDefinitions>
 
                                 <TextBlock Text="Rotation Angle:" Grid.Column="0" VerticalAlignment="Center" 
-                                           Margin="0,0,10,0" IsEnabled="{Binding UseManualRotation}"/>
+                           Margin="0,0,10,0" IsEnabled="{Binding UseManualRotation}"/>
 
                                 <TextBox Grid.Column="1" Height="25" Width="80" VerticalContentAlignment="Center"
-                                         Text="{Binding RotationAngle, UpdateSourceTrigger=PropertyChanged}"
-                                         IsEnabled="{Binding UseManualRotation}"
-                                         ToolTip="Rotation angle in degrees (positive = counterclockwise)"
-                                         HorizontalAlignment="Left"/>
+                         Text="{Binding RotationAngle, UpdateSourceTrigger=PropertyChanged}"
+                         IsEnabled="{Binding UseManualRotation}"
+                         ToolTip="Rotation angle in degrees (positive = counterclockwise)"
+                         HorizontalAlignment="Left"/>
 
                                 <TextBlock Text="degrees" Grid.Column="2" VerticalAlignment="Center" 
-                                           Margin="5,0,0,0" IsEnabled="{Binding UseManualRotation}"/>
+                           Margin="5,0,0,0" IsEnabled="{Binding UseManualRotation}"/>
                             </Grid>
                         </StackPanel>
                     </StackPanel>

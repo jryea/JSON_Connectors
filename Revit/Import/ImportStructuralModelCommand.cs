@@ -65,11 +65,6 @@ namespace Revit.Import
                 {
                     UseGridIntersection = viewModel.UseGridIntersection,
                     UseManualRotation = viewModel.UseManualRotation,
-                    UseImportedGrids = viewModel.UseImportedGrids,
-                    Grid1Name = viewModel.Grid1Name,
-                    Grid2Name = viewModel.Grid2Name,
-                    ImportedGrid1Name = viewModel.ImportedGrid1Name,
-                    ImportedGrid2Name = viewModel.ImportedGrid2Name,
                     RotationAngle = viewModel.RotationAngle,
                     BaseLevelElevation = viewModel.BaseLevelElevation
                 };

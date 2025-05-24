@@ -30,11 +30,6 @@ namespace Revit.ViewModels
         // Transformation options
         private bool _useGridIntersection = false;
         private bool _useManualRotation = true;
-        private bool _useImportedGrids = false;
-        private string _grid1Name = "A";
-        private string _grid2Name = "1";
-        private string _importedGrid1Name = "A";
-        private string _importedGrid2Name = "1";
         private double _rotationAngle = 0.0;
         private double _baseLevelElevation = 0.0;
 
@@ -131,56 +126,6 @@ namespace Revit.ViewModels
                     OnPropertyChanged();
                     OnPropertyChanged(nameof(UseGridIntersection));
                 }
-            }
-        }
-
-        public bool UseImportedGrids
-        {
-            get => _useImportedGrids;
-            set
-            {
-                _useImportedGrids = value;
-                OnPropertyChanged();
-            }
-        }
-
-        public string Grid1Name
-        {
-            get => _grid1Name;
-            set
-            {
-                _grid1Name = value;
-                OnPropertyChanged();
-            }
-        }
-
-        public string Grid2Name
-        {
-            get => _grid2Name;
-            set
-            {
-                _grid2Name = value;
-                OnPropertyChanged();
-            }
-        }
-
-        public string ImportedGrid1Name
-        {
-            get => _importedGrid1Name;
-            set
-            {
-                _importedGrid1Name = value;
-                OnPropertyChanged();
-            }
-        }
-
-        public string ImportedGrid2Name
-        {
-            get => _importedGrid2Name;
-            set
-            {
-                _importedGrid2Name = value;
-                OnPropertyChanged();
             }
         }
 

@@ -170,68 +170,64 @@ namespace Revit.Export
         }
 
         // NEW METHOD: Export only properties that are referenced by remaining elements
+        // Fixed method for UnifiedExporter class
         private void ExportPropertiesForFilteredElements(BaseModel model)
         {
-            // Collect all property IDs that are actually used by remaining elements
-            var usedPropertyIds = CollectUsedPropertyIds(model);
+            // Step 1: Collect property IDs used directly by elements (not from properties yet)
+            var usedPropertyIds = CollectDirectPropertyUsage(model);
 
+            // Step 2: Export all properties first
             // Export materials first (others depend on these)
             model.Properties.Materials = new List<Core.Models.Properties.Material>();
             var materialExport = new MaterialExport(_document);
             var materialCount = materialExport.Export(model.Properties.Materials, _materialFilters);
+            Debug.WriteLine($"Exported {materialCount} total materials");
 
-            // Filter materials to only those used by elements
-            model.Properties.Materials = model.Properties.Materials
-                .Where(m => usedPropertyIds.MaterialIds.Contains(m.Id))
-                .ToList();
-            Debug.WriteLine($"Exported {model.Properties.Materials.Count} used materials (from {materialCount} total)");
-
-            // Export wall properties only for used types
+            // Export wall properties
             model.Properties.WallProperties = new List<Core.Models.Properties.WallProperties>();
             var wallPropsExport = new WallPropertiesExport(_document);
             var wallPropsCount = wallPropsExport.Export(model.Properties.WallProperties);
+            Debug.WriteLine($"Exported {wallPropsCount} total wall properties");
 
-            // Filter wall properties to only those used by elements
-            model.Properties.WallProperties = model.Properties.WallProperties
-                .Where(wp => usedPropertyIds.WallPropertyIds.Contains(wp.Id))
-                .ToList();
-            Debug.WriteLine($"Exported {model.Properties.WallProperties.Count} used wall properties (from {wallPropsCount} total)");
-
-            // Export floor properties only for used types
+            // Export floor properties
             model.Properties.FloorProperties = new List<Core.Models.Properties.FloorProperties>();
             var floorPropsExport = new FloorPropertiesExport(_document);
             var floorPropsCount = floorPropsExport.Export(model.Properties.FloorProperties);
-
-            // Filter floor properties to only those used by elements
-            model.Properties.FloorProperties = model.Properties.FloorProperties
-                .Where(fp => usedPropertyIds.FloorPropertyIds.Contains(fp.Id))
-                .ToList();
-            Debug.WriteLine($"Exported {model.Properties.FloorProperties.Count} used floor properties (from {floorPropsCount} total)");
+            Debug.WriteLine($"Exported {floorPropsCount} total floor properties");
 
             // Export frame properties last (depends on materials)
             model.Properties.FrameProperties = new List<Core.Models.Properties.FrameProperties>();
             var framePropsExport = new FramePropertiesExport(_document);
             var framePropsCount = framePropsExport.Export(model.Properties.FrameProperties, model.Properties.Materials);
+            Debug.WriteLine($"Exported {framePropsCount} total frame properties");
 
-            // Filter frame properties to only those used by elements
-            model.Properties.FrameProperties = model.Properties.FrameProperties
-                .Where(fp => usedPropertyIds.FramePropertyIds.Contains(fp.Id))
+            // Step 3: Now collect ALL used property IDs (including indirect material references from properties)
+            var allUsedPropertyIds = CollectAllUsedPropertyIds(model);
+
+            // Step 4: Filter properties to only those that are actually used
+            model.Properties.Materials = model.Properties.Materials
+                .Where(m => allUsedPropertyIds.MaterialIds.Contains(m.Id))
                 .ToList();
-            Debug.WriteLine($"Exported {model.Properties.FrameProperties.Count} used frame properties (from {framePropsCount} total)");
+            Debug.WriteLine($"Filtered to {model.Properties.Materials.Count} used materials");
+
+            model.Properties.WallProperties = model.Properties.WallProperties
+                .Where(wp => allUsedPropertyIds.WallPropertyIds.Contains(wp.Id))
+                .ToList();
+            Debug.WriteLine($"Filtered to {model.Properties.WallProperties.Count} used wall properties");
+
+            model.Properties.FloorProperties = model.Properties.FloorProperties
+                .Where(fp => allUsedPropertyIds.FloorPropertyIds.Contains(fp.Id))
+                .ToList();
+            Debug.WriteLine($"Filtered to {model.Properties.FloorProperties.Count} used floor properties");
+
+            model.Properties.FrameProperties = model.Properties.FrameProperties
+                .Where(fp => allUsedPropertyIds.FramePropertyIds.Contains(fp.Id))
+                .ToList();
+            Debug.WriteLine($"Filtered to {model.Properties.FrameProperties.Count} used frame properties");
         }
 
-        // Helper class to collect used property IDs
-        public class UsedPropertyIds
-        {
-            public HashSet<string> MaterialIds { get; set; } = new HashSet<string>();
-            public HashSet<string> FramePropertyIds { get; set; } = new HashSet<string>();
-            public HashSet<string> WallPropertyIds { get; set; } = new HashSet<string>();
-            public HashSet<string> FloorPropertyIds { get; set; } = new HashSet<string>();
-            public HashSet<string> DiaphragmIds { get; set; } = new HashSet<string>();
-        }
-
-        // Collect all property IDs that are actually referenced by remaining elements
-        private UsedPropertyIds CollectUsedPropertyIds(BaseModel model)
+        // New method: Collect property IDs used directly by elements only
+        private UsedPropertyIds CollectDirectPropertyUsage(BaseModel model)
         {
             var usedIds = new UsedPropertyIds();
 
@@ -299,15 +295,37 @@ namespace Revit.Export
                 }
             }
 
-            // Also collect materials used by properties themselves (indirect references)
-            // This will be populated after we export wall/floor/frame properties
-            CollectIndirectMaterialReferences(model, usedIds);
-
-            Debug.WriteLine($"Collected used property IDs: Materials={usedIds.MaterialIds.Count}, " +
+            Debug.WriteLine($"Collected direct property usage: Materials={usedIds.MaterialIds.Count}, " +
                            $"Frame={usedIds.FramePropertyIds.Count}, Wall={usedIds.WallPropertyIds.Count}, " +
                            $"Floor={usedIds.FloorPropertyIds.Count}");
 
             return usedIds;
+        }
+
+        // New method: Collect ALL used property IDs including indirect references from exported properties
+        private UsedPropertyIds CollectAllUsedPropertyIds(BaseModel model)
+        {
+            // Start with direct usage from elements
+            var usedIds = CollectDirectPropertyUsage(model);
+
+            // Now add indirect material references from exported properties
+            CollectIndirectMaterialReferences(model, usedIds);
+
+            Debug.WriteLine($"Collected all used property IDs: Materials={usedIds.MaterialIds.Count}, " +
+                           $"Frame={usedIds.FramePropertyIds.Count}, Wall={usedIds.WallPropertyIds.Count}, " +
+                           $"Floor={usedIds.FloorPropertyIds.Count}");
+
+            return usedIds;
+        }
+
+        // Helper class to collect used property IDs
+        public class UsedPropertyIds
+        {
+            public HashSet<string> MaterialIds { get; set; } = new HashSet<string>();
+            public HashSet<string> FramePropertyIds { get; set; } = new HashSet<string>();
+            public HashSet<string> WallPropertyIds { get; set; } = new HashSet<string>();
+            public HashSet<string> FloorPropertyIds { get; set; } = new HashSet<string>();
+            public HashSet<string> DiaphragmIds { get; set; } = new HashSet<string>();
         }
 
         // Collect material IDs that are referenced by properties (not just elements)

@@ -829,18 +829,23 @@ namespace Revit.ViewModels
                 // Step 1: Create uniform JSON
                 string tempJsonPath = CreateUniformJson(exportData);
 
-                // Step 2: Save pre-transform JSON IMMEDIATELY after creation
-                SavePreTransformJson(tempJsonPath);
+                // Step 2: Save pre-transform JSON immediately
+                string preTransformPath = Path.ChangeExtension(OutputLocation, ".json");
+                File.Copy(tempJsonPath, preTransformPath, true);
 
-                // Step 3: Apply rotation if enabled (this modifies the temp file in place)
+                // Step 3: Apply rotation if enabled
                 if (ApplyRotation && Math.Abs(RotationAngle) > 0.001)
                 {
                     ApplyModelRotation(tempJsonPath);
-                    // Step 4: Save post-transform JSON after rotation
-                    SavePostTransformJson(tempJsonPath);
+
+                    // Save post-transform JSON immediately after rotation
+                    string directory = Path.GetDirectoryName(OutputLocation);
+                    string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(OutputLocation);
+                    string postTransformPath = Path.Combine(directory, fileNameWithoutExtension + "-transformed.json");
+                    File.Copy(tempJsonPath, postTransformPath, true);
                 }
 
-                // Step 5: Convert to target format
+                // Step 4: Convert to target format
                 ConvertToTargetFormat(tempJsonPath, exportData);
 
                 MessageBox.Show($"Successfully exported to {OutputLocation}",
@@ -852,40 +857,6 @@ namespace Revit.ViewModels
             catch (Exception ex)
             {
                 MessageBox.Show($"Error during export: {ex.Message}", "Export Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
-
-        private void SavePreTransformJson(string tempJsonPath)
-        {
-            try
-            {
-                // Save pre-transformation JSON for debugging with same name as output file
-                string debugPath = Path.ChangeExtension(OutputLocation, ".json");
-                File.Copy(tempJsonPath, debugPath, true);
-                System.Diagnostics.Debug.WriteLine($"Saved pre-transform JSON: {debugPath}");
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Error saving pre-transform JSON: {ex.Message}");
-                // Don't throw - this is just for debugging
-            }
-        }
-
-        private void SavePostTransformJson(string tempJsonPath)
-        {
-            try
-            {
-                // Save post-transformation JSON for debugging
-                string directory = Path.GetDirectoryName(OutputLocation);
-                string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(OutputLocation);
-                string transformedPath = Path.Combine(directory, fileNameWithoutExtension + "-transformed.json");
-                File.Copy(tempJsonPath, transformedPath, true);
-                System.Diagnostics.Debug.WriteLine($"Saved post-transform JSON: {transformedPath}");
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Error saving post-transform JSON: {ex.Message}");
-                // Don't throw - this is just for debugging
             }
         }
 
@@ -1212,9 +1183,6 @@ namespace Revit.ViewModels
                 y1 + t * (y2 - y1)
             );
         }
-
-
-       
 
         private List<Core.Models.ModelLayout.Level> ConvertToCoreLevelsWithBaseProcessing(List<LevelViewModel> levels)
         {

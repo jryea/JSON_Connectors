@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using Autodesk.Revit.DB;
-using Core.Models.ModelLayout;
+
+// Consistent aliases matching existing codebase pattern
+using CL = Core.Models.ModelLayout;
 
 namespace Revit.Export
 {
@@ -38,7 +40,7 @@ namespace Revit.Export
         /// <summary>
         /// Base level for transformation (elevations will be adjusted relative to this level)
         /// </summary>
-        public Level BaseLevel { get; set; }
+        public Autodesk.Revit.DB.Level BaseLevel { get; set; }
 
         /// <summary>
         /// Rotation angle in degrees (positive = counterclockwise)
@@ -48,12 +50,12 @@ namespace Revit.Export
         /// <summary>
         /// Custom floor types (for RAM/Grasshopper exports)
         /// </summary>
-        public List<FloorType> CustomFloorTypes { get; set; }
+        public List<CL.FloorType> CustomFloorTypes { get; set; }
 
         /// <summary>
         /// Custom levels with floor type assignments (for RAM/Grasshopper exports)
         /// </summary>
-        public List<Level> CustomLevels { get; set; }
+        public List<CL.Level> CustomLevels { get; set; }
 
         /// <summary>
         /// Mapping of floor type IDs to view element IDs (for Grasshopper CAD export)

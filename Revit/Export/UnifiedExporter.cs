@@ -6,13 +6,15 @@ using System.Linq;
 using Autodesk.Revit.DB;
 using Core.Converters;
 using Core.Models;
-using Core.Models.ModelLayout;
-using Core.Models.Metadata;
 using Core.Utilities;
 using Revit.Export.Elements;
 using Revit.Export.ModelLayout;
 using Revit.Export.Properties;
 using Revit.Utilities;
+
+// Consistent aliases matching existing codebase pattern
+using CL = Core.Models.ModelLayout;
+using CM = Core.Models.Metadata;
 
 namespace Revit.Export
 {
@@ -102,11 +104,14 @@ namespace Revit.Export
             // Export model layout (levels, grids, floor types)
             ExportModelLayout(model, options);
 
-            // Export properties (materials first, then others that depend on materials)
-            ExportProperties(model);
-
-            // Export structural elements
+            // Export structural elements FIRST
             ExportElements(model, options);
+
+            // Apply level filtering to elements BEFORE exporting properties
+            FilterElementsByLevels(model, options);
+
+            // Export properties AFTER filtering - only export properties that are actually used
+            ExportPropertiesForFilteredElements(model);
 
             Debug.WriteLine($"Raw model created with {CountElements(model)} total elements");
             return model;
@@ -114,7 +119,7 @@ namespace Revit.Export
 
         private void InitializeMetadata(BaseModel model)
         {
-            var projectInfo = new ProjectInfo
+            var projectInfo = new CM.ProjectInfo
             {
                 ProjectName = _document.ProjectInformation?.Name ?? _document.Title,
                 ProjectId = _document.ProjectInformation?.Number ?? Guid.NewGuid().ToString(),
@@ -122,7 +127,7 @@ namespace Revit.Export
                 SchemaVersion = "1.0"
             };
 
-            var units = new Units
+            var units = new CM.Units
             {
                 Length = "inches",
                 Force = "pounds",
@@ -139,7 +144,7 @@ namespace Revit.Export
         private void ExportModelLayout(BaseModel model, ExportOptions options)
         {
             // Export levels (filtered if specified)
-            model.ModelLayout.Levels = new List<Level>();
+            model.ModelLayout.Levels = new List<CL.Level>();
             var levelExport = new LevelExport(_document);
             var levelCount = levelExport.Export(model.ModelLayout.Levels, options.SelectedLevels);
             Debug.WriteLine($"Exported {levelCount} levels");
@@ -147,48 +152,196 @@ namespace Revit.Export
             // Export grids (if enabled)
             if (ShouldExportElement("Grids"))
             {
-                model.ModelLayout.Grids = new List<Grid>();
+                model.ModelLayout.Grids = new List<CL.Grid>();
                 var gridExport = new GridExport(_document);
                 var gridCount = gridExport.Export(model.ModelLayout.Grids);
                 Debug.WriteLine($"Exported {gridCount} grids");
             }
 
             // Create default floor types from levels (will be replaced if custom ones provided)
-            model.ModelLayout.FloorTypes = new List<FloorType>();
+            model.ModelLayout.FloorTypes = new List<CL.FloorType>();
             foreach (var level in model.ModelLayout.Levels)
             {
-                var floorType = new FloorType(level.Name);
+                var floorType = new CL.FloorType(level.Name);
                 model.ModelLayout.FloorTypes.Add(floorType);
                 level.FloorTypeId = floorType.Id;
             }
             Debug.WriteLine($"Created {model.ModelLayout.FloorTypes.Count} default floor types");
         }
 
-        private void ExportProperties(BaseModel model)
+        // NEW METHOD: Export only properties that are referenced by remaining elements
+        private void ExportPropertiesForFilteredElements(BaseModel model)
         {
+            // Collect all property IDs that are actually used by remaining elements
+            var usedPropertyIds = CollectUsedPropertyIds(model);
+
             // Export materials first (others depend on these)
             model.Properties.Materials = new List<Core.Models.Properties.Material>();
             var materialExport = new MaterialExport(_document);
             var materialCount = materialExport.Export(model.Properties.Materials, _materialFilters);
-            Debug.WriteLine($"Exported {materialCount} materials");
 
-            // Export wall properties
+            // Filter materials to only those used by elements
+            model.Properties.Materials = model.Properties.Materials
+                .Where(m => usedPropertyIds.MaterialIds.Contains(m.Id))
+                .ToList();
+            Debug.WriteLine($"Exported {model.Properties.Materials.Count} used materials (from {materialCount} total)");
+
+            // Export wall properties only for used types
             model.Properties.WallProperties = new List<Core.Models.Properties.WallProperties>();
             var wallPropsExport = new WallPropertiesExport(_document);
             var wallPropsCount = wallPropsExport.Export(model.Properties.WallProperties);
-            Debug.WriteLine($"Exported {wallPropsCount} wall properties");
 
-            // Export floor properties
+            // Filter wall properties to only those used by elements
+            model.Properties.WallProperties = model.Properties.WallProperties
+                .Where(wp => usedPropertyIds.WallPropertyIds.Contains(wp.Id))
+                .ToList();
+            Debug.WriteLine($"Exported {model.Properties.WallProperties.Count} used wall properties (from {wallPropsCount} total)");
+
+            // Export floor properties only for used types
             model.Properties.FloorProperties = new List<Core.Models.Properties.FloorProperties>();
             var floorPropsExport = new FloorPropertiesExport(_document);
             var floorPropsCount = floorPropsExport.Export(model.Properties.FloorProperties);
-            Debug.WriteLine($"Exported {floorPropsCount} floor properties");
 
-            // Export frame properties (depends on materials)
+            // Filter floor properties to only those used by elements
+            model.Properties.FloorProperties = model.Properties.FloorProperties
+                .Where(fp => usedPropertyIds.FloorPropertyIds.Contains(fp.Id))
+                .ToList();
+            Debug.WriteLine($"Exported {model.Properties.FloorProperties.Count} used floor properties (from {floorPropsCount} total)");
+
+            // Export frame properties last (depends on materials)
             model.Properties.FrameProperties = new List<Core.Models.Properties.FrameProperties>();
             var framePropsExport = new FramePropertiesExport(_document);
             var framePropsCount = framePropsExport.Export(model.Properties.FrameProperties, model.Properties.Materials);
-            Debug.WriteLine($"Exported {framePropsCount} frame properties");
+
+            // Filter frame properties to only those used by elements
+            model.Properties.FrameProperties = model.Properties.FrameProperties
+                .Where(fp => usedPropertyIds.FramePropertyIds.Contains(fp.Id))
+                .ToList();
+            Debug.WriteLine($"Exported {model.Properties.FrameProperties.Count} used frame properties (from {framePropsCount} total)");
+        }
+
+        // Helper class to collect used property IDs
+        public class UsedPropertyIds
+        {
+            public HashSet<string> MaterialIds { get; set; } = new HashSet<string>();
+            public HashSet<string> FramePropertyIds { get; set; } = new HashSet<string>();
+            public HashSet<string> WallPropertyIds { get; set; } = new HashSet<string>();
+            public HashSet<string> FloorPropertyIds { get; set; } = new HashSet<string>();
+            public HashSet<string> DiaphragmIds { get; set; } = new HashSet<string>();
+        }
+
+        // Collect all property IDs that are actually referenced by remaining elements
+        private UsedPropertyIds CollectUsedPropertyIds(BaseModel model)
+        {
+            var usedIds = new UsedPropertyIds();
+
+            // Collect from beams
+            if (model.Elements.Beams != null)
+            {
+                foreach (var beam in model.Elements.Beams)
+                {
+                    if (!string.IsNullOrEmpty(beam.FramePropertiesId))
+                        usedIds.FramePropertyIds.Add(beam.FramePropertiesId);
+                }
+            }
+
+            // Collect from columns
+            if (model.Elements.Columns != null)
+            {
+                foreach (var column in model.Elements.Columns)
+                {
+                    if (!string.IsNullOrEmpty(column.FramePropertiesId))
+                        usedIds.FramePropertyIds.Add(column.FramePropertiesId);
+                }
+            }
+
+            // Collect from braces
+            if (model.Elements.Braces != null)
+            {
+                foreach (var brace in model.Elements.Braces)
+                {
+                    if (!string.IsNullOrEmpty(brace.FramePropertiesId))
+                        usedIds.FramePropertyIds.Add(brace.FramePropertiesId);
+                    if (!string.IsNullOrEmpty(brace.MaterialId))
+                        usedIds.MaterialIds.Add(brace.MaterialId);
+                }
+            }
+
+            // Collect from walls
+            if (model.Elements.Walls != null)
+            {
+                foreach (var wall in model.Elements.Walls)
+                {
+                    if (!string.IsNullOrEmpty(wall.PropertiesId))
+                        usedIds.WallPropertyIds.Add(wall.PropertiesId);
+                }
+            }
+
+            // Collect from floors
+            if (model.Elements.Floors != null)
+            {
+                foreach (var floor in model.Elements.Floors)
+                {
+                    if (!string.IsNullOrEmpty(floor.FloorPropertiesId))
+                        usedIds.FloorPropertyIds.Add(floor.FloorPropertiesId);
+                    if (!string.IsNullOrEmpty(floor.DiaphragmId))
+                        usedIds.DiaphragmIds.Add(floor.DiaphragmId);
+                }
+            }
+
+            // Collect from isolated footings
+            if (model.Elements.IsolatedFootings != null)
+            {
+                foreach (var footing in model.Elements.IsolatedFootings)
+                {
+                    if (!string.IsNullOrEmpty(footing.MaterialId))
+                        usedIds.MaterialIds.Add(footing.MaterialId);
+                }
+            }
+
+            // Also collect materials used by properties themselves (indirect references)
+            // This will be populated after we export wall/floor/frame properties
+            CollectIndirectMaterialReferences(model, usedIds);
+
+            Debug.WriteLine($"Collected used property IDs: Materials={usedIds.MaterialIds.Count}, " +
+                           $"Frame={usedIds.FramePropertyIds.Count}, Wall={usedIds.WallPropertyIds.Count}, " +
+                           $"Floor={usedIds.FloorPropertyIds.Count}");
+
+            return usedIds;
+        }
+
+        // Collect material IDs that are referenced by properties (not just elements)
+        private void CollectIndirectMaterialReferences(BaseModel model, UsedPropertyIds usedIds)
+        {
+            // Add materials referenced by wall properties
+            if (model.Properties?.WallProperties != null)
+            {
+                foreach (var wallProp in model.Properties.WallProperties)
+                {
+                    if (!string.IsNullOrEmpty(wallProp.MaterialId))
+                        usedIds.MaterialIds.Add(wallProp.MaterialId);
+                }
+            }
+
+            // Add materials referenced by floor properties  
+            if (model.Properties?.FloorProperties != null)
+            {
+                foreach (var floorProp in model.Properties.FloorProperties)
+                {
+                    if (!string.IsNullOrEmpty(floorProp.MaterialId))
+                        usedIds.MaterialIds.Add(floorProp.MaterialId);
+                }
+            }
+
+            // Add materials referenced by frame properties
+            if (model.Properties?.FrameProperties != null)
+            {
+                foreach (var frameProp in model.Properties.FrameProperties)
+                {
+                    if (!string.IsNullOrEmpty(frameProp.MaterialId))
+                        usedIds.MaterialIds.Add(frameProp.MaterialId);
+                }
+            }
         }
 
         private void ExportElements(BaseModel model, ExportOptions options)
@@ -244,8 +397,7 @@ namespace Revit.Export
                 Debug.WriteLine($"Exported {footingCount} footings");
             }
 
-            // Apply level filtering to elements
-            FilterElementsByLevels(model, options);
+            // Note: Level filtering moved to CreateRawModel() before properties are exported
         }
 
         private BaseModel ApplyTransformations(BaseModel model, ExportOptions options)
@@ -362,7 +514,7 @@ namespace Revit.Export
             }
         }
 
-        private void ExportCADFiles(string dwgFolder, Dictionary<string, ElementId> floorTypeToViewMap, List<FloorType> floorTypes)
+        private void ExportCADFiles(string dwgFolder, Dictionary<string, ElementId> floorTypeToViewMap, List<CL.FloorType> floorTypes)
         {
             try
             {
@@ -403,7 +555,7 @@ namespace Revit.Export
             return JsonConverter.Deserialize(json, false);
         }
 
-        private void ApplyBaseLevelTransformation(BaseModel model, Level baseLevel)
+        private void ApplyBaseLevelTransformation(BaseModel model, Autodesk.Revit.DB.Level baseLevel)
         {
             var modelBaseLevel = model.ModelLayout.Levels.FirstOrDefault(l =>
                 l.Name == baseLevel.Name ||
@@ -429,16 +581,16 @@ namespace Revit.Export
             Debug.WriteLine($"Applied base level transformation: {baseLevel.Name} -> Base");
         }
 
-        private void ApplyCustomFloorTypes(BaseModel model, List<FloorType> customFloorTypes, List<Level> customLevels)
+        private void ApplyCustomFloorTypes(BaseModel model, List<CL.FloorType> customFloorTypes, List<CL.Level> customLevels)
         {
             if (customFloorTypes != null)
             {
-                model.ModelLayout.FloorTypes = new List<FloorType>(customFloorTypes);
+                model.ModelLayout.FloorTypes = new List<CL.FloorType>(customFloorTypes);
             }
 
             if (customLevels != null)
             {
-                model.ModelLayout.Levels = new List<Level>(customLevels);
+                model.ModelLayout.Levels = new List<CL.Level>(customLevels);
             }
 
             Debug.WriteLine($"Applied custom floor types: {customFloorTypes?.Count ?? 0}, custom levels: {customLevels?.Count ?? 0}");
@@ -452,13 +604,13 @@ namespace Revit.Export
             // Get model level IDs that correspond to selected Revit levels
             var selectedModelLevelIds = new HashSet<string>();
             var revitLevels = new FilteredElementCollector(_document)
-                .OfClass(typeof(Level))
-                .Cast<Level>()
+                .OfClass(typeof(Autodesk.Revit.DB.Level))
+                .Cast<Autodesk.Revit.DB.Level>()
                 .ToDictionary(l => l.Id, l => l);
 
             foreach (var revitLevelId in options.SelectedLevels)
             {
-                if (revitLevels.TryGetValue(revitLevelId, out Level revitLevel))
+                if (revitLevels.TryGetValue(revitLevelId, out Autodesk.Revit.DB.Level revitLevel))
                 {
                     var modelLevel = model.ModelLayout.Levels.FirstOrDefault(l =>
                         l.Name == revitLevel.Name ||

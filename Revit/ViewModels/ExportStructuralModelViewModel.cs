@@ -19,7 +19,7 @@ namespace Revit.ViewModels
     /// <summary>
     /// Simplified export view model using the UnifiedExporter
     /// </summary>
-    public class SimplifiedExportStructuralModelViewModel : INotifyPropertyChanged
+    public class ExportStructuralModelViewModel : INotifyPropertyChanged
     {
         #region Fields
         private UIApplication _uiApp;
@@ -240,13 +240,13 @@ namespace Revit.ViewModels
         #endregion
 
         #region Constructor
-        public SimplifiedExportStructuralModelViewModel()
+        public ExportStructuralModelViewModel()
         {
             InitializeProperties();
             InitializeCommands();
         }
 
-        public SimplifiedExportStructuralModelViewModel(UIApplication uiApp)
+        public ExportStructuralModelViewModel(UIApplication uiApp)
         {
             _uiApp = uiApp;
             _document = uiApp?.ActiveUIDocument?.Document;

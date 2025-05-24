@@ -23,7 +23,7 @@ namespace Revit.Export
             try
             {
                 // Show the export dialog using the simplified view model
-                var exportWindow = new SimplifiedExportStructuralModelWindow(uiApp);
+                var exportWindow = new ExportStructuralModelWindow(uiApp);
                 bool? dialogResult = exportWindow.ShowDialog();
 
                 // Return result based on dialog outcome

@@ -4,10 +4,8 @@ using Core.Models;
 
 namespace Revit.Import
 {
-    /// <summary>
-    /// Main orchestrator for structural model import
-    /// Clean separation: Load -> Transform -> Filter
-    /// </summary>
+    // Main orchestrator for structural model import
+    // Clean separation: Load -> Transform -> Filter
     public class StructuralModelImporter
     {
         public BaseModel Import(ImportContext context)

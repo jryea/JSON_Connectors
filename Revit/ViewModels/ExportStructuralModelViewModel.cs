@@ -826,26 +826,40 @@ namespace Revit.ViewModels
                 // Prepare common export data
                 var exportData = PrepareExportData(selectedLevels);
 
-                // Step 1: Create uniform JSON
-                string tempJsonPath = CreateUniformJson(exportData);
+                // Step 1: Create a clean model using ExportManager/StructuralModelExporter directly
+                var context = StructuralModelExporter.CreateContext(_document,
+                    exportData.ElementFilters,
+                    exportData.MaterialFilters,
+                    exportData.SelectedLevelIds,
+                    BaseLevel?.LevelId,
+                    exportData.CustomFloorTypes,
+                    exportData.CustomLevels);
 
-                // Step 2: Save pre-transform JSON immediately
+                var exporter = new StructuralModelExporter();
+                var cleanModel = exporter.Export(context);
+
+                // Step 2: Save pre-transform JSON immediately from clean model
                 string preTransformPath = Path.ChangeExtension(OutputLocation, ".json");
-                File.Copy(tempJsonPath, preTransformPath, true);
+                Core.Converters.JsonConverter.SaveToFile(cleanModel, preTransformPath);
 
                 // Step 3: Apply rotation if enabled
                 if (ApplyRotation && Math.Abs(RotationAngle) > 0.001)
                 {
-                    ApplyModelRotation(tempJsonPath);
+                    var rotationCenter = CalculateModelCenter(cleanModel);
+                    Core.Models.ModelTransformation.RotateModel(cleanModel, RotationAngle, rotationCenter);
 
-                    // Save post-transform JSON immediately after rotation
+                    // Save post-transform JSON
                     string directory = Path.GetDirectoryName(OutputLocation);
                     string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(OutputLocation);
                     string postTransformPath = Path.Combine(directory, fileNameWithoutExtension + "-transformed.json");
-                    File.Copy(tempJsonPath, postTransformPath, true);
+                    Core.Converters.JsonConverter.SaveToFile(cleanModel, postTransformPath);
                 }
 
-                // Step 4: Convert to target format
+                // Step 4: Save to temp file and convert
+                string tempJsonPath = Path.Combine(Path.GetDirectoryName(OutputLocation),
+                    Path.GetFileNameWithoutExtension(OutputLocation) + "_temp.json");
+                Core.Converters.JsonConverter.SaveToFile(cleanModel, tempJsonPath);
+
                 ConvertToTargetFormat(tempJsonPath, exportData);
 
                 MessageBox.Show($"Successfully exported to {OutputLocation}",

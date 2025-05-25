@@ -18,29 +18,28 @@ namespace Revit.Export
             _uiApp = uiApp;
         }
 
+        /// <summary>
+        /// Keep existing method signature but clean up implementation
+        /// Creates ONE JSON file, converts to target format
+        /// </summary>
         public int ExportToJson(string filePath)
         {
-            // Create default filters (all enabled)
-            Dictionary<string, bool> elementFilters = new Dictionary<string, bool>
-            {
-                { "Grids", true },
-                { "Beams", true },
-                { "Braces", true },
-                { "Columns", true },
-                { "Floors", true },
-                { "Walls", true },
-                { "Footings", true }
-            };
+            // Create default options for simple JSON export
+            var options = ExportOptions.CreateDefault(filePath, ExportFormat.Grasshopper);
 
-            Dictionary<string, bool> materialFilters = new Dictionary<string, bool>
-            {
-                { "Steel", true },
-                { "Concrete", true }
-            };
+            // Use cleaned UnifiedExporter
+            var exporter = new UnifiedExporter(_doc, options.ElementFilters, options.MaterialFilters);
+            var result = exporter.Export(options);
 
-            return ExportToJson(filePath, elementFilters, materialFilters, null, null);
+            if (!result.Success)
+                throw new Exception(result.ErrorMessage);
+
+            return result.ElementCount;
         }
 
+        /// <summary>
+        /// Keep existing method signature but use cleaned UnifiedExporter
+        /// </summary>
         public int ExportToJson(string filePath, Dictionary<string, bool> elementFilters,
                        Dictionary<string, bool> materialFilters,
                        List<ElementId> selectedLevelIds = null,
@@ -50,60 +49,33 @@ namespace Revit.Export
         {
             try
             {
-                // Create export context
-                var context = StructuralModelExporter.CreateContext(_doc,
-                    elementFilters, materialFilters, selectedLevelIds, baseLevelId,
-                    customFloorTypes, customLevels);
+                // Create export options
+                var options = new ExportOptions
+                {
+                    OutputPath = filePath,
+                    Format = ExportFormat.Grasshopper, // JSON format
+                    ElementFilters = elementFilters,
+                    MaterialFilters = materialFilters,
+                    SelectedLevels = selectedLevelIds,
+                    BaseLevel = baseLevelId != null ? _doc.GetElement(baseLevelId) as Level : null,
+                    CustomFloorTypes = customFloorTypes,
+                    CustomLevels = customLevels
+                };
 
-                // Use new clean architecture
-                var exporter = new StructuralModelExporter();
-                var model = exporter.Export(context);
+                // Use cleaned UnifiedExporter - creates ONE JSON file
+                var exporter = new UnifiedExporter(_doc, elementFilters, materialFilters);
+                var result = exporter.Export(options);
 
-                // Save the model to file
-                JsonConverter.SaveToFile(model, filePath);
+                if (!result.Success)
+                    throw new Exception(result.ErrorMessage);
 
-                // Calculate total exported elements for backward compatibility
-                int totalExported = CalculateExportedCount(model);
-
-                return totalExported;
+                return result.ElementCount;
             }
             catch (Exception ex)
             {
                 TaskDialog.Show("Export Error", $"Error exporting model: {ex.Message}");
                 return 0;
             }
-        }
-
-        private int CalculateExportedCount(BaseModel model)
-        {
-            int count = 0;
-
-            if (model.ModelLayout != null)
-            {
-                count += model.ModelLayout.Levels?.Count ?? 0;
-                count += model.ModelLayout.Grids?.Count ?? 0;
-                count += model.ModelLayout.FloorTypes?.Count ?? 0;
-            }
-
-            if (model.Properties != null)
-            {
-                count += model.Properties.Materials?.Count ?? 0;
-                count += model.Properties.WallProperties?.Count ?? 0;
-                count += model.Properties.FloorProperties?.Count ?? 0;
-                count += model.Properties.FrameProperties?.Count ?? 0;
-            }
-
-            if (model.Elements != null)
-            {
-                count += model.Elements.Walls?.Count ?? 0;
-                count += model.Elements.Floors?.Count ?? 0;
-                count += model.Elements.Columns?.Count ?? 0;
-                count += model.Elements.Beams?.Count ?? 0;
-                count += model.Elements.Braces?.Count ?? 0;
-                count += model.Elements.IsolatedFootings?.Count ?? 0;
-            }
-
-            return count;
         }
     }
 }

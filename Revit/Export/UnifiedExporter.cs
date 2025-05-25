@@ -37,9 +37,6 @@ namespace Revit.Export
             _materialFilters = materialFilters ?? GetDefaultMaterialFilters();
         }
 
-        /// <summary>
-        /// Main export method - handles all formats uniformly with clear transformation pipeline
-        /// </summary>
         public ExportResult Export(ExportOptions options)
         {
             if (options == null) throw new ArgumentNullException(nameof(options));
@@ -48,40 +45,33 @@ namespace Revit.Export
 
             try
             {
-                Debug.WriteLine("UnifiedExporter: Starting export");
+                Debug.WriteLine("UnifiedExporter: Starting clean export");
 
-                // Step 1: Create raw untransformed model
-                var rawModel = CreateRawModel(options);
-                result.ElementCount = CountElements(rawModel);
+                // Step 1: Create complete model with transformations applied
+                var model = CreateCompleteModel(options);
+                result.ElementCount = CountElements(model);
 
-                // Step 2: Save pre-transform JSON
-                if (options.SaveDebugFiles)
+                // Step 2: Create ONE JSON file (no duplicates)
+                var jsonPath = DetermineJsonPath(options);
+                JsonConverter.SaveToFile(model, jsonPath, removeDuplicates: true);
+                result.PreTransformJsonPath = jsonPath;
+
+                // Step 3: Convert to target format if needed (clean handoff to external converters)
+                if (options.Format != ExportFormat.Grasshopper)
                 {
-                    var preTransformPath = Path.ChangeExtension(options.OutputPath, ".json");
-                    JsonConverter.SaveToFile(rawModel, preTransformPath, false);
-                    result.PreTransformJsonPath = preTransformPath;
-                    Debug.WriteLine($"Saved pre-transform JSON: {preTransformPath}");
+                    ConvertToTargetFormat(jsonPath, options.OutputPath, options.Format);
                 }
 
-                // Step 3: Apply all transformations
-                var transformedModel = ApplyTransformations(rawModel, options);
-
-                // Step 4: Save post-transform JSON (if transforms applied)
-                if (options.SaveDebugFiles && options.HasTransformations())
+                // Step 4: Handle CAD export for Grasshopper if needed
+                if (options.Format == ExportFormat.Grasshopper && options.FloorTypeToViewMap != null)
                 {
-                    var postTransformPath = GetPostTransformPath(options.OutputPath);
-                    JsonConverter.SaveToFile(transformedModel, postTransformPath, false);
-                    result.PostTransformJsonPath = postTransformPath;
-                    Debug.WriteLine($"Saved post-transform JSON: {postTransformPath}");
+                    ExportCADFiles(options);
                 }
-
-                // Step 5: Export to target format
-                ExportToTargetFormat(transformedModel, options);
 
                 result.Success = true;
                 result.OutputPath = options.OutputPath;
-                Debug.WriteLine("UnifiedExporter: Export completed successfully");
 
+                Debug.WriteLine("UnifiedExporter: Export completed successfully");
                 return result;
             }
             catch (Exception ex)
@@ -91,6 +81,170 @@ namespace Revit.Export
                 throw;
             }
         }
+
+        /// <summary>
+        /// Creates complete model with all transformations applied (no intermediate files)
+        /// </summary>
+        private BaseModel CreateCompleteModel(ExportOptions options)
+        {
+            Debug.WriteLine("Creating complete model with transformations");
+
+            var model = new BaseModel();
+
+            // Initialize metadata
+            InitializeMetadata(model);
+
+            // Export model layout (levels, grids, floor types)
+            ExportModelLayout(model, options);
+
+            // Export elements with level filtering applied
+            ExportFilteredElements(model, options);
+
+            // Export only properties that are used by remaining elements
+            ExportUsedProperties(model);
+
+            // Apply all transformations in memory
+            ApplyTransformations(model, options);
+
+            Debug.WriteLine($"Complete model created with {CountElements(model)} elements");
+            return model;
+        }
+
+        // Export properties AFTER elements are filtered - only export what's actually used
+        private void ExportUsedProperties(BaseModel model)
+        {
+            // Step 1: Collect property IDs used by elements
+            var usedPropertyIds = CollectUsedPropertyIds(model);
+
+            // Step 2: Export ALL properties first
+            model.Properties.Materials = new List<Core.Models.Properties.Material>();
+            model.Properties.WallProperties = new List<Core.Models.Properties.WallProperties>();
+            model.Properties.FloorProperties = new List<Core.Models.Properties.FloorProperties>();
+            model.Properties.FrameProperties = new List<Core.Models.Properties.FrameProperties>();
+
+            // Export materials first (others depend on these) - FIXED method call
+            var materialExport = new MaterialExport(_document);
+            var materialCount = materialExport.Export(model.Properties.Materials, _materialFilters);
+            Debug.WriteLine($"Exported {materialCount} materials");
+
+            // Export wall properties
+            var wallPropsExport = new WallPropertiesExport(_document);
+            var wallPropsCount = wallPropsExport.Export(model.Properties.WallProperties);
+            Debug.WriteLine($"Exported {wallPropsCount} wall properties");
+
+            // Export floor properties
+            var floorPropsExport = new FloorPropertiesExport(_document);
+            var floorPropsCount = floorPropsExport.Export(model.Properties.FloorProperties);
+            Debug.WriteLine($"Exported {floorPropsCount} floor properties");
+
+            // Export frame properties last (depends on materials) - FIXED method call
+            var framePropsExport = new FramePropertiesExport(_document);
+            var framePropsCount = framePropsExport.Export(model.Properties.FrameProperties, model.Properties.Materials);
+            Debug.WriteLine($"Exported {framePropsCount} frame properties");
+
+            // Step 3: Now collect ALL used property IDs (including indirect material references)
+            var allUsedPropertyIds = CollectAllUsedPropertyIds(model);
+
+            // Step 4: Filter properties to only those that are actually used
+            FilterToUsedProperties(model, allUsedPropertyIds);
+        }
+
+        /// <summary>
+        /// Determine single JSON file path - no duplicates
+        /// </summary>
+        private string DetermineJsonPath(ExportOptions options)
+        {
+            if (options.Format == ExportFormat.Grasshopper)
+            {
+                // For Grasshopper, JSON IS the final format
+                return options.OutputPath;
+            }
+            else
+            {
+                // For ETABS/RAM, create temporary JSON for conversion
+                return Path.ChangeExtension(options.OutputPath, ".json");
+            }
+        }
+
+        /// <summary>
+        /// Convert to target format using EXTERNAL converters (clean handoff)
+        /// NO ETABS/RAM logic in this project
+        /// </summary>
+        private void ConvertToTargetFormat(string jsonPath, string outputPath, ExportFormat format)
+        {
+            string jsonContent = File.ReadAllText(jsonPath);
+
+            try
+            {
+                switch (format)
+                {
+                    case ExportFormat.ETABS:
+                        // Clean handoff to ETABS project
+                        var etabsConverter = new ETABS.ETABSImport();
+                        string e2kContent = etabsConverter.ProcessModel(jsonContent);
+                        File.WriteAllText(outputPath, e2kContent);
+                        Debug.WriteLine($"Converted to ETABS: {outputPath}");
+                        break;
+
+                    case ExportFormat.RAM:
+                        // Clean handoff to RAM project
+                        var ramConverter = new RAM.RAMImporter();
+                        var result = ramConverter.ConvertJSONStringToRAM(jsonContent, outputPath);
+                        if (!result.Success)
+                            throw new Exception($"RAM conversion failed: {result.Message}");
+                        Debug.WriteLine($"Converted to RAM: {outputPath}");
+                        break;
+
+                    default:
+                        throw new ArgumentException($"Unsupported format for conversion: {format}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Format conversion failed: {ex.Message}");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Export CAD files for Grasshopper (minimal logic, no format conversion)
+        /// </summary>
+        private void ExportCADFiles(ExportOptions options)
+        {
+            try
+            {
+                if (options.FloorTypeToViewMap == null || options.FloorTypeToViewMap.Count == 0)
+                    return;
+
+                var dwgFolder = Path.Combine(Path.GetDirectoryName(options.OutputPath), "CAD");
+                Directory.CreateDirectory(dwgFolder);
+
+                var dwgOptions = new DWGExportOptions();
+                var exportedViews = new HashSet<ElementId>();
+
+                // Simple CAD export - no complex logic
+                foreach (var mapping in options.FloorTypeToViewMap)
+                {
+                    if (!exportedViews.Contains(mapping.Value))
+                    {
+                        var view = _document.GetElement(mapping.Value) as View;
+                        if (view != null)
+                        {
+                            string fileName = SanitizeFilename($"FloorPlan_{view.Name}");
+                            _document.Export(dwgFolder, fileName, new List<ElementId> { mapping.Value }, dwgOptions);
+                            exportedViews.Add(mapping.Value);
+                            Debug.WriteLine($"Exported CAD view: {fileName}.dwg");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"CAD export failed (non-critical): {ex.Message}");
+                // Don't fail the entire export for CAD issues
+            }
+        }
+
 
         private BaseModel CreateRawModel(ExportOptions options)
         {
@@ -757,24 +911,24 @@ namespace Revit.Export
         private Dictionary<string, bool> GetDefaultElementFilters()
         {
             return new Dictionary<string, bool>
-            {
-                { "Grids", true },
-                { "Beams", true },
-                { "Braces", true },
-                { "Columns", true },
-                { "Floors", true },
-                { "Walls", true },
-                { "Footings", true }
-            };
+        {
+            { "Grids", true },
+            { "Beams", true },
+            { "Braces", true },
+            { "Columns", true },
+            { "Floors", true },
+            { "Walls", true },
+            { "Footings", true }
+        };
         }
 
         private Dictionary<string, bool> GetDefaultMaterialFilters()
         {
             return new Dictionary<string, bool>
-            {
-                { "Steel", true },
-                { "Concrete", true }
-            };
+        {
+            { "Steel", true },
+            { "Concrete", true }
+        };
         }
 
         #endregion

@@ -19,33 +19,9 @@ namespace Revit.Export.Properties
             _materialTypeToIdMap = new Dictionary<MaterialType, string>();
         }
 
-        // This method should be called after materials have been exported
-        // to set up the mapping between material types and their IDs
-        public void SetupMaterialMapping(List<Material> exportedMaterials)
-        {
-            _materialTypeToIdMap.Clear();
-
-            foreach (var material in exportedMaterials)
-            {
-                if (material.Type == MaterialType.Steel || material.Type == MaterialType.Concrete)
-                {
-                    _materialTypeToIdMap[material.Type] = material.Id;
-                }
-            }
-
-            // Ensure we have defaults even if they weren't in the exported materials
-            if (!_materialTypeToIdMap.ContainsKey(MaterialType.Steel))
-            {
-                _materialTypeToIdMap[MaterialType.Steel] = "MAT-Steel";
-            }
-            if (!_materialTypeToIdMap.ContainsKey(MaterialType.Concrete))
-            {
-                _materialTypeToIdMap[MaterialType.Concrete] = "MAT-Concrete";
-            }
-
-            Debug.WriteLine($"Material mapping set up: Steel ID = {_materialTypeToIdMap[MaterialType.Steel]}, Concrete ID = {_materialTypeToIdMap[MaterialType.Concrete]}");
-        }
-
+        // FIXED: Method signature to match UnifiedExporter call
+        // OLD: Called from FramePropertiesImport (wrong project)
+        // NEW: public int Export(List<FrameProperties> frameProperties, List<Material> exportedMaterials)
         public int Export(List<FrameProperties> frameProperties, List<Material> exportedMaterials)
         {
             // Set up material ID mapping
@@ -123,6 +99,33 @@ namespace Revit.Export.Properties
             return count;
         }
 
+        // This method should be called after materials have been exported
+        // to set up the mapping between material types and their IDs
+        public void SetupMaterialMapping(List<Material> exportedMaterials)
+        {
+            _materialTypeToIdMap.Clear();
+
+            foreach (var material in exportedMaterials)
+            {
+                if (material.Type == MaterialType.Steel || material.Type == MaterialType.Concrete)
+                {
+                    _materialTypeToIdMap[material.Type] = material.Id;
+                }
+            }
+
+            // Ensure we have defaults even if they weren't in the exported materials
+            if (!_materialTypeToIdMap.ContainsKey(MaterialType.Steel))
+            {
+                _materialTypeToIdMap[MaterialType.Steel] = "MAT-Steel";
+            }
+            if (!_materialTypeToIdMap.ContainsKey(MaterialType.Concrete))
+            {
+                _materialTypeToIdMap[MaterialType.Concrete] = "MAT-Concrete";
+            }
+
+            Debug.WriteLine($"Material mapping set up: Steel ID = {_materialTypeToIdMap[MaterialType.Steel]}, Concrete ID = {_materialTypeToIdMap[MaterialType.Concrete]}");
+        }
+
         private void CollectStructuralTypes(DB.BuiltInCategory category, HashSet<DB.ElementId> typeIds)
         {
             DB.FilteredElementCollector collector = new DB.FilteredElementCollector(_doc);
@@ -146,7 +149,6 @@ namespace Revit.Export.Properties
                 }
             }
         }
-
         private MaterialType DetermineMaterialType(DB.FamilySymbol famSymbol)
         {
             // Try to get material from structural material parameter

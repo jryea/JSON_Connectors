@@ -22,11 +22,10 @@ namespace Revit.Export
 
             try
             {
-                // Show the export dialog using the simplified view model
+                // Use existing export dialog - no changes to UI
                 var exportWindow = new ExportStructuralModelWindow(uiApp);
                 bool? dialogResult = exportWindow.ShowDialog();
 
-                // Return result based on dialog outcome
                 if (dialogResult.HasValue && dialogResult.Value)
                 {
                     return Result.Succeeded;
@@ -44,11 +43,11 @@ namespace Revit.Export
         }
 
         /// <summary>
-        /// Gets the button data for the ribbon
+        /// Keep existing method name and signature
         /// </summary>
         internal static PushButtonData GetButtonData()
         {
-            string buttonInternalName = "btnExportStructuralModelUnified";
+            string buttonInternalName = "btnExportStructuralModel";
             string buttonTitle = "Export Model";
 
             ButtonDataClass myButtonData = new ButtonDataClass(
@@ -57,14 +56,11 @@ namespace Revit.Export
                 MethodBase.GetCurrentMethod().DeclaringType?.FullName,
                 ByteArrayToBitmap(Revit.Properties.Resources.IMEG_32),
                 ByteArrayToBitmap(Revit.Properties.Resources.IMEG_16),
-                "Export structural model to multiple formats using unified architecture");
+                "Export structural model to multiple formats");
 
             return myButtonData.Data;
         }
 
-        /// <summary>
-        /// Converts byte array to bitmap for button icons
-        /// </summary>
         internal static System.Drawing.Bitmap ByteArrayToBitmap(byte[] byteArray)
         {
             using (var ms = new System.IO.MemoryStream(byteArray))

@@ -150,6 +150,161 @@ namespace Revit.Export
         }
 
         /// <summary>
+        /// Filters the model's properties to only include those that are actually used by elements
+        /// </summary>
+        private void FilterToUsedProperties(BaseModel model, UsedPropertyIds usedPropertyIds)
+        {
+            if (model.Properties == null || usedPropertyIds == null) return;
+
+            // Filter materials
+            if (model.Properties.Materials != null)
+            {
+                model.Properties.Materials = model.Properties.Materials
+                    .Where(m => usedPropertyIds.MaterialIds.Contains(m.Id))
+                    .ToList();
+                Debug.WriteLine($"Filtered to {model.Properties.Materials.Count} used materials");
+            }
+
+            // Filter wall properties
+            if (model.Properties.WallProperties != null)
+            {
+                model.Properties.WallProperties = model.Properties.WallProperties
+                    .Where(wp => usedPropertyIds.WallPropertyIds.Contains(wp.Id))
+                    .ToList();
+                Debug.WriteLine($"Filtered to {model.Properties.WallProperties.Count} used wall properties");
+            }
+
+            // Filter floor properties
+            if (model.Properties.FloorProperties != null)
+            {
+                model.Properties.FloorProperties = model.Properties.FloorProperties
+                    .Where(fp => usedPropertyIds.FloorPropertyIds.Contains(fp.Id))
+                    .ToList();
+                Debug.WriteLine($"Filtered to {model.Properties.FloorProperties.Count} used floor properties");
+            }
+
+            // Filter frame properties
+            if (model.Properties.FrameProperties != null)
+            {
+                model.Properties.FrameProperties = model.Properties.FrameProperties
+                    .Where(fp => usedPropertyIds.FramePropertyIds.Contains(fp.Id))
+                    .ToList();
+                Debug.WriteLine($"Filtered to {model.Properties.FrameProperties.Count} used frame properties");
+            }
+
+            // Filter diaphragms
+            if (model.Properties.Diaphragms != null)
+            {
+                model.Properties.Diaphragms = model.Properties.Diaphragms
+                    .Where(d => usedPropertyIds.DiaphragmIds.Contains(d.Id))
+                    .ToList();
+                Debug.WriteLine($"Filtered to {model.Properties.Diaphragms.Count} used diaphragms");
+            }
+        }
+
+        /// <summary>
+        /// Exports structural elements with level filtering applied
+        /// </summary>
+        private void ExportFilteredElements(BaseModel model, ExportOptions options)
+        {
+            // First export all elements
+            ExportElements(model, options);
+
+            // Then apply level filtering if specified
+            if (options.SelectedLevels != null && options.SelectedLevels.Count > 0)
+            {
+                FilterElementsByLevels(model, options);
+            }
+
+            Debug.WriteLine($"Exported and filtered elements. Total count: {CountElements(model)}");
+        }
+
+        /// <summary>
+        /// Collects all property IDs that are actually used by elements in the model
+        /// </summary>
+        private UsedPropertyIds CollectUsedPropertyIds(BaseModel model)
+        {
+            var usedIds = new UsedPropertyIds();
+
+            if (model.Elements == null) return usedIds;
+
+            // Collect from walls
+            if (model.Elements.Walls != null)
+            {
+                foreach (var wall in model.Elements.Walls)
+                {
+                    if (!string.IsNullOrEmpty(wall.PropertiesId))
+                        usedIds.WallPropertyIds.Add(wall.PropertiesId);
+                }
+            }
+
+            // Collect from floors
+            if (model.Elements.Floors != null)
+            {
+                foreach (var floor in model.Elements.Floors)
+                {
+                    if (!string.IsNullOrEmpty(floor.FloorPropertiesId))
+                        usedIds.FloorPropertyIds.Add(floor.FloorPropertiesId);
+                    if (!string.IsNullOrEmpty(floor.DiaphragmId))
+                        usedIds.DiaphragmIds.Add(floor.DiaphragmId);
+                }
+            }
+
+            // Collect from columns
+            if (model.Elements.Columns != null)
+            {
+                foreach (var column in model.Elements.Columns)
+                {
+                    if (!string.IsNullOrEmpty(column.FramePropertiesId))
+                        usedIds.FramePropertyIds.Add(column.FramePropertiesId);
+                }
+            }
+
+            // Collect from beams
+            if (model.Elements.Beams != null)
+            {
+                foreach (var beam in model.Elements.Beams)
+                {
+                    if (!string.IsNullOrEmpty(beam.FramePropertiesId))
+                        usedIds.FramePropertyIds.Add(beam.FramePropertiesId);
+                }
+            }
+
+            // Collect from braces
+            if (model.Elements.Braces != null)
+            {
+                foreach (var brace in model.Elements.Braces)
+                {
+                    if (!string.IsNullOrEmpty(brace.FramePropertiesId))
+                        usedIds.FramePropertyIds.Add(brace.FramePropertiesId);
+                    if (!string.IsNullOrEmpty(brace.MaterialId))
+                        usedIds.MaterialIds.Add(brace.MaterialId);
+                }
+            }
+
+            // Collect from isolated footings
+            if (model.Elements.IsolatedFootings != null)
+            {
+                foreach (var footing in model.Elements.IsolatedFootings)
+                {
+                    if (!string.IsNullOrEmpty(footing.MaterialId))
+                        usedIds.MaterialIds.Add(footing.MaterialId);
+                }
+            }
+
+            // Now collect indirect material references from properties
+            CollectIndirectMaterialReferences(model, usedIds);
+
+            Debug.WriteLine($"Collected used property IDs - Materials: {usedIds.MaterialIds.Count}, " +
+                           $"WallProps: {usedIds.WallPropertyIds.Count}, " +
+                           $"FloorProps: {usedIds.FloorPropertyIds.Count}, " +
+                           $"FrameProps: {usedIds.FramePropertyIds.Count}, " +
+                           $"Diaphragms: {usedIds.DiaphragmIds.Count}");
+
+            return usedIds;
+        }
+
+        /// <summary>
         /// Determine single JSON file path - no duplicates
         /// </summary>
         private string DetermineJsonPath(ExportOptions options)

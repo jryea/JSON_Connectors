@@ -752,6 +752,7 @@ namespace Revit.ViewModels
 
         #region Events
         public event Action RequestClose;
+        public event Action RequestRestore;
         public event PropertyChangedEventHandler PropertyChanged;
 
         protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)

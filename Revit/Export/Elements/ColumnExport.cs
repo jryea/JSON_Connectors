@@ -21,126 +21,124 @@ namespace Revit.Export.Elements
 
         public int Export(List<CE.Column> columns, BaseModel model)
         {
-            Debug.WriteLine("ColumnExport: Starting clean export");
+            int count = 0;
 
-            // Get all structural columns from Revit
+            // Get all columns from Revit
             DB.FilteredElementCollector collector = new DB.FilteredElementCollector(_doc);
             IList<DB.FamilyInstance> revitColumns = collector.OfClass(typeof(DB.FamilyInstance))
                 .OfCategory(DB.BuiltInCategory.OST_StructuralColumns)
                 .Cast<DB.FamilyInstance>()
                 .ToList();
 
-            Debug.WriteLine($"ColumnExport: Found {revitColumns.Count} columns in Revit");
-
-            // Create mappings using model data
+            // Create mappings
             Dictionary<DB.ElementId, string> levelIdMap = CreateLevelMapping(model);
             Dictionary<DB.ElementId, string> framePropertiesMap = CreateFramePropertiesMapping(model);
 
             // Get ordered list of levels
             List<DB.Level> orderedLevels = GetOrderedLevels();
 
-            int count = 0;
+            // Create a dictionary to quickly look up levels by elevation
+            Dictionary<double, DB.Level> elevationToLevelMap = new Dictionary<double, DB.Level>();
+            foreach (var level in orderedLevels)
+            {
+                elevationToLevelMap[level.Elevation] = level;
+            }
+
             foreach (var revitColumn in revitColumns)
             {
                 try
                 {
-                    var columnSegments = CreateColumnSegments(revitColumn, levelIdMap, framePropertiesMap, orderedLevels);
-                    columns.AddRange(columnSegments);
-                    count += columnSegments.Count;
+                    // Get column location
+                    DB.LocationPoint location = revitColumn.Location as DB.LocationPoint;
+                    if (location == null)
+                        continue;
+
+                    DB.XYZ point = location.Point;
+
+                    // Get frame properties ID
+                    string framePropertiesId = null;
+                    DB.ElementId typeId = revitColumn.GetTypeId();
+                    if (framePropertiesMap.ContainsKey(typeId))
+                        framePropertiesId = framePropertiesMap[typeId];
+
+                    // Get column orientation
+                    double orientation = GetColumnOrientation(revitColumn);
+
+                    // Determine if column is part of lateral system
+                    bool isLateral = IsColumnLateral(revitColumn);
+
+                    // Calculate actual top and bottom elevations including offsets
+                    double bottomElevation = GetColumnBottomElevation(revitColumn);
+                    double topElevation = GetColumnTopElevation(revitColumn);
+
+                    // Find levels that this column spans
+                    List<double> intersectingLevelElevations = FindIntersectingLevelElevations(
+                        bottomElevation, topElevation, orderedLevels);
+
+                    // Make sure we include the top elevation if it doesn't exactly match a level
+                    if (!intersectingLevelElevations.Contains(topElevation))
+                    {
+                        intersectingLevelElevations.Add(topElevation);
+                        intersectingLevelElevations.Sort();
+                    }
+
+                    // Create column segments between each intersection
+                    for (int i = 0; i < intersectingLevelElevations.Count - 1; i++)
+                    {
+                        double currentBottom = intersectingLevelElevations[i];
+                        double currentTop = intersectingLevelElevations[i + 1];
+
+                        // Find closest levels to these elevations
+                        DB.Level baseLevel = FindClosestLevel(currentBottom, orderedLevels);
+                        DB.Level topLevel = FindClosestLevel(currentTop, orderedLevels);
+
+                        if (baseLevel == null || topLevel == null || baseLevel.Id.Equals(topLevel.Id))
+                            continue;
+
+                        // Create a column segment
+                        CE.Column columnSegment = new CE.Column();
+
+                        // Set location
+                        columnSegment.StartPoint = new CG.Point2D(point.X * 12.0, point.Y * 12.0); // Convert to inches
+                        columnSegment.EndPoint = columnSegment.StartPoint; // Same as start point for simple representation
+
+                        // Set levels
+                        if (levelIdMap.ContainsKey(baseLevel.Id) && levelIdMap.ContainsKey(topLevel.Id))
+                        {
+                            columnSegment.BaseLevelId = levelIdMap[baseLevel.Id];
+                            columnSegment.TopLevelId = levelIdMap[topLevel.Id];
+                        }
+                        else
+                        {
+                            continue; // Skip if level mapping not found
+                        }
+
+                        // Set properties
+                        columnSegment.FramePropertiesId = framePropertiesId;
+                        columnSegment.Orientation = orientation;
+                        columnSegment.IsLateral = isLateral;
+
+                        columns.Add(columnSegment);
+                        count++;
+
+                        Debug.WriteLine($"Added column segment from {baseLevel.Name} to {topLevel.Name}");
+                    }
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"ColumnExport: Error processing column {revitColumn.Id}: {ex.Message}");
+                    Debug.WriteLine($"Error exporting column: {ex.Message}");
                 }
             }
 
-            Debug.WriteLine($"ColumnExport: Created {count} column segments");
             return count;
-        }
-
-        private List<CE.Column> CreateColumnSegments(DB.FamilyInstance revitColumn,
-            Dictionary<DB.ElementId, string> levelIdMap,
-            Dictionary<DB.ElementId, string> framePropertiesMap,
-            List<DB.Level> orderedLevels)
-        {
-            var segments = new List<CE.Column>();
-
-            // Get column location
-            DB.LocationPoint location = revitColumn.Location as DB.LocationPoint;
-            if (location == null) return segments;
-
-            DB.XYZ point = location.Point;
-
-            // Calculate actual top and bottom elevations including offsets
-            double bottomElevation = GetColumnBottomElevation(revitColumn);
-            double topElevation = GetColumnTopElevation(revitColumn);
-
-            // Find levels that this column spans
-            List<double> intersectingLevelElevations = FindIntersectingLevelElevations(
-                bottomElevation, topElevation, orderedLevels);
-
-            // Make sure we include the top elevation if it doesn't exactly match a level
-            if (!intersectingLevelElevations.Contains(topElevation))
-            {
-                intersectingLevelElevations.Add(topElevation);
-                intersectingLevelElevations.Sort();
-            }
-
-            // Create column segments between each intersection
-            for (int i = 0; i < intersectingLevelElevations.Count - 1; i++)
-            {
-                double currentBottom = intersectingLevelElevations[i];
-                double currentTop = intersectingLevelElevations[i + 1];
-
-                // Find closest levels to these elevations
-                DB.Level baseLevel = FindClosestLevel(currentBottom, orderedLevels);
-                DB.Level topLevel = FindClosestLevel(currentTop, orderedLevels);
-
-                if (baseLevel == null || topLevel == null || baseLevel.Id.Equals(topLevel.Id))
-                    continue;
-
-                // Create a column segment
-                CE.Column columnSegment = new CE.Column();
-
-                // Set location
-                columnSegment.StartPoint = new CG.Point2D(point.X * 12.0, point.Y * 12.0); // Convert to inches
-                columnSegment.EndPoint = columnSegment.StartPoint; // Same as start point for simple representation
-
-                // Set levels
-                if (levelIdMap.ContainsKey(baseLevel.Id) && levelIdMap.ContainsKey(topLevel.Id))
-                {
-                    columnSegment.BaseLevelId = levelIdMap[baseLevel.Id];
-                    columnSegment.TopLevelId = levelIdMap[topLevel.Id];
-                }
-                else
-                {
-                    continue; // Skip if level mapping not found
-                }
-
-                // Set frame properties
-                DB.ElementId typeId = revitColumn.GetTypeId();
-                if (framePropertiesMap.ContainsKey(typeId))
-                {
-                    columnSegment.FramePropertiesId = framePropertiesMap[typeId];
-                }
-
-                // Set other properties
-                columnSegment.Orientation = GetColumnOrientation(revitColumn);
-                columnSegment.IsLateral = IsColumnLateral(revitColumn);
-
-                segments.Add(columnSegment);
-                Debug.WriteLine($"ColumnExport: Added segment from {baseLevel.Name} to {topLevel.Name}");
-            }
-
-            return segments;
         }
 
         private List<double> FindIntersectingLevelElevations(double bottomElevation, double topElevation, List<DB.Level> levels)
         {
             List<double> intersections = new List<double>
-            {
-                bottomElevation // Always include bottom elevation
-            };
+    {
+        bottomElevation // Always include bottom elevation
+    };
 
             // Find all levels that intersect with the column
             foreach (var level in levels)
@@ -178,6 +176,7 @@ namespace Revit.Export.Elements
             return closestLevel;
         }
 
+
         private List<DB.Level> GetOrderedLevels()
         {
             // Get all levels and order them by elevation
@@ -186,6 +185,33 @@ namespace Revit.Export.Elements
                 .Cast<DB.Level>()
                 .OrderBy(l => l.Elevation)
                 .ToList();
+        }
+
+        private List<DB.Level> FindSpanningLevels(DB.Level baseLevel, DB.Level topLevel, List<DB.Level> orderedLevels)
+        {
+            // Find all levels between baseLevel and topLevel (inclusive)
+            List<DB.Level> spanningLevels = new List<DB.Level>();
+            bool inRange = false;
+
+            foreach (var level in orderedLevels)
+            {
+                if (level.Id == baseLevel.Id)
+                {
+                    inRange = true;
+                    spanningLevels.Add(level);
+                }
+                else if (level.Id == topLevel.Id)
+                {
+                    spanningLevels.Add(level);
+                    break;
+                }
+                else if (inRange)
+                {
+                    spanningLevels.Add(level);
+                }
+            }
+
+            return spanningLevels;
         }
 
         private double GetColumnBottomElevation(DB.FamilyInstance column)
@@ -242,6 +268,139 @@ namespace Revit.Export.Elements
             return topLevel.Elevation + topOffset;
         }
 
+        private CE.Column CreateColumnObject(DB.FamilyInstance revitColumn, DB.XYZ point, string framePropertiesId,
+            Dictionary<DB.ElementId, string> levelIdMap, DB.Level baseLevel, DB.Level topLevel)
+        {
+            // Create a column object for the specified levels
+            CE.Column column = new CE.Column();
+
+            // Set column location
+            column.StartPoint = new CG.Point2D(point.X * 12.0, point.Y * 12.0); // Convert to inches
+            column.EndPoint = column.StartPoint; // Same as start point for simple representation
+
+            // Set base and top levels using mapping
+            if (levelIdMap.ContainsKey(baseLevel.Id) && levelIdMap.ContainsKey(topLevel.Id))
+            {
+                column.BaseLevelId = levelIdMap[baseLevel.Id];
+                column.TopLevelId = levelIdMap[topLevel.Id];
+            }
+            else
+            {
+                return null; // Skip if level mapping not found
+            }
+
+            // Set column properties
+            column.FramePropertiesId = framePropertiesId;
+
+            // Try to get orientation parameter
+            try
+            {
+                double orientation = GetColumnOrientation(revitColumn);
+                column.Orientation = orientation;
+            }
+            catch { }
+
+            // Determine if column is part of lateral system
+            column.IsLateral = IsColumnLateral(revitColumn);
+
+            return column;
+        }
+
+        private bool IsColumnLateral(DB.FamilyInstance column)
+        {
+            // Try to determine if column is part of lateral system
+            try
+            {
+                // Check if column is part of a braced bay or moment frame (approximation)
+                // Get column bounding box
+                DB.BoundingBoxXYZ bbox = column.get_BoundingBox(null);
+                if (bbox != null)
+                {
+                    DB.XYZ center = (bbox.Min + bbox.Max) / 2.0;
+
+                    // Find braces near this column
+                    DB.FilteredElementCollector braceCollector = new DB.FilteredElementCollector(_doc);
+                    IList<DB.FamilyInstance> braces = braceCollector.OfClass(typeof(DB.FamilyInstance))
+                        .OfCategory(DB.BuiltInCategory.OST_StructuralFraming)
+                        .Cast<DB.FamilyInstance>()
+                        .Where(f => f.StructuralType == DB.Structure.StructuralType.Brace)
+                        .ToList();
+
+                    // Check if any brace is near this column
+                    foreach (var brace in braces)
+                    {
+                        DB.BoundingBoxXYZ braceBbox = brace.get_BoundingBox(null);
+                        if (braceBbox != null)
+                        {
+                            DB.XYZ braceCenter = (braceBbox.Min + braceBbox.Max) / 2.0;
+                            double distance = braceCenter.DistanceTo(center);
+                            if (distance < 10.0) // 10 feet threshold
+                                return true;
+                        }
+                    }
+
+                    // Find beams with moment connections near this column
+                    DB.FilteredElementCollector beamCollector = new DB.FilteredElementCollector(_doc);
+                    IList<DB.FamilyInstance> beams = beamCollector.OfClass(typeof(DB.FamilyInstance))
+                        .OfCategory(DB.BuiltInCategory.OST_StructuralFraming)
+                        .Cast<DB.FamilyInstance>()
+                        .Where(f => f.StructuralType == DB.Structure.StructuralType.Beam)
+                        .ToList();
+
+                    // Check if any beam with moment connection is near this column
+                    foreach (var beam in beams)
+                    {
+                        // Check if beam has moment connection
+                        bool hasMomentConnection = false;
+
+                        DB.Parameter startConnectionParam = beam.get_Parameter(DB.BuiltInParameter.STRUCT_CONNECTION_BEAM_START);
+                        if (startConnectionParam != null &&
+                            startConnectionParam.HasValue &&
+                            startConnectionParam.AsValueString().Equals("Moment Connection", StringComparison.OrdinalIgnoreCase))
+                        {
+                            hasMomentConnection = true;
+                        }
+
+                        DB.Parameter endConnectionParam = beam.get_Parameter(DB.BuiltInParameter.STRUCT_CONNECTION_BEAM_END);
+                        if (endConnectionParam != null &&
+                            endConnectionParam.HasValue &&
+                            endConnectionParam.AsValueString().Equals("Moment Connection", StringComparison.OrdinalIgnoreCase))
+                        {
+                            hasMomentConnection = true;
+                        }
+
+                        if (hasMomentConnection)
+                        {
+                            DB.BoundingBoxXYZ beamBbox = beam.get_BoundingBox(null);
+                            if (beamBbox != null)
+                            {
+                                DB.XYZ beamCenter = (beamBbox.Min + beamBbox.Max) / 2.0;
+                                double distance = beamCenter.DistanceTo(center);
+                                if (distance < 10.0) // 10 feet threshold
+                                    return true;
+                            }
+                        }
+                    }
+                }
+
+                // Check family/type naming conventions for lateral indicators
+                string familyName = column.Symbol.FamilyName.ToUpper();
+                string typeName = column.Symbol.Name.ToUpper();
+
+                return familyName.Contains("MOMENT") ||
+                       familyName.Contains("LATERAL") ||
+                       typeName.Contains("MOMENT") ||
+                       typeName.Contains("LATERAL");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error determining if column is lateral: {ex.Message}");
+                // Default to false if any error occurs
+            }
+
+            return false;
+        }
+
         private double GetColumnOrientation(DB.FamilyInstance column)
         {
             // Get the hand orientation vector
@@ -269,26 +428,6 @@ namespace Revit.Export.Elements
             angleDeg = angleDeg % 180.0;
 
             return angleDeg;
-        }
-
-        private bool IsColumnLateral(DB.FamilyInstance column)
-        {
-            try
-            {
-                // Check family/type naming conventions for lateral indicators
-                string familyName = column.Symbol.FamilyName.ToUpper();
-                string typeName = column.Symbol.Name.ToUpper();
-
-                return familyName.Contains("MOMENT") ||
-                       familyName.Contains("LATERAL") ||
-                       typeName.Contains("MOMENT") ||
-                       typeName.Contains("LATERAL");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error determining if column is lateral: {ex.Message}");
-                return false;
-            }
         }
 
         private Dictionary<DB.ElementId, string> CreateLevelMapping(BaseModel model)

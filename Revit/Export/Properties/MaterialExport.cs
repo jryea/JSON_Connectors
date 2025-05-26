@@ -8,7 +8,6 @@ using Core.Models;
 
 namespace Revit.Export.Properties
 {
-    // Exports material properties from Revit structural elements
     public class MaterialExport
     {
         private readonly DB.Document _doc;
@@ -18,8 +17,6 @@ namespace Revit.Export.Properties
             _doc = doc;
         }
 
-        // Exports materials used by structural elements to the provided collection
-    
         public int Export(List<Material> materials, Dictionary<string, bool> materialFilters = null)
         {
             int count = 0;
@@ -44,11 +41,14 @@ namespace Revit.Export.Properties
             // Track if we've already added steel and concrete materials
             bool hasSteel = false;
             bool hasConcrete = false;
+            string steelMaterialId = string.Empty;
+            string concreteMaterialId = string.Empty;
 
-            // Apply material filters if provided
+            // Get filter settings
             bool exportSteel = true;
             bool exportConcrete = true;
 
+            // Apply material filters if provided
             if (materialFilters != null)
             {
                 if (materialFilters.TryGetValue("Steel", out bool steelEnabled))
@@ -90,11 +90,17 @@ namespace Revit.Export.Properties
                     materials.Add(material);
                     count++;
 
-                    // Mark this material type as added
+                    // Mark this material type as added and store its ID
                     if (materialType == MaterialType.Steel)
+                    {
                         hasSteel = true;
+                        steelMaterialId = material.Id;
+                    }
                     else if (materialType == MaterialType.Concrete)
+                    {
                         hasConcrete = true;
+                        concreteMaterialId = material.Id;
+                    }
 
                     Debug.WriteLine($"Exported material: {material.Name}, Type: {material.Type}, ID: {material.Id}");
                 }
@@ -126,7 +132,6 @@ namespace Revit.Export.Properties
             return count;
         }
 
-        // Collects material IDs from elements in the specified category
         private void CollectMaterialsFromCategory(DB.BuiltInCategory category, HashSet<DB.ElementId> materialIds)
         {
             var collector = new DB.FilteredElementCollector(_doc);
@@ -152,7 +157,6 @@ namespace Revit.Export.Properties
             }
         }
 
-        // Collects material IDs from structural walls specifically
         private void CollectMaterialsFromStructuralWalls(HashSet<DB.ElementId> materialIds)
         {
             var collector = new DB.FilteredElementCollector(_doc);
@@ -185,7 +189,6 @@ namespace Revit.Export.Properties
             }
         }
 
-        // Gets the material ID from an element, trying multiple approaches
         private DB.ElementId GetElementMaterialId(DB.Element element)
         {
             // First try to get structural material parameter
@@ -258,47 +261,42 @@ namespace Revit.Export.Properties
             return DB.ElementId.InvalidElementId;
         }
 
-        /// <summary>
-        /// Determines whether a Revit material is steel or concrete for structural purposes
-        /// </summary>
         private MaterialType DetermineStructuralMaterialType(DB.Material revitMaterial)
         {
+            // Default to Steel
+            MaterialType materialType = MaterialType.Steel;
+
             // Try to determine material type from name first
             string matName = revitMaterial.Name.ToUpper();
 
             if (matName.Contains("CONCRETE") || matName.Contains("CONC") ||
                 matName.Contains("CON"))
             {
-                return MaterialType.Concrete;
+                materialType = MaterialType.Concrete;
             }
-            else if (matName.Contains("STEEL") || matName.Contains("METAL") ||
-                    matName.Contains("A992") || matName.Contains("A36"))
+            else
             {
-                return MaterialType.Steel;
+                materialType = MaterialType.Steel;
             }
 
             // If not found by name, try by material class
-            if (!string.IsNullOrEmpty(revitMaterial.MaterialClass))
+            if (materialType == MaterialType.Steel && !string.IsNullOrEmpty(revitMaterial.MaterialClass))
             {
                 string matClass = revitMaterial.MaterialClass.ToUpper();
 
                 if (matClass.Contains("CONCRETE"))
                 {
-                    return MaterialType.Concrete;
+                    materialType = MaterialType.Concrete;
                 }
-                else if (matClass.Contains("METAL"))
+                else
                 {
-                    return MaterialType.Steel;
+                    materialType = MaterialType.Steel;
                 }
             }
 
-            // Default to Steel if nothing else matches
-            return MaterialType.Steel;
+            return materialType;
         }
 
-        /// <summary>
-        /// Populates material properties from Revit material data
-        /// </summary>
         private void PopulateMaterialProperties(Material material, DB.Material revitMaterial)
         {
             try
@@ -367,9 +365,6 @@ namespace Revit.Export.Properties
             }
         }
 
-        /// <summary>
-        /// Sets default properties for concrete materials
-        /// </summary>
         private void PopulateDefaultConcreteProperties(Material material)
         {
             material.ElasticModulus = 3600000.0; // psi
@@ -384,9 +379,6 @@ namespace Revit.Export.Properties
             };
         }
 
-        /// <summary>
-        /// Sets default properties for steel materials
-        /// </summary>
         private void PopulateDefaultSteelProperties(Material material)
         {
             material.ElasticModulus = 29000000.0; // psi
@@ -401,9 +393,6 @@ namespace Revit.Export.Properties
             };
         }
 
-        /// <summary>
-        /// Attempts to get a double property value from a Revit material
-        /// </summary>
         private double? GetMaterialDoubleProperty(DB.Material material, string propertyName)
         {
             try

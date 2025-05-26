@@ -184,7 +184,6 @@
     <Compile Include="Export\StructuralModelBuilder.cs" />
     <Compile Include="Export\StructuralModelExportCommand.cs" />
     <Compile Include="Export\StructuralModelExporter.cs" />
-    <Compile Include="Export\UnifiedExporter.cs" />
     <Compile Include="Import\Elements\BeamImport.cs" />
     <Compile Include="Import\Elements\BraceImport.cs" />
     <Compile Include="Import\Elements\ColumnImport.cs" />

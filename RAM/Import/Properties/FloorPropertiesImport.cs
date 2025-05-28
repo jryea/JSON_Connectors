@@ -144,7 +144,7 @@ namespace RAM.Import.Properties
                         // Create the composite deck property in RAM
                         ICompDeckProp compDeckProp = compDeckProps.Add2(
                             floorProp.Name ?? $"CompDeck {toppingThickness}\"",
-                            deckType,
+                            "Vulcraft 2VL" ,
                             toppingThickness,
                             studLength);
 

@@ -1,6 +1,7 @@
 ﻿using Core.Models.Geometry;
 using Core.Utilities;
 using System;
+using System.Diagnostics;
 using static Core.Models.Properties.Modifiers;
 
 namespace Core.Models.Elements
@@ -53,6 +54,11 @@ namespace Core.Models.Elements
         // ITransformable implementation
         public void Rotate(double angleDegrees, Point2D center)
         {
+            Debug.WriteLine($"Column {Id}: Rotating {angleDegrees}° around ({center.X:F2}, {center.Y:F2})");
+            Debug.WriteLine($"  Before: ({StartPoint.X:F2}, {StartPoint.Y:F2})");
+            StartPoint?.Rotate(angleDegrees, center);
+            EndPoint?.Rotate(angleDegrees, center);
+            Debug.WriteLine($"  After: ({StartPoint.X:F2}, {StartPoint.Y:F2})");
             StartPoint?.Rotate(angleDegrees, center);
             EndPoint?.Rotate(angleDegrees, center);
 

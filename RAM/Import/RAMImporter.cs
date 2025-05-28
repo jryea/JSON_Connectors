@@ -49,6 +49,8 @@ namespace RAM
         // Converts a JSON string to a RAM model
         public (bool Success, string Message) ConvertJSONStringToRAM(string jsonString, string ramFilePath)
         {
+            Dictionary<string, int> floorPropertyMappings = new Dictionary<string, int>();
+
             try
             {
                 Console.WriteLine("Starting JSON to RAM conversion");
@@ -210,7 +212,7 @@ namespace RAM
                                 modelManager.Model,
                                 _materialProvider,
                                 lengthUnit);
-                            var floorPropertyMappings = floorPropertiesImporter.Import(model.Properties.FloorProperties);
+                            floorPropertyMappings = floorPropertiesImporter.Import(model.Properties.FloorProperties);
                             Console.WriteLine($"Imported {floorPropertyMappings.Count} floor property mappings");
                         }
 
@@ -303,6 +305,19 @@ namespace RAM
                                     detailedLevelToFloorTypeMap,
                                     model.Properties.WallProperties);
                                 Console.WriteLine($"Imported {wallCount} walls");
+                            }
+
+                            // Import floors
+                            Console.WriteLine("Importing floors");
+                            if (model.Elements.Floors != null && model.Elements.Floors.Count > 0)
+                            {
+                                var floorImporter = new FloorImport(modelManager.Model, _materialProvider, lengthUnit);
+                                int floorCount = floorImporter.Import(
+                                    model.Elements.Floors,
+                                    validLevels,
+                                    detailedLevelToFloorTypeMap,
+                                    floorPropertyMappings); 
+                                Console.WriteLine($"Imported {floorCount} floors");
                             }
 
                             // Import isolated footings

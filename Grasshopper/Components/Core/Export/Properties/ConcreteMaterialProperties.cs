@@ -10,7 +10,7 @@ namespace Grasshopper.Components.Core.Export.Properties
     public class ConcretePropertiesComponent : ComponentBase
     {
         public ConcretePropertiesComponent()
-          : base("Concrete Properties", "ConcProps",
+          : base("Concrete Material Properties", "ConcMatProps",
               "Creates concrete-specific material properties",
               "IMEG", "Properties")
         {

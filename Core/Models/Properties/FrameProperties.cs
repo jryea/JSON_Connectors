@@ -52,6 +52,10 @@ namespace Core.Models.Properties
 
         public string SectionName { get; set; }
 
+        public double Depth = 12.0;
+
+        public double Width = 12.0; 
+
         public Dictionary<string, string> Dimensions = new Dictionary<string, string>();
     }
     

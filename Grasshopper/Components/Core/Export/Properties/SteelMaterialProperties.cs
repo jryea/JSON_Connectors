@@ -9,7 +9,7 @@ namespace Grasshopper.Components.Core.Export.Properties
     public class SteelPropertiesComponent : ComponentBase
     {
         public SteelPropertiesComponent()
-          : base("Steel Properties", "SteelProps",
+          : base("Steel Material Properties", "SteelProps",
               "Creates steel-specific material properties",
               "IMEG", "Properties")
         {

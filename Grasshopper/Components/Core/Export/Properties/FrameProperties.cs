@@ -26,14 +26,15 @@ namespace Grasshopper.Components.Core.Export.Properties
             pManager.AddTextParameter("Name", "N", "Name for the frame property", GH_ParamAccess.item);
             pManager.AddGenericParameter("Material", "M", "Material for the frame property", GH_ParamAccess.item);
             pManager.AddTextParameter("Type", "T", "Material type ('Steel' or 'Concrete')", GH_ParamAccess.item, "Steel");
-            pManager.AddTextParameter("Section Type", "ST", "Section type (W, HSS, PIPE for Steel; Rectangular, Circular for Concrete)", GH_ParamAccess.item);
-            pManager.AddTextParameter("Section Name", "SN", "Section name (optional)", GH_ParamAccess.item);
+            pManager.AddGenericParameter("Concrete Frame Props", "CFP", "Concrete frame properties (for concrete sections)", GH_ParamAccess.item);
+            pManager.AddGenericParameter("Steel Frame Props", "SFP", "Steel frame properties (for steel sections)", GH_ParamAccess.item);
             pManager.AddGenericParameter("ETABS Modifiers", "EM", "ETABS-specific frame modifiers", GH_ParamAccess.item);
 
             // Make some parameters optional
-            pManager[2].Optional = true;
-            pManager[4].Optional = true;
-            pManager[5].Optional = true;
+            pManager[2].Optional = true;  // Type
+            pManager[3].Optional = true;  // Concrete Frame Props
+            pManager[4].Optional = true;  // Steel Frame Props
+            pManager[5].Optional = true;  // ETABS Modifiers
         }
 
         // Registers all the output parameters for this component.
@@ -49,15 +50,15 @@ namespace Grasshopper.Components.Core.Export.Properties
             string name = string.Empty;
             Material material = null;
             string typeName = "Steel";
-            string sectionTypeName = string.Empty;
-            string sectionName = string.Empty;
+            object concretePropsObj = null;
+            object steelPropsObj = null;
             object etabsModObj = null;
 
             if (!DA.GetData(0, ref name)) return;
             if (!DA.GetData(1, ref material)) return;
             DA.GetData(2, ref typeName);
-            if (!DA.GetData(3, ref sectionTypeName)) return;
-            DA.GetData(4, ref sectionName);
+            DA.GetData(3, ref concretePropsObj);
+            DA.GetData(4, ref steelPropsObj);
             DA.GetData(5, ref etabsModObj);
 
             // Basic validation
@@ -88,73 +89,54 @@ namespace Grasshopper.Components.Core.Export.Properties
                 FrameProperties frameProperty = new FrameProperties(name, material.Id, materialType);
 
                 // Extract ETABS modifiers if provided
-                ETABSFrameModifiers etabsModifiers = null;
-                if (etabsModObj != null)
-                {
-                    if (etabsModObj is ETABSFrameModifiers directMods)
-                    {
-                        etabsModifiers = directMods;
-                    }
-                    else if (etabsModObj is GH_ETABSFrameModifiers ghMods)
-                    {
-                        etabsModifiers = ghMods.Value;
-                    }
-                    else if (etabsModObj is GH_Types.IGH_Goo goo && goo.CastTo<ETABSFrameModifiers>(out var castedMods))
-                    {
-                        etabsModifiers = castedMods;
-                    }
-                }
-
-                // Apply ETABS modifiers if provided
+                ETABSFrameModifiers etabsModifiers = ExtractObject<ETABSFrameModifiers>(etabsModObj, "ETABSFrameModifiers");
                 if (etabsModifiers != null)
                 {
                     frameProperty.ETABSModifiers = etabsModifiers;
                 }
 
-                // Set section properties based on material type
+                // Set section properties based on material type and provided inputs
                 if (materialType == FrameMaterialType.Steel)
                 {
-                    frameProperty.SteelProps = new SteelFrameProperties();
+                    SteelFrameProperties steelProps = ExtractObject<SteelFrameProperties>(steelPropsObj, "SteelFrameProperties");
 
-                    // Parse steel section type
-                    SteelSectionType sectionType;
-                    if (!Enum.TryParse(sectionTypeName, true, out sectionType))
+                    if (steelProps != null)
                     {
-                        AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
-                            $"Unknown steel section type: {sectionTypeName}, defaulting to W");
-                        sectionType = SteelSectionType.W;
+                        frameProperty.SteelProps = steelProps;
                     }
-
-                    frameProperty.SteelProps.SectionType = sectionType;
-                    frameProperty.SteelProps.SectionName = string.IsNullOrEmpty(sectionName) ?
-                        $"{sectionType}12X26" : sectionName; // Default section name if not provided
+                    else
+                    {
+                        // Create default steel properties if none provided
+                        frameProperty.SteelProps = new SteelFrameProperties
+                        {
+                            SectionType = SteelSectionType.W,
+                            SectionName = "W12X26"
+                        };
+                        AddRuntimeMessage(GH_RuntimeMessageLevel.Remark,
+                            "No steel frame properties provided, using defaults (W12X26)");
+                    }
                 }
                 else // Concrete
                 {
-                    frameProperty.ConcreteProps = new ConcreteFrameProperties();
+                    ConcreteFrameProperties concreteProps = ExtractObject<ConcreteFrameProperties>(concretePropsObj, "ConcreteFrameProperties");
 
-                    // Parse concrete section type
-                    ConcreteSectionType sectionType;
-                    if (!Enum.TryParse(sectionTypeName, true, out sectionType))
+                    if (concreteProps != null)
                     {
-                        AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
-                            $"Unknown concrete section type: {sectionTypeName}, defaulting to Rectangular");
-                        sectionType = ConcreteSectionType.Rectangular;
+                        frameProperty.ConcreteProps = concreteProps;
                     }
-
-                    frameProperty.ConcreteProps.SectionType = sectionType;
-                    frameProperty.ConcreteProps.SectionName = string.IsNullOrEmpty(sectionName) ?
-                        "12x12" : sectionName; // Default section name if not provided
-
-                    // Add default dimensions for concrete sections
-                    if (sectionType == ConcreteSectionType.Rectangular)
+                    else
                     {
+                        // Create default concrete properties if none provided
+                        frameProperty.ConcreteProps = new ConcreteFrameProperties
+                        {
+                            SectionType = ConcreteSectionType.Rectangular,
+                            SectionName = "12x12"
+                        };
                         frameProperty.ConcreteProps.Dimensions["width"] = "12";
                         frameProperty.ConcreteProps.Dimensions["depth"] = "12";
-                    }
-                    else if (sectionType == ConcreteSectionType.Circular)
-                    {
-                        frameProperty.ConcreteProps.Dimensions["diameter"] = "18";
+
+                        AddRuntimeMessage(GH_RuntimeMessageLevel.Remark,
+                            "No concrete frame properties provided, using defaults (12x12 rectangular)");
                     }
                 }
 
@@ -165,6 +147,29 @@ namespace Grasshopper.Components.Core.Export.Properties
             {
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Error, ex.Message);
             }
+        }
+
+        private T ExtractObject<T>(object obj, string typeName) where T : class
+        {
+            if (obj == null) return null;
+
+            // Direct type check
+            if (obj is T directType)
+                return directType;
+
+            // Using GooWrapper
+            if (obj is GH_ModelGoo<T> ghType)
+                return ghType.Value;
+
+            // Handle IGH_Goo objects that can be cast
+            if (obj is GH_Types.IGH_Goo goo && goo.CastTo<T>(out var castObj))
+            {
+                return castObj;
+            }
+
+            AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
+                $"Could not extract {typeName} from input of type {obj?.GetType().Name ?? "null"}");
+            return null;
         }
 
         // Gets the unique ID for this component. Do not change this ID after release.

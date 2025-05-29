@@ -19,7 +19,7 @@ namespace Grasshopper.Utilities
 
         public override bool IsValid => Value != null;
         public override string TypeName => $"{typeof(T).Name}";
-        public override string TypeDescription => $"JSON Connectors {typeof(T).Name}";
+        public override string TypeDescription => $"JSON Connecvvtors {typeof(T).Name}";
 
         public override IGH_Goo Duplicate() => (IGH_Goo)Activator.CreateInstance(GetType(), Value);
         public override string ToString() => Value?.ToString() ?? "Null";
@@ -341,6 +341,33 @@ namespace Grasshopper.Utilities
         }
     }
 
+    public class GH_ConcreteFrameProperties : GH_ModelGoo<ConcreteFrameProperties>
+    {
+        public GH_ConcreteFrameProperties() { }
+        public GH_ConcreteFrameProperties(ConcreteFrameProperties props) : base(props) { }
+
+        public override IGH_Goo Duplicate() => new GH_ConcreteFrameProperties(Value);
+
+        public override string ToString()
+        {
+            if (Value == null) return "Null ConcreteFrameProperties";
+            return $"ConcreteFrameProps: {Value.SectionType}, {Value.SectionName}";
+        }
+    }
+
+    public class GH_SteelFrameProperties : GH_ModelGoo<SteelFrameProperties>
+    {
+        public GH_SteelFrameProperties() { }
+        public GH_SteelFrameProperties(SteelFrameProperties props) : base(props) { }
+
+        public override IGH_Goo Duplicate() => new GH_SteelFrameProperties(Value);
+
+        public override string ToString()
+        {
+            if (Value == null) return "Null SteelFrameProperties";
+            return $"SteelFrameProps: {Value.SectionType}, {Value.SectionName}";
+        }
+    }
 
     public class GH_PropertiesContainer : GH_ModelGoo<PropertiesContainer>
     {

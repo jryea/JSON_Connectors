@@ -103,6 +103,10 @@ namespace ModelDebugger
 
             // Analyze Braces and their relationships
             AnalyzeBraces(model);
+
+            AnalyzeWalls(model);
+
+            AnalyzeFloors(model);
         }
 
         static void AnalyzeFloorTypes(BaseModel model)
@@ -428,6 +432,221 @@ namespace ModelDebugger
                     }
 
                     Console.WriteLine($"    Brace ID: {brace.Id} - Props: {brace.FramePropertiesId} - Base Level: {baseLevelName} - Coords: {coords}");
+                }
+                Console.WriteLine();
+            }
+        }
+
+        static void AnalyzeWalls(BaseModel model)
+        {
+            var walls = model.Elements?.Walls;
+            var levels = model.ModelLayout?.Levels;
+            var floorTypes = model.ModelLayout?.FloorTypes;
+            var wallProperties = model.Properties?.WallProperties;
+
+            Console.WriteLine("=== WALLS ===");
+            if (walls == null || walls.Count == 0)
+            {
+                Console.WriteLine("No walls found");
+                return;
+            }
+
+            // Create a lookup for levels by ID
+            Dictionary<string, Level> levelsById = new Dictionary<string, Level>();
+            if (levels != null)
+            {
+                foreach (var level in levels)
+                {
+                    levelsById[level.Id] = level;
+                }
+            }
+
+            // Create a lookup for floor types by ID
+            Dictionary<string, string> floorTypeNames = new Dictionary<string, string>();
+            if (floorTypes != null)
+            {
+                foreach (var floorType in floorTypes)
+                {
+                    floorTypeNames[floorType.Id] = floorType.Name;
+                }
+            }
+
+            // Create a lookup for wall properties by ID
+            Dictionary<string, string> wallPropsNames = new Dictionary<string, string>();
+            if (wallProperties != null)
+            {
+                foreach (var prop in wallProperties)
+                {
+                    wallPropsNames[prop.Id] = $"{prop.Name} ({prop.Thickness}\")";
+                }
+            }
+
+            // Group walls by top level
+            var wallsByLevel = walls.GroupBy(w => w.TopLevelId).ToList();
+
+            Console.WriteLine($"Found {walls.Count} walls across {wallsByLevel.Count} levels:");
+            Console.WriteLine();
+
+            foreach (var group in wallsByLevel.OrderBy(g =>
+                levelsById.ContainsKey(g.Key) ? levelsById[g.Key].Elevation : double.MaxValue))
+            {
+                string levelName = "Unknown Level";
+                string floorTypeInfo = "Unknown";
+
+                if (levelsById.ContainsKey(group.Key))
+                {
+                    var level = levelsById[group.Key];
+                    levelName = level.Name;
+                    string floorTypeId = level.FloorTypeId ?? "N/A";
+
+                    if (!string.IsNullOrEmpty(floorTypeId) && floorTypeNames.ContainsKey(floorTypeId))
+                    {
+                        floorTypeInfo = $"{floorTypeNames[floorTypeId]} (ID: {floorTypeId})";
+                    }
+                    else
+                    {
+                        floorTypeInfo = floorTypeId;
+                    }
+                }
+
+                Console.WriteLine($"Top Level: {levelName} (ID: {group.Key}) - Floor Type: {floorTypeInfo}");
+                Console.WriteLine($"  Walls: {group.Count()}");
+
+                // Sample a few walls for inspection
+                int sampleSize = Math.Min(3, group.Count());
+                Console.WriteLine($"  Sample of {sampleSize} walls:");
+
+                foreach (var wall in group.Take(sampleSize))
+                {
+                    string coords = "N/A";
+                    if (wall.Points != null && wall.Points.Count >= 2)
+                    {
+                        var firstPoint = wall.Points[0];
+                        var lastPoint = wall.Points[wall.Points.Count - 1];
+                        coords = $"({firstPoint.X:F1},{firstPoint.Y:F1}) to ({lastPoint.X:F1},{lastPoint.Y:F1})";
+                        if (wall.Points.Count > 2)
+                        {
+                            coords += $" ({wall.Points.Count} points)";
+                        }
+                    }
+
+                    string baseLevelName = "N/A";
+                    if (!string.IsNullOrEmpty(wall.BaseLevelId) && levelsById.ContainsKey(wall.BaseLevelId))
+                    {
+                        baseLevelName = levelsById[wall.BaseLevelId].Name;
+                    }
+
+                    string wallPropsInfo = "N/A";
+                    if (!string.IsNullOrEmpty(wall.PropertiesId) && wallPropsNames.ContainsKey(wall.PropertiesId))
+                    {
+                        wallPropsInfo = wallPropsNames[wall.PropertiesId];
+                    }
+
+                    Console.WriteLine($"    Wall ID: {wall.Id} - Props: {wallPropsInfo} - Base Level: {baseLevelName} - Coords: {coords}");
+                }
+                Console.WriteLine();
+            }
+        }
+
+        static void AnalyzeFloors(BaseModel model)
+        {
+            var floors = model.Elements?.Floors;
+            var levels = model.ModelLayout?.Levels;
+            var floorTypes = model.ModelLayout?.FloorTypes;
+            var floorProperties = model.Properties?.FloorProperties;
+
+            Console.WriteLine("=== FLOORS ===");
+            if (floors == null || floors.Count == 0)
+            {
+                Console.WriteLine("No floors found");
+                return;
+            }
+
+            // Create a lookup for levels by ID
+            Dictionary<string, Level> levelsById = new Dictionary<string, Level>();
+            if (levels != null)
+            {
+                foreach (var level in levels)
+                {
+                    levelsById[level.Id] = level;
+                }
+            }
+
+            // Create a lookup for floor types by ID
+            Dictionary<string, string> floorTypeNames = new Dictionary<string, string>();
+            if (floorTypes != null)
+            {
+                foreach (var floorType in floorTypes)
+                {
+                    floorTypeNames[floorType.Id] = floorType.Name;
+                }
+            }
+
+            // Create a lookup for floor properties by ID
+            Dictionary<string, string> floorPropsNames = new Dictionary<string, string>();
+            if (floorProperties != null)
+            {
+                foreach (var prop in floorProperties)
+                {
+                    floorPropsNames[prop.Id] = $"{prop.Name} ({prop.Thickness}\")";
+                }
+            }
+
+            // Group floors by level
+            var floorsByLevel = floors.GroupBy(f => f.LevelId).ToList();
+
+            Console.WriteLine($"Found {floors.Count} floors across {floorsByLevel.Count} levels:");
+            Console.WriteLine();
+
+            foreach (var group in floorsByLevel.OrderBy(g =>
+                levelsById.ContainsKey(g.Key) ? levelsById[g.Key].Elevation : double.MaxValue))
+            {
+                string levelName = "Unknown Level";
+                string floorTypeInfo = "Unknown";
+
+                if (levelsById.ContainsKey(group.Key))
+                {
+                    var level = levelsById[group.Key];
+                    levelName = level.Name;
+                    string floorTypeId = level.FloorTypeId ?? "N/A";
+
+                    if (!string.IsNullOrEmpty(floorTypeId) && floorTypeNames.ContainsKey(floorTypeId))
+                    {
+                        floorTypeInfo = $"{floorTypeNames[floorTypeId]} (ID: {floorTypeId})";
+                    }
+                    else
+                    {
+                        floorTypeInfo = floorTypeId;
+                    }
+                }
+
+                Console.WriteLine($"Level: {levelName} (ID: {group.Key}) - Floor Type: {floorTypeInfo}");
+                Console.WriteLine($"  Floors: {group.Count()}");
+
+                // Sample a few floors for inspection
+                int sampleSize = Math.Min(3, group.Count());
+                Console.WriteLine($"  Sample of {sampleSize} floors:");
+
+                foreach (var floor in group.Take(sampleSize))
+                {
+                    string coords = "N/A";
+                    if (floor.Points != null && floor.Points.Count >= 3)
+                    {
+                        var firstPoint = floor.Points[0];
+                        coords = $"Starting at ({firstPoint.X:F1},{firstPoint.Y:F1}) - {floor.Points.Count} points";
+                    }
+
+                    string floorPropsInfo = "N/A";
+                    if (!string.IsNullOrEmpty(floor.FloorPropertiesId) && floorPropsNames.ContainsKey(floor.FloorPropertiesId))
+                    {
+                        floorPropsInfo = floorPropsNames[floor.FloorPropertiesId];
+                    }
+
+                    string diaphragmInfo = string.IsNullOrEmpty(floor.DiaphragmId) ? "None" : floor.DiaphragmId;
+                    string loadInfo = string.IsNullOrEmpty(floor.SurfaceLoadId) ? "None" : floor.SurfaceLoadId;
+
+                    Console.WriteLine($"    Floor ID: {floor.Id} - Props: {floorPropsInfo}");
+                    Console.WriteLine($"           Diaphragm: {diaphragmInfo} - Load: {loadInfo} - Coords: {coords}");
                 }
                 Console.WriteLine();
             }

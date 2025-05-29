@@ -63,11 +63,29 @@ namespace Grasshopper.Components.Core.Export.Properties
                 return;
             }
 
-            if (names.Count != materialObjs.Count || names.Count != thicknesses.Count)
+            // Extend materials list to match names length
+            if (materialObjs.Count > 0 && materialObjs.Count < names.Count)
             {
-                AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
-                    $"Number of names ({names.Count}) must match number of materials ({materialObjs.Count}) " +
-                    $"and thicknesses ({thicknesses.Count})");
+                object lastMaterial = materialObjs[materialObjs.Count - 1];
+                while (materialObjs.Count < names.Count)
+                    materialObjs.Add(lastMaterial);
+            }
+            else if (materialObjs.Count == 0)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "At least one material must be provided");
+                return;
+            }
+
+            // Extend thicknesses list to match names length
+            if (thicknesses.Count > 0 && thicknesses.Count < names.Count)
+            {
+                double lastThickness = thicknesses[thicknesses.Count - 1];
+                while (thicknesses.Count < names.Count)
+                    thicknesses.Add(lastThickness);
+            }
+            else if (thicknesses.Count == 0)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "At least one thickness must be provided");
                 return;
             }
 

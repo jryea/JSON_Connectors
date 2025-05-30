@@ -873,7 +873,7 @@ namespace Revit.Import.Elements
                     }
 
                     // If beam attachment failed or no beam found, try to attach to floor above
-                    var floorToAttach = FindFloorAboveColumn(columnPoint, columnTopLevelId, allFloors);
+                    var floorToAttach = FindFloorForColumnAttachment(columnPoint, columnTopLevelId, allFloors);
 
                     if (floorToAttach != null)
                     {
@@ -1203,41 +1203,48 @@ namespace Revit.Import.Elements
             }
 
             // Find a floor for column attachment
+            // Find a floor above the column for attachment
             private Floor FindFloorForColumnAttachment(XYZ columnPoint, ElementId columnTopLevelId, List<Floor> allFloors)
             {
                 try
                 {
-                    // Filter floors at this level
-                    var floorsAtLevel = allFloors.Where(f =>
+                    // Get the column's top level
+                    var columnTopLevel = _doc.GetElement(columnTopLevelId) as Level;
+                    if (columnTopLevel == null) return null;
+
+                    // Get all levels in the document ordered by elevation
+                    var allLevels = new FilteredElementCollector(_doc)
+                        .OfClass(typeof(Level))
+                        .Cast<Level>()
+                        .OrderBy(l => l.Elevation)
+                        .ToList();
+
+                    // Find the next level above the column's top level
+                    var nextLevelAbove = allLevels
+                        .FirstOrDefault(l => l.Elevation > columnTopLevel.Elevation);
+
+                    if (nextLevelAbove == null)
+                    {
+                        Debug.WriteLine($"No level found above column top level {columnTopLevel.Name}");
+                        return null;
+                    }
+
+                    // Look for floors at the level above
+                    var floorsAtLevelAbove = allFloors.Where(f =>
                     {
                         var floorLevelId = f.LevelId;
-                        return floorLevelId.IntegerValue == columnTopLevelId.IntegerValue;
+                        return floorLevelId.IntegerValue == nextLevelAbove.Id.IntegerValue;
                     }).ToList();
 
-                    if (floorsAtLevel.Count == 0)
-                        return null;
+                    Debug.WriteLine($"Found {floorsAtLevelAbove.Count} floors at level above: {nextLevelAbove.Name}");
 
-                    // Option 1: Just use the first floor on this level (as requested in fallback)
-                    return floorsAtLevel.FirstOrDefault();
-
-                    // Option 2: Check if column is inside floor boundary
-                    // Uncomment this section if you want to implement the point-in-polygon check
-                    /*
-                    foreach (var floor in floorsAtLevel)
-                    {
-                        if (IsPointWithinFloor(columnPoint, floor))
-                        {
-                            return floor;
-                        }
-                    }
-                    */
+                    return floorsAtLevelAbove.FirstOrDefault();
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"Error finding floor for attachment: {ex.Message}");
+                    Debug.WriteLine($"Error finding floor above column: {ex.Message}");
+                    return null;
                 }
-
-                return null;
             }
 
 

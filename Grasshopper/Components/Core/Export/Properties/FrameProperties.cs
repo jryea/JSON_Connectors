@@ -126,11 +126,13 @@ namespace Grasshopper.Components.Core.Export.Properties
                     }
                     else
                     {
-                        // Create default concrete properties if none provided
+                        // Create default concrete properties with proper Width and Depth
                         frameProperty.ConcreteProps = new ConcreteFrameProperties
                         {
                             SectionType = ConcreteSectionType.Rectangular,
-                            SectionName = "12x12"
+                            SectionName = "12x12",
+                            Width = 12.0,
+                            Depth = 12.0
                         };
                         frameProperty.ConcreteProps.Dimensions["width"] = "12";
                         frameProperty.ConcreteProps.Dimensions["depth"] = "12";

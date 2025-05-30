@@ -216,8 +216,18 @@ namespace RAM
                             Console.WriteLine($"Imported {floorPropertyMappings.Count} floor property mappings");
                         }
 
-                        // Modified section of RAMImporter.cs
-                        // This replaces the relevant section in the Import method where beam, column and brace importing happens
+                        // Import concrete sections
+                        Console.WriteLine("Importing concrete sections");
+                        Dictionary<string, int> concreteSectionMappings = new Dictionary<string, int>();
+                        if (model.Properties.FrameProperties != null && model.Properties.FrameProperties.Count > 0)
+                        {
+                            var concreteSectionImporter = new ConcreteSectionImport(
+                                modelManager.Model,
+                                _materialProvider,
+                                lengthUnit);
+                            concreteSectionMappings = concreteSectionImporter.GetFramePropertyToSectionMapping(model.Properties.FrameProperties);
+                            Console.WriteLine($"Imported {concreteSectionMappings.Count} concrete section mappings");
+                        }
 
                         // Import structural elements
                         int beamCount = 0;
@@ -256,7 +266,7 @@ namespace RAM
                                 Console.WriteLine($"Imported {beamCount} beams");
                             }
 
-                            // Import columns
+                            // Import columns (modify existing code)
                             Console.WriteLine("Importing columns");
                             if (model.Elements.Columns != null && model.Elements.Columns.Count > 0)
                             {
@@ -264,6 +274,9 @@ namespace RAM
                                     modelManager.Model,
                                     _materialProvider,
                                     lengthUnit);
+
+                                // Pass the concrete section mappings to the column importer
+                                columnImporter.SetConcreteSectionMappings(concreteSectionMappings);
 
                                 columnCount = columnImporter.Import(
                                     model.Elements.Columns,

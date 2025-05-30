@@ -26,6 +26,14 @@ namespace RAM.Import.Elements
             _lengthUnit = lengthUnit;
         }
 
+        private Dictionary<string, int> _concreteSectionMappings = new Dictionary<string, int>();
+
+        public void SetConcreteSectionMappings(Dictionary<string, int> concreteSectionMappings)
+        {
+            _concreteSectionMappings = concreteSectionMappings ?? new Dictionary<string, int>();
+            Console.WriteLine($"Set {_concreteSectionMappings.Count} concrete section mappings for column import");
+        }
+
         public int Import(IEnumerable<Column> columns, IEnumerable<Level> levels,
               IEnumerable<FrameProperties> frameProperties,
               Dictionary<string, string> levelToFloorTypeMapping)

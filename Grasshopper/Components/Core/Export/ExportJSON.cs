@@ -7,6 +7,7 @@ using Core.Models.Elements;
 using Core.Models.ModelLayout;
 using Core.Models.Properties;
 using Core.Models.Metadata;
+using Core.Utilities;
 using Core.Models.Loads;
 using Core.Converters;
 using Grasshopper.Utilities;
@@ -112,6 +113,9 @@ namespace Grasshopper.Components.Core.Export
                     };
                 }
 
+                // **SHORT-TERM FIX: Process multi-story walls automatically**
+                WallStoryProcessor.ProcessWallsByStory(model);
+
                 // Generate JSON string
                 string json = JsonConverter.Serialize(model);
                 DA.SetData(0, json);
@@ -139,12 +143,12 @@ namespace Grasshopper.Components.Core.Export
                     JsonConverter.SaveToFile(model, filePath);
 
                     DA.SetData(1, true);
-                    DA.SetData(2, $"Successfully exported model to {filePath}");
+                    DA.SetData(2, $"Successfully exported model to {filePath}. Processed {model.Elements.Walls.Count} walls.");
                 }
                 else
                 {
                     DA.SetData(1, true);
-                    DA.SetData(2, "JSON generated. Set Export to True to save the file.");
+                    DA.SetData(2, $"JSON generated with {model.Elements.Walls.Count} walls. Set Export to True to save the file.");
                 }
             }
             catch (Exception ex)

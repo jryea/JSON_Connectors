@@ -71,7 +71,7 @@ namespace Revit.Import.Elements
                 return defaultType;
             }
 
-            // Try to match by name
+            // Try to match by name first
             if (!string.IsNullOrEmpty(frameProps.Name))
             {
                 string typeName = frameProps.Name.ToUpper();
@@ -84,108 +84,334 @@ namespace Revit.Import.Elements
             // Enhanced section type matching based on material type and section properties
             if (frameProps.Type == FrameMaterialType.Steel && frameProps.SteelProps != null)
             {
-                var sectionType = frameProps.SteelProps.SectionType;
-
-                // Attempt to match family by section type
-                switch (sectionType)
-                {
-                    case SteelSectionType.W:
-                        // Find Wide Flange columns
-                        var wSections = _columnTypes.Where(kvp =>
-                            kvp.Key.StartsWith("W") ||
-                            kvp.Key.Contains("WIDE") ||
-                            kvp.Key.Contains("FLANGE"))
-                            .ToList();
-
-                        if (wSections.Any())
-                            return wSections.First().Value;
-                        break;
-
-                    case SteelSectionType.HSS:
-                        // Find HSS columns
-                        var hssSections = _columnTypes.Where(kvp =>
-                            kvp.Key.Contains("HSS") ||
-                            kvp.Key.Contains("TUBE"))
-                            .ToList();
-
-                        if (hssSections.Any())
-                            return hssSections.First().Value;
-                        break;
-
-                    case SteelSectionType.PIPE:
-                        // Find Pipe columns
-                        var pipeSections = _columnTypes.Where(kvp =>
-                            kvp.Key.Contains("PIPE"))
-                            .ToList();
-
-                        if (pipeSections.Any())
-                            return pipeSections.First().Value;
-                        break;
-
-                    default:
-                        // For other section types, try to find family by section type name
-                        var typeSections = _columnTypes.Where(kvp =>
-                            kvp.Key.Contains(sectionType.ToString()))
-                            .ToList();
-
-                        if (typeSections.Any())
-                            return typeSections.First().Value;
-                        break;
-                }
-
-                // If still no match, try to find any steel column
-                var steelColumns = _columnTypes.Where(kvp =>
-                    kvp.Key.Contains("STEEL") ||
-                    kvp.Key.Contains("METAL") ||
-                    kvp.Key.StartsWith("W") ||
-                    kvp.Key.Contains("HSS"))
-                    .ToList();
-
-                if (steelColumns.Any())
-                    return steelColumns.First().Value;
+                return FindSteelColumnType(frameProps);
             }
             else if (frameProps.Type == FrameMaterialType.Concrete && frameProps.ConcreteProps != null)
             {
-                var sectionType = frameProps.ConcreteProps.SectionType;
-
-                // Attempt to match concrete column by section type
-                switch (sectionType)
-                {
-                    case ConcreteSectionType.Rectangular:
-                        var rectColumns = _columnTypes.Where(kvp =>
-                            kvp.Key.Contains("RECT") ||
-                            kvp.Key.Contains("SQUARE") ||
-                            (kvp.Key.Contains("CONCRETE") && !kvp.Key.Contains("ROUND")))
-                            .ToList();
-
-                        if (rectColumns.Any())
-                            return rectColumns.First().Value;
-                        break;
-
-                    case ConcreteSectionType.Circular:
-                        var circColumns = _columnTypes.Where(kvp =>
-                            kvp.Key.Contains("CIRC") ||
-                            kvp.Key.Contains("ROUND"))
-                            .ToList();
-
-                        if (circColumns.Any())
-                            return circColumns.First().Value;
-                        break;
-
-                    default:
-                        // Try to find any concrete column
-                        var concreteColumns = _columnTypes.Where(kvp =>
-                            kvp.Key.Contains("CONCRETE") ||
-                            kvp.Key.Contains("CONC"))
-                            .ToList();
-
-                        if (concreteColumns.Any())
-                            return concreteColumns.First().Value;
-                        break;
-                }
+                return FindOrCreateConcreteColumnType(frameProps);
             }
 
             return defaultType;
+        }
+
+        private DB.FamilySymbol FindSteelColumnType(Core.Models.Properties.FrameProperties frameProps)
+        {
+            var sectionType = frameProps.SteelProps.SectionType;
+
+            // Attempt to match family by section type
+            switch (sectionType)
+            {
+                case SteelSectionType.W:
+                    // Find Wide Flange columns
+                    var wSections = _columnTypes.Where(kvp =>
+                        kvp.Key.StartsWith("W") ||
+                        kvp.Key.Contains("WIDE") ||
+                        kvp.Key.Contains("FLANGE"))
+                        .ToList();
+
+                    if (wSections.Any())
+                        return wSections.First().Value;
+                    break;
+
+                case SteelSectionType.HSS:
+                    // Find HSS columns
+                    var hssSections = _columnTypes.Where(kvp =>
+                        kvp.Key.Contains("HSS") ||
+                        kvp.Key.Contains("TUBE"))
+                        .ToList();
+
+                    if (hssSections.Any())
+                        return hssSections.First().Value;
+                    break;
+
+                case SteelSectionType.PIPE:
+                    // Find Pipe columns
+                    var pipeSections = _columnTypes.Where(kvp =>
+                        kvp.Key.Contains("PIPE"))
+                        .ToList();
+
+                    if (pipeSections.Any())
+                        return pipeSections.First().Value;
+                    break;
+
+                default:
+                    // For other section types, try to find family by section type name
+                    var typeSections = _columnTypes.Where(kvp =>
+                        kvp.Key.Contains(sectionType.ToString()))
+                        .ToList();
+
+                    if (typeSections.Any())
+                        return typeSections.First().Value;
+                    break;
+            }
+
+            // If still no match, try to find any steel column
+            var steelColumns = _columnTypes.Where(kvp =>
+                kvp.Key.Contains("STEEL") ||
+                kvp.Key.Contains("METAL") ||
+                kvp.Key.StartsWith("W") ||
+                kvp.Key.Contains("HSS"))
+                .ToList();
+
+            return steelColumns.Any() ? steelColumns.First().Value : _columnTypes.Values.FirstOrDefault();
+        }
+
+        private DB.FamilySymbol FindOrCreateConcreteColumnType(Core.Models.Properties.FrameProperties frameProps)
+        {
+            var sectionType = frameProps.ConcreteProps.SectionType;
+
+            // For rectangular concrete columns, try to create/find with specific dimensions
+            if (sectionType == ConcreteSectionType.Rectangular)
+            {
+                return FindOrCreateRectangularConcreteColumn(frameProps);
+            }
+            else if (sectionType == ConcreteSectionType.Circular)
+            {
+                // Find circular columns
+                var circColumns = _columnTypes.Where(kvp =>
+                    kvp.Key.Contains("CIRC") ||
+                    kvp.Key.Contains("ROUND"))
+                    .ToList();
+
+                if (circColumns.Any())
+                    return circColumns.First().Value;
+            }
+
+            // Try to find any concrete column as fallback
+            var concreteColumns = _columnTypes.Where(kvp =>
+                kvp.Key.Contains("CONCRETE") ||
+                kvp.Key.Contains("CONC"))
+                .ToList();
+
+            return concreteColumns.Any() ? concreteColumns.First().Value : _columnTypes.Values.FirstOrDefault();
+        }
+
+        private DB.FamilySymbol FindOrCreateRectangularConcreteColumn(Core.Models.Properties.FrameProperties frameProps)
+        {
+            try
+            {
+                // Get dimensions from frame properties (convert from inches to feet for Revit)
+                double widthFeet = frameProps.ConcreteProps.Width / 12.0;
+                double depthFeet = frameProps.ConcreteProps.Depth / 12.0;
+
+                // Create expected type name format: "Width x Depth"
+                string expectedTypeName = $"{frameProps.ConcreteProps.Width}\" x {frameProps.ConcreteProps.Depth}\"";
+
+                Debug.WriteLine($"Looking for concrete column type: {expectedTypeName}");
+                Debug.WriteLine($"Dimensions: Width={widthFeet:F3}', Depth={depthFeet:F3}'");
+
+                // First, try to find existing type with exact name match
+                var exactMatch = _columnTypes.Values.FirstOrDefault(s =>
+                    s.Name.Equals(expectedTypeName, StringComparison.OrdinalIgnoreCase));
+
+                if (exactMatch != null)
+                {
+                    Debug.WriteLine($"Found exact matching column type: {exactMatch.Name}");
+                    return exactMatch;
+                }
+
+                // Try to find a base rectangular concrete column family to duplicate
+                var baseConcreteColumn = FindBaseConcreteRectangularColumn();
+                if (baseConcreteColumn != null)
+                {
+                    Debug.WriteLine($"Found base concrete column family: {baseConcreteColumn.Family.Name}");
+                    return DuplicateConcreteColumnType(baseConcreteColumn, expectedTypeName, widthFeet, depthFeet);
+                }
+
+                Debug.WriteLine("No suitable base concrete column family found, using default");
+                return FindFallbackConcreteColumn();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error in FindOrCreateRectangularConcreteColumn: {ex.Message}");
+                return FindFallbackConcreteColumn();
+            }
+        }
+
+        private DB.FamilySymbol FindBaseConcreteRectangularColumn()
+        {
+            // Look for concrete rectangular column families in order of preference
+            string[] preferredNames = {
+                "CONCRETE-RECTANGULAR-COLUMN",
+                "CONCRETE RECTANGULAR COLUMN",
+                "CONC-RECT-COL",
+                "RECTANGULAR CONCRETE COLUMN"
+            };
+
+            foreach (string preferredName in preferredNames)
+            {
+                var match = _columnTypes.Values.FirstOrDefault(s =>
+                    s.Family.Name.Equals(preferredName, StringComparison.OrdinalIgnoreCase));
+
+                if (match != null)
+                {
+                    Debug.WriteLine($"Found preferred concrete column family: {match.Family.Name}");
+                    return match;
+                }
+            }
+
+            // Look for any rectangular concrete column
+            var rectConcreteColumn = _columnTypes.Values.FirstOrDefault(s =>
+                (s.Family.Name.ToUpper().Contains("CONCRETE") || s.Family.Name.ToUpper().Contains("CONC")) &&
+                (s.Family.Name.ToUpper().Contains("RECT") || s.Family.Name.ToUpper().Contains("RECTANGULAR")) &&
+                s.Family.Name.ToUpper().Contains("COLUMN"));
+
+            if (rectConcreteColumn != null)
+            {
+                Debug.WriteLine($"Found generic rectangular concrete column: {rectConcreteColumn.Family.Name}");
+                return rectConcreteColumn;
+            }
+
+            // Last resort - any concrete column
+            var anyConcreteColumn = _columnTypes.Values.FirstOrDefault(s =>
+                s.Family.Name.ToUpper().Contains("CONCRETE") || s.Family.Name.ToUpper().Contains("CONC"));
+
+            if (anyConcreteColumn != null)
+            {
+                Debug.WriteLine($"Found fallback concrete column: {anyConcreteColumn.Family.Name}");
+            }
+
+            return anyConcreteColumn;
+        }
+
+        private DB.FamilySymbol DuplicateConcreteColumnType(DB.FamilySymbol baseType, string newTypeName, double widthFeet, double depthFeet)
+        {
+            try
+            {
+                Debug.WriteLine($"Duplicating column type {baseType.Name} as {newTypeName}");
+
+                // Check if type with this name already exists
+                var existingType = _columnTypes.Values.FirstOrDefault(s =>
+                    s.Name.Equals(newTypeName, StringComparison.OrdinalIgnoreCase));
+
+                if (existingType != null)
+                {
+                    Debug.WriteLine($"Column type {newTypeName} already exists, using existing type");
+                    return existingType;
+                }
+
+                // Duplicate the column type
+                var newType = baseType.Duplicate(newTypeName) as DB.FamilySymbol;
+                if (newType == null)
+                {
+                    Debug.WriteLine("Failed to duplicate column type");
+                    return baseType;
+                }
+
+                // Activate the new type
+                if (!newType.IsActive)
+                {
+                    newType.Activate();
+                }
+
+                // Set the dimensions
+                bool dimensionsSet = SetColumnDimensions(newType, widthFeet, depthFeet);
+
+                if (dimensionsSet)
+                {
+                    // Add to our cache
+                    _columnTypes[newType.Name.ToUpper()] = newType;
+                    Debug.WriteLine($"Successfully created and cached column type: {newType.Name}");
+                    return newType;
+                }
+                else
+                {
+                    Debug.WriteLine("Failed to set column dimensions, using original type");
+                    return baseType;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error duplicating column type: {ex.Message}");
+                return baseType;
+            }
+        }
+
+        private bool SetColumnDimensions(DB.FamilySymbol columnType, double widthFeet, double depthFeet)
+        {
+            bool success = false;
+
+            try
+            {
+                // Common parameter names for rectangular concrete columns
+                string[] widthParamNames = { "Width", "b", "B", "Concrete_Width", "Column_Width" };
+                string[] depthParamNames = { "Depth", "h", "H", "d", "D", "Concrete_Depth", "Column_Depth" };
+
+                Debug.WriteLine($"Setting column dimensions: Width={widthFeet:F3}', Depth={depthFeet:F3}'");
+
+                // Try to set width parameter
+                foreach (string paramName in widthParamNames)
+                {
+                    var widthParam = columnType.LookupParameter(paramName);
+                    if (widthParam != null && !widthParam.IsReadOnly && widthParam.StorageType == StorageType.Double)
+                    {
+                        widthParam.Set(widthFeet);
+                        Debug.WriteLine($"  Set width parameter '{paramName}' = {widthFeet:F3}'");
+                        success = true;
+                        break;
+                    }
+                }
+
+                // Try to set depth parameter
+                foreach (string paramName in depthParamNames)
+                {
+                    var depthParam = columnType.LookupParameter(paramName);
+                    if (depthParam != null && !depthParam.IsReadOnly && depthParam.StorageType == StorageType.Double)
+                    {
+                        depthParam.Set(depthFeet);
+                        Debug.WriteLine($"  Set depth parameter '{paramName}' = {depthFeet:F3}'");
+                        success = true;
+                        break;
+                    }
+                }
+
+                if (!success)
+                {
+                    Debug.WriteLine("  Warning: Could not find suitable width/depth parameters");
+                    LogAvailableParameters(columnType);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error setting column dimensions: {ex.Message}");
+            }
+
+            return success;
+        }
+
+        private void LogAvailableParameters(DB.FamilySymbol columnType)
+        {
+            try
+            {
+                Debug.WriteLine($"Available parameters for {columnType.Name}:");
+                foreach (Parameter param in columnType.Parameters)
+                {
+                    if (param.StorageType == StorageType.Double)
+                    {
+                        string readOnlyStatus = param.IsReadOnly ? " (ReadOnly)" : "";
+                        Debug.WriteLine($"  - {param.Definition.Name}: {param.StorageType}{readOnlyStatus}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error logging parameters: {ex.Message}");
+            }
+        }
+
+        private DB.FamilySymbol FindFallbackConcreteColumn()
+        {
+            // Find any concrete column as fallback
+            var concreteColumns = _columnTypes.Where(kvp =>
+                kvp.Key.Contains("CONCRETE") ||
+                kvp.Key.Contains("CONC"))
+                .ToList();
+
+            if (concreteColumns.Any())
+                return concreteColumns.First().Value;
+
+            // Ultimate fallback
+            return _columnTypes.Values.FirstOrDefault();
         }
 
         // Get frame properties for a column
@@ -315,7 +541,7 @@ namespace Revit.Import.Elements
 
                         // Add to column manager for stacking
                         columnManager.AddColumn(jsonColumn.Id, columnPoint, baseLevel, topLevel,
-                                              familySymbol, jsonColumn.IsLateral, frameProps, topOffset, jsonColumn.Orientation);
+                            familySymbol, jsonColumn.IsLateral, frameProps, jsonColumn.Orientation);
                     }
                     catch (Exception columnEx)
                     {
@@ -362,8 +588,8 @@ namespace Revit.Import.Elements
             }
 
             public void AddColumn(string id, DB.XYZ location, DB.Level baseLevel, DB.Level topLevel,
-                                 DB.FamilySymbol familySymbol, bool isLateral,
-                                 Core.Models.Properties.FrameProperties frameProps, double topOffset, double orientation = 0)
+                     DB.FamilySymbol familySymbol, bool isLateral,
+                     Core.Models.Properties.FrameProperties frameProps, double orientation = 0)
             {
                 _columns.Add(new ColumnData
                 {
@@ -376,9 +602,53 @@ namespace Revit.Import.Elements
                     FamilySymbol = familySymbol,
                     IsLateral = isLateral,
                     FrameProps = frameProps,
-                    TopOffset = topOffset,
                     Orientation = orientation
+                    // TopOffset removed
                 });
+            }
+
+            // Find a floor above the column's top level for attachment
+            private Floor FindFloorAboveColumn(XYZ columnPoint, ElementId columnTopLevelId, List<Floor> allFloors)
+            {
+                try
+                {
+                    // Get the column's top level
+                    var columnTopLevel = _doc.GetElement(columnTopLevelId) as Level;
+                    if (columnTopLevel == null) return null;
+
+                    // Get all levels in the document ordered by elevation
+                    var allLevels = new FilteredElementCollector(_doc)
+                        .OfClass(typeof(Level))
+                        .Cast<Level>()
+                        .OrderBy(l => l.Elevation)
+                        .ToList();
+
+                    // Find the next level above the column's top level
+                    var nextLevelAbove = allLevels
+                        .FirstOrDefault(l => l.Elevation > columnTopLevel.Elevation);
+
+                    if (nextLevelAbove == null)
+                    {
+                        Debug.WriteLine($"No level found above column top level {columnTopLevel.Name}");
+                        return null;
+                    }
+
+                    // Look for floors at the level above
+                    var floorsAtLevelAbove = allFloors.Where(f =>
+                    {
+                        var floorLevelId = f.LevelId;
+                        return floorLevelId.IntegerValue == nextLevelAbove.Id.IntegerValue;
+                    }).ToList();
+
+                    Debug.WriteLine($"Found {floorsAtLevelAbove.Count} floors at level above: {nextLevelAbove.Name}");
+
+                    return floorsAtLevelAbove.FirstOrDefault();
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error finding floor above column: {ex.Message}");
+                    return null;
+                }
             }
 
             private string GetLocationKey(DB.XYZ location)
@@ -452,6 +722,11 @@ namespace Revit.Import.Elements
             }
 
             // Attach columns to floors and beams on the same level
+
+
+
+
+            // Attach columns to floors and beams on the same level
             private void AttachColumnsToElements()
             {
                 try
@@ -469,81 +744,36 @@ namespace Revit.Import.Elements
 
                     Debug.WriteLine($"Found {allFloors.Count} floors in the model");
 
-                    foreach (var columnEntry in _createdColumns)
+                    // Get unique Revit column instances and group by XY location
+                    var uniqueRevitColumns = _createdColumns.Values.Distinct().ToList();
+                    Debug.WriteLine($"Found {uniqueRevitColumns.Count} unique Revit column instances");
+
+                    var columnsByLocation = uniqueRevitColumns
+                        .GroupBy(col => GetLocationKey(((LocationPoint)col.Location).Point))
+                        .ToList();
+
+                    Debug.WriteLine($"Grouped into {columnsByLocation.Count} unique locations");
+
+                    foreach (var locationGroup in columnsByLocation)
                     {
-                        var columnId = columnEntry.Key;
-                        var column = columnEntry.Value;
+                        var columnsAtLocation = locationGroup.ToList();
 
-                        try
+                        if (columnsAtLocation.Count == 1)
                         {
-                            // Get column top level
-                            var topLevelParam = column.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_PARAM);
-                            if (topLevelParam == null) continue;
-
-                            var columnTopLevelId = topLevelParam.AsElementId();
-
-                            // Get column location
-                            LocationPoint location = column.Location as LocationPoint;
-                            if (location == null) continue;
-                            XYZ columnPoint = location.Point;
-
-                            // Try to attach to a beam first
-                            var beamToAttach = FindBeamForColumnAttachment(columnPoint, columnTopLevelId);
-
-                            if (beamToAttach != null)
-                            {
-                                try
-                                {
-                                    ColumnAttachment.AddColumnAttachment(
-                                        _doc,
-                                        column,
-                                        beamToAttach,
-                                        1, // 1 = Top attachment
-                                        ColumnAttachmentCutStyle.CutColumn,
-                                        ColumnAttachmentJustification.Minimum,
-                                        0.0 // No offset
-                                    );
-
-                                    beamAttachmentCount++;
-                                    Debug.WriteLine($"Attached column {columnId} to beam {beamToAttach.Id}");
-                                    continue; // Skip to next column if beam attachment worked
-                                }
-                                catch (Exception attachEx)
-                                {
-                                    Debug.WriteLine($"Error attaching column to beam: {attachEx.Message}");
-                                    // Continue to try floor attachment
-                                }
-                            }
-
-                            // If beam attachment failed or no beam found, try to attach to floor
-                            var floorToAttach = FindFloorForColumnAttachment(columnPoint, columnTopLevelId, allFloors);
-
-                            if (floorToAttach != null)
-                            {
-                                try
-                                {
-                                    ColumnAttachment.AddColumnAttachment(
-                                        _doc,
-                                        column,
-                                        floorToAttach,
-                                        1, // 1 = Top attachment
-                                        ColumnAttachmentCutStyle.CutColumn,
-                                        ColumnAttachmentJustification.Minimum,
-                                        0.0 // No offset
-                                    );
-
-                                    floorAttachmentCount++;
-                                    Debug.WriteLine($"Attached column {columnId} to floor {floorToAttach.Id}");
-                                }
-                                catch (Exception floorAttachEx)
-                                {
-                                    Debug.WriteLine($"Error attaching column to floor: {floorAttachEx.Message}");
-                                }
-                            }
+                            // Single column at this location - attach normally
+                            ProcessColumnAttachment(columnsAtLocation[0], allFloors, ref beamAttachmentCount, ref floorAttachmentCount);
                         }
-                        catch (Exception colEx)
+                        else
                         {
-                            Debug.WriteLine($"Error processing column {columnId} for attachment: {colEx.Message}");
+                            // Multiple columns at same XY location - only attach the topmost one
+                            Debug.WriteLine($"Found {columnsAtLocation.Count} columns at same location - identifying topmost");
+
+                            var topmostColumn = FindTopmostRevitColumn(columnsAtLocation);
+                            if (topmostColumn != null)
+                            {
+                                Debug.WriteLine($"Attaching only topmost column {topmostColumn.Id} at this location");
+                                ProcessColumnAttachment(topmostColumn, allFloors, ref beamAttachmentCount, ref floorAttachmentCount);
+                            }
                         }
                     }
 
@@ -552,6 +782,125 @@ namespace Revit.Import.Elements
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"Error in AttachColumnsToElements: {ex.Message}");
+                }
+            }
+
+
+            private FamilyInstance FindTopmostRevitColumn(List<FamilyInstance> columnsAtLocation)
+            {
+                try
+                {
+                    FamilyInstance topmostColumn = null;
+                    double highestTopElevation = double.MinValue;
+
+                    foreach (var column in columnsAtLocation)
+                    {
+                        // Get the top level of this Revit column
+                        var topLevelParam = column.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_PARAM);
+                        if (topLevelParam == null) continue;
+
+                        var topLevelId = topLevelParam.AsElementId();
+                        var topLevel = _doc.GetElement(topLevelId) as Level;
+                        if (topLevel == null) continue;
+
+                        // Use only level elevation (no offsets)
+                        double actualTopElevation = topLevel.Elevation;
+
+                        Debug.WriteLine($"Revit column {column.Id}: Top level '{topLevel.Name}' at {topLevel.Elevation:F2}");
+
+                        if (actualTopElevation > highestTopElevation)
+                        {
+                            highestTopElevation = actualTopElevation;
+                            topmostColumn = column;
+                        }
+                    }
+
+                    if (topmostColumn != null)
+                    {
+                        Debug.WriteLine($"Topmost Revit column identified: {topmostColumn.Id} with top elevation {highestTopElevation:F2}");
+                    }
+
+                    return topmostColumn;
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error finding topmost Revit column: {ex.Message}");
+                    return null;
+                }
+            }
+
+            private void ProcessColumnAttachment(FamilyInstance column, List<Floor> allFloors, ref int beamAttachmentCount, ref int floorAttachmentCount)
+            {
+                try
+                {
+                    // Get column top level
+                    var topLevelParam = column.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_PARAM);
+                    if (topLevelParam == null) return;
+
+                    var columnTopLevelId = topLevelParam.AsElementId();
+
+                    // Get column location
+                    LocationPoint location = column.Location as LocationPoint;
+                    if (location == null) return;
+                    XYZ columnPoint = location.Point;
+
+                    // Try to attach to a beam first
+                    var beamToAttach = FindBeamForColumnAttachment(columnPoint, columnTopLevelId);
+
+                    if (beamToAttach != null)
+                    {
+                        try
+                        {
+                            ColumnAttachment.AddColumnAttachment(
+                                _doc,
+                                column,
+                                beamToAttach,
+                                1, // 1 = Top attachment
+                                ColumnAttachmentCutStyle.CutColumn,
+                                ColumnAttachmentJustification.Minimum,
+                                0.0 // No offset
+                            );
+
+                            beamAttachmentCount++;
+                            Debug.WriteLine($"Attached column {column.Id} to beam {beamToAttach.Id}");
+                            return; // Skip to next column if beam attachment worked
+                        }
+                        catch (Exception attachEx)
+                        {
+                            Debug.WriteLine($"Error attaching column to beam: {attachEx.Message}");
+                            // Continue to try floor attachment
+                        }
+                    }
+
+                    // If beam attachment failed or no beam found, try to attach to floor above
+                    var floorToAttach = FindFloorAboveColumn(columnPoint, columnTopLevelId, allFloors);
+
+                    if (floorToAttach != null)
+                    {
+                        try
+                        {
+                            ColumnAttachment.AddColumnAttachment(
+                                _doc,
+                                column,
+                                floorToAttach,
+                                1, // 1 = Top attachment
+                                ColumnAttachmentCutStyle.CutColumn,
+                                ColumnAttachmentJustification.Minimum,
+                                0.0 // No offset
+                            );
+
+                            floorAttachmentCount++;
+                            Debug.WriteLine($"Attached column {column.Id} to floor {floorToAttach.Id}");
+                        }
+                        catch (Exception floorAttachEx)
+                        {
+                            Debug.WriteLine($"Error attaching column to floor: {floorAttachEx.Message}");
+                        }
+                    }
+                }
+                catch (Exception colEx)
+                {
+                    Debug.WriteLine($"Error processing column attachment: {colEx.Message}");
                 }
             }
 
@@ -613,6 +962,7 @@ namespace Revit.Import.Elements
 
                 return null;
             }
+
             // Check if a point is under a beam line
             private bool IsPointUnderBeamLine(XYZ pointXY, XYZ lineStartXY, XYZ lineEndXY)
             {
@@ -705,20 +1055,13 @@ namespace Revit.Import.Elements
                             continue;
                         }
 
-                        // Set top level
+                        // Set top level only (no offset)
                         try
                         {
                             DB.Parameter topLevelParam = column.get_Parameter(DB.BuiltInParameter.FAMILY_TOP_LEVEL_PARAM);
                             if (topLevelParam != null && !topLevelParam.IsReadOnly)
                             {
                                 topLevelParam.Set(columnData.TopLevelId);
-                            }
-
-                            // Set top offset
-                            DB.Parameter topOffsetParam = column.get_Parameter(DB.BuiltInParameter.FAMILY_TOP_LEVEL_OFFSET_PARAM);
-                            if (topOffsetParam != null && !topOffsetParam.IsReadOnly)
-                            {
-                                topOffsetParam.Set(columnData.TopOffset);
                             }
 
                             // Apply rotation if needed
@@ -741,6 +1084,7 @@ namespace Revit.Import.Elements
 
                 return count;
             }
+
 
             // Create optimally stacked columns
             private int CreateStackedColumns(List<ColumnData> columns)
@@ -778,20 +1122,13 @@ namespace Revit.Import.Elements
                                 continue;
                             }
 
-                            // Set top level
+                            // Set top level only (no offset)
                             try
                             {
                                 DB.Parameter topLevelParam = column.get_Parameter(DB.BuiltInParameter.FAMILY_TOP_LEVEL_PARAM);
                                 if (topLevelParam != null && !topLevelParam.IsReadOnly)
                                 {
                                     topLevelParam.Set(topColumn.TopLevelId);
-                                }
-
-                                // Set top offset
-                                DB.Parameter topOffsetParam = column.get_Parameter(DB.BuiltInParameter.FAMILY_TOP_LEVEL_OFFSET_PARAM);
-                                if (topOffsetParam != null && !topOffsetParam.IsReadOnly)
-                                {
-                                    topOffsetParam.Set(topColumn.TopOffset);
                                 }
 
                                 // Apply rotation to the column
@@ -825,6 +1162,7 @@ namespace Revit.Import.Elements
 
                 return count;
             }
+
 
             // Find continuous column stacks from a sorted set of columns
             private List<List<ColumnData>> FindContinuousStacks(List<ColumnData> sortedColumns)
@@ -948,7 +1286,7 @@ namespace Revit.Import.Elements
             public bool IsLateral { get; set; }
             public double Orientation { get; set; } = 0;
             public Core.Models.Properties.FrameProperties FrameProps { get; set; }
-            public double TopOffset { get; set; } = 0;
+            // TopOffset removed - no longer used
             public double X => Location.X;
             public double Y => Location.Y;
         }

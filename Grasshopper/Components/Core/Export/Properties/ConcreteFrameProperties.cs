@@ -20,9 +20,9 @@ namespace Grasshopper.Components.Core.Export.Properties
         {
             pManager.AddTextParameter("Section Type", "ST", "Concrete section type (Rectangular, Circular, TShaped, LShaped, Custom)", GH_ParamAccess.item, "Rectangular");
             pManager.AddTextParameter("Section Name", "SN", "Section name or designation", GH_ParamAccess.item, "12x12");
-            pManager.AddTextParameter("Width", "W", "Width dimension (for rectangular sections)", GH_ParamAccess.item, "12");
-            pManager.AddTextParameter("Depth", "D", "Depth dimension (for rectangular sections)", GH_ParamAccess.item, "12");
-            pManager.AddTextParameter("Diameter", "DIA", "Diameter (for circular sections)", GH_ParamAccess.item, "18");
+            pManager.AddNumberParameter("Width", "W", "Width dimension (inches) - for rectangular sections", GH_ParamAccess.item, 12.0);
+            pManager.AddNumberParameter("Depth", "D", "Depth dimension (inches) - for rectangular sections", GH_ParamAccess.item, 12.0);
+            pManager.AddNumberParameter("Diameter", "DIA", "Diameter (inches) - for circular sections", GH_ParamAccess.item, 18.0);
 
             // Make parameters optional
             pManager[0].Optional = true;
@@ -41,9 +41,9 @@ namespace Grasshopper.Components.Core.Export.Properties
         {
             string sectionTypeName = "Rectangular";
             string sectionName = "12x12";
-            string width = "12";
-            string depth = "12";
-            string diameter = "18";
+            double width = 12.0;
+            double depth = 12.0;
+            double diameter = 18.0;
 
             DA.GetData(0, ref sectionTypeName);
             DA.GetData(1, ref sectionName);
@@ -72,19 +72,42 @@ namespace Grasshopper.Components.Core.Export.Properties
                 // Set dimensions based on section type
                 if (sectionType == ConcreteSectionType.Rectangular)
                 {
-                    concreteProps.Dimensions["width"] = string.IsNullOrEmpty(width) ? "12" : width;
-                    concreteProps.Dimensions["depth"] = string.IsNullOrEmpty(depth) ? "12" : depth;
+                    // Set the actual Width and Depth properties
+                    concreteProps.Width = width;
+                    concreteProps.Depth = depth;
+
+                    // Also update dimensions dictionary for backward compatibility
+                    concreteProps.Dimensions["width"] = width.ToString();
+                    concreteProps.Dimensions["depth"] = depth.ToString();
                 }
                 else if (sectionType == ConcreteSectionType.Circular)
                 {
-                    concreteProps.Dimensions["diameter"] = string.IsNullOrEmpty(diameter) ? "18" : diameter;
+                    // For circular sections, set both width and depth to diameter
+                    concreteProps.Width = diameter;
+                    concreteProps.Depth = diameter;
+
+                    // Also update dimensions dictionary for backward compatibility
+                    concreteProps.Dimensions["diameter"] = diameter.ToString();
                 }
                 else if (sectionType == ConcreteSectionType.TShaped || sectionType == ConcreteSectionType.LShaped)
                 {
                     // For T and L shaped sections, use width and depth as starting dimensions
-                    concreteProps.Dimensions["width"] = string.IsNullOrEmpty(width) ? "12" : width;
-                    concreteProps.Dimensions["depth"] = string.IsNullOrEmpty(depth) ? "12" : depth;
+                    concreteProps.Width = width;
+                    concreteProps.Depth = depth;
+
+                    // Also update dimensions dictionary for backward compatibility
+                    concreteProps.Dimensions["width"] = width.ToString();
+                    concreteProps.Dimensions["depth"] = depth.ToString();
                     // Additional dimensions would be added here for complex shapes
+                }
+                else // Custom or other types
+                {
+                    // Default to width and depth
+                    concreteProps.Width = width;
+                    concreteProps.Depth = depth;
+
+                    concreteProps.Dimensions["width"] = width.ToString();
+                    concreteProps.Dimensions["depth"] = depth.ToString();
                 }
 
                 // Output the concrete frame properties

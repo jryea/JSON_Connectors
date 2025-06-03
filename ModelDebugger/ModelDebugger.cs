@@ -11,6 +11,8 @@ namespace ModelDebugger
 {
     internal class ModelDebugger
     {
+        private const double CoordinateTolerance = 1.0;
+
         internal static void RunModelDebugger(string[] args)
         {
             string jsonFilePath = "";
@@ -95,6 +97,9 @@ namespace ModelDebugger
             // Analyze Levels and their Floor Type relationships
             AnalyzeLevels(model);
 
+            // Check for duplicate geometry
+            AnalyzeDuplicateGeometry(model);
+
             // Analyze Beams and their relationships
             AnalyzeBeams(model);
 
@@ -103,10 +108,436 @@ namespace ModelDebugger
 
             // Analyze Braces and their relationships
             AnalyzeBraces(model);
+        }
 
-            AnalyzeWalls(model);
+        static void AnalyzeDuplicateGeometry(BaseModel model)
+        {
+            Console.WriteLine("=== DUPLICATE GEOMETRY ANALYSIS ===");
 
-            AnalyzeFloors(model);
+            if (model.Elements == null)
+            {
+                Console.WriteLine("No elements found to analyze");
+                return;
+            }
+
+            // Create level lookup for displaying names with IDs
+            var levelLookup = new Dictionary<string, string>();
+            if (model.ModelLayout?.Levels != null)
+            {
+                foreach (var level in model.ModelLayout.Levels)
+                {
+                    levelLookup[level.Id] = level.Name;
+                }
+            }
+
+            // Check for duplicate floors
+            CheckDuplicateFloors(model.Elements.Floors, levelLookup);
+
+            // Check for duplicate walls
+            CheckDuplicateWalls(model.Elements.Walls, levelLookup);
+
+            // Check for duplicate beams
+            CheckDuplicateBeams(model.Elements.Beams, levelLookup);
+
+            // Check for duplicate columns
+            CheckDuplicateColumns(model.Elements.Columns, levelLookup);
+
+            // Check for duplicate braces
+            CheckDuplicateBraces(model.Elements.Braces, levelLookup);
+
+            Console.WriteLine();
+        }
+
+        // Helper method to format level information
+        static string FormatLevelInfo(string levelId, Dictionary<string, string> levelLookup)
+        {
+            if (string.IsNullOrEmpty(levelId))
+                return "Unknown Level";
+
+            if (levelLookup.TryGetValue(levelId, out string levelName))
+                return $"Level: {levelName} (ID: {levelId})";
+
+            return $"Level: Unknown (ID: {levelId})";
+        }
+
+        static void CheckDuplicateFloors(List<Core.Models.Elements.Floor> floors, Dictionary<string, string> levelLookup)
+        {
+            if (floors == null || floors.Count == 0)
+            {
+                Console.WriteLine("No floors to check for duplicates");
+                return;
+            }
+
+            var duplicateGroups = new List<List<Core.Models.Elements.Floor>>();
+            var processed = new HashSet<string>();
+
+            for (int i = 0; i < floors.Count; i++)
+            {
+                if (processed.Contains(floors[i].Id)) continue;
+
+                var duplicates = new List<Core.Models.Elements.Floor> { floors[i] };
+                processed.Add(floors[i].Id);
+
+                for (int j = i + 1; j < floors.Count; j++)
+                {
+                    if (processed.Contains(floors[j].Id)) continue;
+
+                    if (AreFloorsGeometricallyEqual(floors[i], floors[j]))
+                    {
+                        duplicates.Add(floors[j]);
+                        processed.Add(floors[j].Id);
+                    }
+                }
+
+                if (duplicates.Count > 1)
+                {
+                    duplicateGroups.Add(duplicates);
+                }
+            }
+
+            if (duplicateGroups.Count > 0)
+            {
+                Console.WriteLine($"DUPLICATE FLOORS FOUND: {duplicateGroups.Count} groups");
+                for (int i = 0; i < duplicateGroups.Count; i++)
+                {
+                    var group = duplicateGroups[i];
+                    var levelInfo = FormatLevelInfo(group[0].LevelId, levelLookup);
+                    Console.WriteLine($"  Group {i + 1}: {group.Count} duplicate floors on {levelInfo}");
+                    foreach (var floor in group)
+                    {
+                        Console.WriteLine($"    Floor ID: {floor.Id} - Points: {floor.Points?.Count ?? 0}");
+                    }
+                }
+            }
+            else
+            {
+                Console.WriteLine("No duplicate floors found");
+            }
+        }
+
+        static void CheckDuplicateWalls(List<Core.Models.Elements.Wall> walls, Dictionary<string, string> levelLookup)
+        {
+            if (walls == null || walls.Count == 0)
+            {
+                Console.WriteLine("No walls to check for duplicates");
+                return;
+            }
+
+            var duplicateGroups = new List<List<Core.Models.Elements.Wall>>();
+            var processed = new HashSet<string>();
+
+            for (int i = 0; i < walls.Count; i++)
+            {
+                if (processed.Contains(walls[i].Id)) continue;
+
+                var duplicates = new List<Core.Models.Elements.Wall> { walls[i] };
+                processed.Add(walls[i].Id);
+
+                for (int j = i + 1; j < walls.Count; j++)
+                {
+                    if (processed.Contains(walls[j].Id)) continue;
+
+                    if (AreWallsGeometricallyEqual(walls[i], walls[j]))
+                    {
+                        duplicates.Add(walls[j]);
+                        processed.Add(walls[j].Id);
+                    }
+                }
+
+                if (duplicates.Count > 1)
+                {
+                    duplicateGroups.Add(duplicates);
+                }
+            }
+
+            if (duplicateGroups.Count > 0)
+            {
+                Console.WriteLine($"DUPLICATE WALLS FOUND: {duplicateGroups.Count} groups");
+                for (int i = 0; i < duplicateGroups.Count; i++)
+                {
+                    var group = duplicateGroups[i];
+                    var baseLevelInfo = FormatLevelInfo(group[0].BaseLevelId, levelLookup);
+                    var topLevelInfo = FormatLevelInfo(group[0].TopLevelId, levelLookup);
+                    Console.WriteLine($"  Group {i + 1}: {group.Count} duplicate walls between {baseLevelInfo} and {topLevelInfo}");
+                    foreach (var wall in group)
+                    {
+                        Console.WriteLine($"    Wall ID: {wall.Id} - Points: {wall.Points?.Count ?? 0}");
+                    }
+                }
+            }
+            else
+            {
+                Console.WriteLine("No duplicate walls found");
+            }
+        }
+
+        static void CheckDuplicateBeams(List<Core.Models.Elements.Beam> beams, Dictionary<string, string> levelLookup)
+        {
+            if (beams == null || beams.Count == 0)
+            {
+                Console.WriteLine("No beams to check for duplicates");
+                return;
+            }
+
+            var duplicateGroups = new List<List<Core.Models.Elements.Beam>>();
+            var processed = new HashSet<string>();
+
+            for (int i = 0; i < beams.Count; i++)
+            {
+                if (processed.Contains(beams[i].Id)) continue;
+
+                var duplicates = new List<Core.Models.Elements.Beam> { beams[i] };
+                processed.Add(beams[i].Id);
+
+                for (int j = i + 1; j < beams.Count; j++)
+                {
+                    if (processed.Contains(beams[j].Id)) continue;
+
+                    if (AreBeamsGeometricallyEqual(beams[i], beams[j]))
+                    {
+                        duplicates.Add(beams[j]);
+                        processed.Add(beams[j].Id);
+                    }
+                }
+
+                if (duplicates.Count > 1)
+                {
+                    duplicateGroups.Add(duplicates);
+                }
+            }
+
+            if (duplicateGroups.Count > 0)
+            {
+                Console.WriteLine($"DUPLICATE BEAMS FOUND: {duplicateGroups.Count} groups");
+                for (int i = 0; i < duplicateGroups.Count; i++)
+                {
+                    var group = duplicateGroups[i];
+                    Console.WriteLine($"  Group {i + 1}: {group.Count} duplicate beams on level {group[0].LevelId}");
+                    foreach (var beam in group)
+                    {
+                        var start = beam.StartPoint;
+                        var end = beam.EndPoint;
+                        Console.WriteLine($"    Beam ID: {beam.Id} - From ({start?.X:F2},{start?.Y:F2}) to ({end?.X:F2},{end?.Y:F2})");
+                    }
+                }
+            }
+            else
+            {
+                Console.WriteLine("No duplicate beams found");
+            }
+        }
+
+        static void CheckDuplicateColumns(List<Core.Models.Elements.Column> columns)
+        {
+            if (columns == null || columns.Count == 0)
+            {
+                Console.WriteLine("No columns to check for duplicates");
+                return;
+            }
+
+            var duplicateGroups = new List<List<Core.Models.Elements.Column>>();
+            var processed = new HashSet<string>();
+
+            for (int i = 0; i < columns.Count; i++)
+            {
+                if (processed.Contains(columns[i].Id)) continue;
+
+                var duplicates = new List<Core.Models.Elements.Column> { columns[i] };
+                processed.Add(columns[i].Id);
+
+                for (int j = i + 1; j < columns.Count; j++)
+                {
+                    if (processed.Contains(columns[j].Id)) continue;
+
+                    if (AreColumnsGeometricallyEqual(columns[i], columns[j]))
+                    {
+                        duplicates.Add(columns[j]);
+                        processed.Add(columns[j].Id);
+                    }
+                }
+
+                if (duplicates.Count > 1)
+                {
+                    duplicateGroups.Add(duplicates);
+                }
+            }
+
+            if (duplicateGroups.Count > 0)
+            {
+                Console.WriteLine($"DUPLICATE COLUMNS FOUND: {duplicateGroups.Count} groups");
+                for (int i = 0; i < duplicateGroups.Count; i++)
+                {
+                    var group = duplicateGroups[i];
+                    Console.WriteLine($"  Group {i + 1}: {group.Count} duplicate columns between levels {group[0].BaseLevelId} and {group[0].TopLevelId}");
+                    foreach (var column in group)
+                    {
+                        var start = column.StartPoint;
+                        Console.WriteLine($"    Column ID: {column.Id} - At ({start?.X:F2},{start?.Y:F2})");
+                    }
+                }
+            }
+            else
+            {
+                Console.WriteLine("No duplicate columns found");
+            }
+        }
+
+        static void CheckDuplicateBraces(List<Core.Models.Elements.Brace> braces)
+        {
+            if (braces == null || braces.Count == 0)
+            {
+                Console.WriteLine("No braces to check for duplicates");
+                return;
+            }
+
+            var duplicateGroups = new List<List<Core.Models.Elements.Brace>>();
+            var processed = new HashSet<string>();
+
+            for (int i = 0; i < braces.Count; i++)
+            {
+                if (processed.Contains(braces[i].Id)) continue;
+
+                var duplicates = new List<Core.Models.Elements.Brace> { braces[i] };
+                processed.Add(braces[i].Id);
+
+                for (int j = i + 1; j < braces.Count; j++)
+                {
+                    if (processed.Contains(braces[j].Id)) continue;
+
+                    if (AreBracesGeometricallyEqual(braces[i], braces[j]))
+                    {
+                        duplicates.Add(braces[j]);
+                        processed.Add(braces[j].Id);
+                    }
+                }
+
+                if (duplicates.Count > 1)
+                {
+                    duplicateGroups.Add(duplicates);
+                }
+            }
+
+            if (duplicateGroups.Count > 0)
+            {
+                Console.WriteLine($"DUPLICATE BRACES FOUND: {duplicateGroups.Count} groups");
+                for (int i = 0; i < duplicateGroups.Count; i++)
+                {
+                    var group = duplicateGroups[i];
+                    Console.WriteLine($"  Group {i + 1}: {group.Count} duplicate braces between levels {group[0].BaseLevelId} and {group[0].TopLevelId}");
+                    foreach (var brace in group)
+                    {
+                        var start = brace.StartPoint;
+                        var end = brace.EndPoint;
+                        Console.WriteLine($"    Brace ID: {brace.Id} - From ({start?.X:F2},{start?.Y:F2}) to ({end?.X:F2},{end?.Y:F2})");
+                    }
+                }
+            }
+            else
+            {
+                Console.WriteLine("No duplicate braces found");
+            }
+        }
+
+        // Geometric comparison methods
+        static bool AreFloorsGeometricallyEqual(Core.Models.Elements.Floor floor1, Core.Models.Elements.Floor floor2)
+        {
+            // Check level ID match
+            if (floor1.LevelId != floor2.LevelId) return false;
+
+            // Check if both have same number of points
+            if ((floor1.Points?.Count ?? 0) != (floor2.Points?.Count ?? 0)) return false;
+
+            // If no points, they're equal if levels match
+            if ((floor1.Points?.Count ?? 0) == 0) return true;
+
+            // Check if all points match (order matters for floors)
+            for (int i = 0; i < floor1.Points.Count; i++)
+            {
+                if (!ArePointsEqual(floor1.Points[i], floor2.Points[i]))
+                    return false;
+            }
+
+            return true;
+        }
+
+        static bool AreWallsGeometricallyEqual(Core.Models.Elements.Wall wall1, Core.Models.Elements.Wall wall2)
+        {
+            // Check level IDs match
+            if (wall1.BaseLevelId != wall2.BaseLevelId || wall1.TopLevelId != wall2.TopLevelId) return false;
+
+            // Check if both have same number of points
+            if ((wall1.Points?.Count ?? 0) != (wall2.Points?.Count ?? 0)) return false;
+
+            // If no points, they're equal if levels match
+            if ((wall1.Points?.Count ?? 0) == 0) return true;
+
+            // For walls, check both forward and reverse order (walls can be drawn in either direction)
+            bool forwardMatch = true;
+            bool reverseMatch = true;
+
+            // Check forward order
+            for (int i = 0; i < wall1.Points.Count; i++)
+            {
+                if (!ArePointsEqual(wall1.Points[i], wall2.Points[i]))
+                {
+                    forwardMatch = false;
+                    break;
+                }
+            }
+
+            // Check reverse order
+            for (int i = 0; i < wall1.Points.Count; i++)
+            {
+                if (!ArePointsEqual(wall1.Points[i], wall2.Points[wall2.Points.Count - 1 - i]))
+                {
+                    reverseMatch = false;
+                    break;
+                }
+            }
+
+            return forwardMatch || reverseMatch;
+        }
+
+        static bool AreBeamsGeometricallyEqual(Core.Models.Elements.Beam beam1, Core.Models.Elements.Beam beam2)
+        {
+            // Check level ID match
+            if (beam1.LevelId != beam2.LevelId) return false;
+
+            // Check if both start/end points match (either direction)
+            bool forwardMatch = ArePointsEqual(beam1.StartPoint, beam2.StartPoint) && ArePointsEqual(beam1.EndPoint, beam2.EndPoint);
+            bool reverseMatch = ArePointsEqual(beam1.StartPoint, beam2.EndPoint) && ArePointsEqual(beam1.EndPoint, beam2.StartPoint);
+
+            return forwardMatch || reverseMatch;
+        }
+
+        static bool AreColumnsGeometricallyEqual(Core.Models.Elements.Column column1, Core.Models.Elements.Column column2)
+        {
+            // Check level IDs match
+            if (column1.BaseLevelId != column2.BaseLevelId || column1.TopLevelId != column2.TopLevelId) return false;
+
+            // Check if start points match (columns are typically at the same location)
+            return ArePointsEqual(column1.StartPoint, column2.StartPoint);
+        }
+
+        static bool AreBracesGeometricallyEqual(Core.Models.Elements.Brace brace1, Core.Models.Elements.Brace brace2)
+        {
+            // Check level IDs match
+            if (brace1.BaseLevelId != brace2.BaseLevelId || brace1.TopLevelId != brace2.TopLevelId) return false;
+
+            // Check if both start/end points match (either direction)
+            bool forwardMatch = ArePointsEqual(brace1.StartPoint, brace2.StartPoint) && ArePointsEqual(brace1.EndPoint, brace2.EndPoint);
+            bool reverseMatch = ArePointsEqual(brace1.StartPoint, brace2.EndPoint) && ArePointsEqual(brace1.EndPoint, brace2.StartPoint);
+
+            return forwardMatch || reverseMatch;
+        }
+
+        static bool ArePointsEqual(Core.Models.Geometry.Point2D point1, Core.Models.Geometry.Point2D point2)
+        {
+            if (point1 == null && point2 == null) return true;
+            if (point1 == null || point2 == null) return false;
+
+            return Math.Abs(point1.X - point2.X) < CoordinateTolerance &&
+                   Math.Abs(point1.Y - point2.Y) < CoordinateTolerance;
         }
 
         static void AnalyzeFloorTypes(BaseModel model)
@@ -432,221 +863,6 @@ namespace ModelDebugger
                     }
 
                     Console.WriteLine($"    Brace ID: {brace.Id} - Props: {brace.FramePropertiesId} - Base Level: {baseLevelName} - Coords: {coords}");
-                }
-                Console.WriteLine();
-            }
-        }
-
-        static void AnalyzeWalls(BaseModel model)
-        {
-            var walls = model.Elements?.Walls;
-            var levels = model.ModelLayout?.Levels;
-            var floorTypes = model.ModelLayout?.FloorTypes;
-            var wallProperties = model.Properties?.WallProperties;
-
-            Console.WriteLine("=== WALLS ===");
-            if (walls == null || walls.Count == 0)
-            {
-                Console.WriteLine("No walls found");
-                return;
-            }
-
-            // Create a lookup for levels by ID
-            Dictionary<string, Level> levelsById = new Dictionary<string, Level>();
-            if (levels != null)
-            {
-                foreach (var level in levels)
-                {
-                    levelsById[level.Id] = level;
-                }
-            }
-
-            // Create a lookup for floor types by ID
-            Dictionary<string, string> floorTypeNames = new Dictionary<string, string>();
-            if (floorTypes != null)
-            {
-                foreach (var floorType in floorTypes)
-                {
-                    floorTypeNames[floorType.Id] = floorType.Name;
-                }
-            }
-
-            // Create a lookup for wall properties by ID
-            Dictionary<string, string> wallPropsNames = new Dictionary<string, string>();
-            if (wallProperties != null)
-            {
-                foreach (var prop in wallProperties)
-                {
-                    wallPropsNames[prop.Id] = $"{prop.Name} ({prop.Thickness}\")";
-                }
-            }
-
-            // Group walls by top level
-            var wallsByLevel = walls.GroupBy(w => w.TopLevelId).ToList();
-
-            Console.WriteLine($"Found {walls.Count} walls across {wallsByLevel.Count} levels:");
-            Console.WriteLine();
-
-            foreach (var group in wallsByLevel.OrderBy(g =>
-                levelsById.ContainsKey(g.Key) ? levelsById[g.Key].Elevation : double.MaxValue))
-            {
-                string levelName = "Unknown Level";
-                string floorTypeInfo = "Unknown";
-
-                if (levelsById.ContainsKey(group.Key))
-                {
-                    var level = levelsById[group.Key];
-                    levelName = level.Name;
-                    string floorTypeId = level.FloorTypeId ?? "N/A";
-
-                    if (!string.IsNullOrEmpty(floorTypeId) && floorTypeNames.ContainsKey(floorTypeId))
-                    {
-                        floorTypeInfo = $"{floorTypeNames[floorTypeId]} (ID: {floorTypeId})";
-                    }
-                    else
-                    {
-                        floorTypeInfo = floorTypeId;
-                    }
-                }
-
-                Console.WriteLine($"Top Level: {levelName} (ID: {group.Key}) - Floor Type: {floorTypeInfo}");
-                Console.WriteLine($"  Walls: {group.Count()}");
-
-                // Sample a few walls for inspection
-                int sampleSize = Math.Min(3, group.Count());
-                Console.WriteLine($"  Sample of {sampleSize} walls:");
-
-                foreach (var wall in group.Take(sampleSize))
-                {
-                    string coords = "N/A";
-                    if (wall.Points != null && wall.Points.Count >= 2)
-                    {
-                        var firstPoint = wall.Points[0];
-                        var lastPoint = wall.Points[wall.Points.Count - 1];
-                        coords = $"({firstPoint.X:F1},{firstPoint.Y:F1}) to ({lastPoint.X:F1},{lastPoint.Y:F1})";
-                        if (wall.Points.Count > 2)
-                        {
-                            coords += $" ({wall.Points.Count} points)";
-                        }
-                    }
-
-                    string baseLevelName = "N/A";
-                    if (!string.IsNullOrEmpty(wall.BaseLevelId) && levelsById.ContainsKey(wall.BaseLevelId))
-                    {
-                        baseLevelName = levelsById[wall.BaseLevelId].Name;
-                    }
-
-                    string wallPropsInfo = "N/A";
-                    if (!string.IsNullOrEmpty(wall.PropertiesId) && wallPropsNames.ContainsKey(wall.PropertiesId))
-                    {
-                        wallPropsInfo = wallPropsNames[wall.PropertiesId];
-                    }
-
-                    Console.WriteLine($"    Wall ID: {wall.Id} - Props: {wallPropsInfo} - Base Level: {baseLevelName} - Coords: {coords}");
-                }
-                Console.WriteLine();
-            }
-        }
-
-        static void AnalyzeFloors(BaseModel model)
-        {
-            var floors = model.Elements?.Floors;
-            var levels = model.ModelLayout?.Levels;
-            var floorTypes = model.ModelLayout?.FloorTypes;
-            var floorProperties = model.Properties?.FloorProperties;
-
-            Console.WriteLine("=== FLOORS ===");
-            if (floors == null || floors.Count == 0)
-            {
-                Console.WriteLine("No floors found");
-                return;
-            }
-
-            // Create a lookup for levels by ID
-            Dictionary<string, Level> levelsById = new Dictionary<string, Level>();
-            if (levels != null)
-            {
-                foreach (var level in levels)
-                {
-                    levelsById[level.Id] = level;
-                }
-            }
-
-            // Create a lookup for floor types by ID
-            Dictionary<string, string> floorTypeNames = new Dictionary<string, string>();
-            if (floorTypes != null)
-            {
-                foreach (var floorType in floorTypes)
-                {
-                    floorTypeNames[floorType.Id] = floorType.Name;
-                }
-            }
-
-            // Create a lookup for floor properties by ID
-            Dictionary<string, string> floorPropsNames = new Dictionary<string, string>();
-            if (floorProperties != null)
-            {
-                foreach (var prop in floorProperties)
-                {
-                    floorPropsNames[prop.Id] = $"{prop.Name} ({prop.Thickness}\")";
-                }
-            }
-
-            // Group floors by level
-            var floorsByLevel = floors.GroupBy(f => f.LevelId).ToList();
-
-            Console.WriteLine($"Found {floors.Count} floors across {floorsByLevel.Count} levels:");
-            Console.WriteLine();
-
-            foreach (var group in floorsByLevel.OrderBy(g =>
-                levelsById.ContainsKey(g.Key) ? levelsById[g.Key].Elevation : double.MaxValue))
-            {
-                string levelName = "Unknown Level";
-                string floorTypeInfo = "Unknown";
-
-                if (levelsById.ContainsKey(group.Key))
-                {
-                    var level = levelsById[group.Key];
-                    levelName = level.Name;
-                    string floorTypeId = level.FloorTypeId ?? "N/A";
-
-                    if (!string.IsNullOrEmpty(floorTypeId) && floorTypeNames.ContainsKey(floorTypeId))
-                    {
-                        floorTypeInfo = $"{floorTypeNames[floorTypeId]} (ID: {floorTypeId})";
-                    }
-                    else
-                    {
-                        floorTypeInfo = floorTypeId;
-                    }
-                }
-
-                Console.WriteLine($"Level: {levelName} (ID: {group.Key}) - Floor Type: {floorTypeInfo}");
-                Console.WriteLine($"  Floors: {group.Count()}");
-
-                // Sample a few floors for inspection
-                int sampleSize = Math.Min(3, group.Count());
-                Console.WriteLine($"  Sample of {sampleSize} floors:");
-
-                foreach (var floor in group.Take(sampleSize))
-                {
-                    string coords = "N/A";
-                    if (floor.Points != null && floor.Points.Count >= 3)
-                    {
-                        var firstPoint = floor.Points[0];
-                        coords = $"Starting at ({firstPoint.X:F1},{firstPoint.Y:F1}) - {floor.Points.Count} points";
-                    }
-
-                    string floorPropsInfo = "N/A";
-                    if (!string.IsNullOrEmpty(floor.FloorPropertiesId) && floorPropsNames.ContainsKey(floor.FloorPropertiesId))
-                    {
-                        floorPropsInfo = floorPropsNames[floor.FloorPropertiesId];
-                    }
-
-                    string diaphragmInfo = string.IsNullOrEmpty(floor.DiaphragmId) ? "None" : floor.DiaphragmId;
-                    string loadInfo = string.IsNullOrEmpty(floor.SurfaceLoadId) ? "None" : floor.SurfaceLoadId;
-
-                    Console.WriteLine($"    Floor ID: {floor.Id} - Props: {floorPropsInfo}");
-                    Console.WriteLine($"           Diaphragm: {diaphragmInfo} - Load: {loadInfo} - Coords: {coords}");
                 }
                 Console.WriteLine();
             }

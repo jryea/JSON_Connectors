@@ -19,7 +19,7 @@ namespace Grasshopper.Components.Core.Export.Properties
         protected override void RegisterInputParams(GH_InputParamManager pManager)
         {
             pManager.AddTextParameter("Section Type", "ST", "Steel section type (W, HSS, PIPE, C, L, WT, ST, MC, HP)", GH_ParamAccess.item, "W");
-            pManager.AddTextParameter("Section Name", "SN", "Section name or designation (e.g., W12X26, HSS6X6X1/4)", GH_ParamAccess.item, "W12X26");
+            pManager.AddTextParameter("Section Name", "SN", "Section name or designation (e.g., W12X26, HSS6X6X1/4)", GH_ParamAccess.item);
 
             // Make parameters optional
             pManager[0].Optional = true;
@@ -34,7 +34,8 @@ namespace Grasshopper.Components.Core.Export.Properties
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             string sectionTypeName = "W";
-            string sectionName = "W12X26";
+            string sectionName = string.Empty;
+            //string sectionName = "W12X26";
 
             DA.GetData(0, ref sectionTypeName);
             DA.GetData(1, ref sectionName);
@@ -54,7 +55,7 @@ namespace Grasshopper.Components.Core.Export.Properties
                 SteelFrameProperties steelProps = new SteelFrameProperties
                 {
                     SectionType = sectionType,
-                    SectionName = string.IsNullOrEmpty(sectionName) ? $"{sectionType}12X26" : sectionName
+                    SectionName = sectionName
                 };
 
                 // Output the steel frame properties

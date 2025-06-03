@@ -327,7 +327,7 @@ namespace ModelDebugger
             }
         }
 
-        static void CheckDuplicateColumns(List<Core.Models.Elements.Column> columns)
+        static void CheckDuplicateColumns(List<Core.Models.Elements.Column> columns, Dictionary<string, string> levelLookup)
         {
             if (columns == null || columns.Count == 0)
             {
@@ -368,7 +368,9 @@ namespace ModelDebugger
                 for (int i = 0; i < duplicateGroups.Count; i++)
                 {
                     var group = duplicateGroups[i];
-                    Console.WriteLine($"  Group {i + 1}: {group.Count} duplicate columns between levels {group[0].BaseLevelId} and {group[0].TopLevelId}");
+                    var baseLevelInfo = FormatLevelInfo(group[0].BaseLevelId, levelLookup);
+                    var topLevelInfo = FormatLevelInfo(group[0].TopLevelId, levelLookup);
+                    Console.WriteLine($"  Group {i + 1}: {group.Count} duplicate columns between {baseLevelInfo} and {topLevelInfo}");
                     foreach (var column in group)
                     {
                         var start = column.StartPoint;
@@ -382,7 +384,7 @@ namespace ModelDebugger
             }
         }
 
-        static void CheckDuplicateBraces(List<Core.Models.Elements.Brace> braces)
+        static void CheckDuplicateBraces(List<Core.Models.Elements.Brace> braces, Dictionary<string, string> levelLookup)
         {
             if (braces == null || braces.Count == 0)
             {
@@ -423,7 +425,9 @@ namespace ModelDebugger
                 for (int i = 0; i < duplicateGroups.Count; i++)
                 {
                     var group = duplicateGroups[i];
-                    Console.WriteLine($"  Group {i + 1}: {group.Count} duplicate braces between levels {group[0].BaseLevelId} and {group[0].TopLevelId}");
+                    var baseLevelInfo = FormatLevelInfo(group[0].BaseLevelId, levelLookup);
+                    var topLevelInfo = FormatLevelInfo(group[0].TopLevelId, levelLookup);
+                    Console.WriteLine($"  Group {i + 1}: {group.Count} duplicate braces between {baseLevelInfo} and {topLevelInfo}");
                     foreach (var brace in group)
                     {
                         var start = brace.StartPoint;
@@ -855,7 +859,7 @@ namespace ModelDebugger
                     {
                         coords = $"({brace.StartPoint.X},{brace.StartPoint.Y}) to ({brace.EndPoint.X},{brace.EndPoint.Y})";
                     }
-
+                    
                     string baseLevelName = "N/A";
                     if (!string.IsNullOrEmpty(brace.BaseLevelId) && levelsById.ContainsKey(brace.BaseLevelId))
                     {

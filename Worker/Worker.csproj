@@ -7,6 +7,9 @@
 		<RootNamespace>RAMWorker</RootNamespace>
 	</PropertyGroup>
 	<PropertyGroup>
+		<PostBuildEvent>copy "$(TargetPath)" "$(AppData)\Autodesk\REVIT\Addins\2024\"</PostBuildEvent>
+	</PropertyGroup>
+	<PropertyGroup>
 		<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
 	</PropertyGroup>
 	<!-- Copy output to Revit add-in directory -->

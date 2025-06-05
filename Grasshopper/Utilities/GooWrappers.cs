@@ -19,7 +19,7 @@ namespace Grasshopper.Utilities
 
         public override bool IsValid => Value != null;
         public override string TypeName => $"{typeof(T).Name}";
-        public override string TypeDescription => $"JSON Connecvvtors {typeof(T).Name}";
+        public override string TypeDescription => $"JSON Connectors {typeof(T).Name}";
 
         public override IGH_Goo Duplicate() => (IGH_Goo)Activator.CreateInstance(GetType(), Value);
         public override string ToString() => Value?.ToString() ?? "Null";

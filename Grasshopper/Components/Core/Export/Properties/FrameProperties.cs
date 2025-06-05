@@ -153,20 +153,53 @@ namespace Grasshopper.Components.Core.Export.Properties
 
         private T ExtractObject<T>(object obj, string typeName) where T : class
         {
-            if (obj == null) return null;
+            // Add detailed logging
+            AddRuntimeMessage(GH_RuntimeMessageLevel.Remark,
+                $"ExtractObject<{typeName}>: Input type = {obj?.GetType().Name ?? "null"}");
+
+            if (obj == null)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, $"ExtractObject<{typeName}>: Input is null");
+                return null;
+            }
 
             // Direct type check
             if (obj is T directType)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, $"ExtractObject<{typeName}>: Direct type match found");
                 return directType;
+            }
 
             // Using GooWrapper
             if (obj is GH_ModelGoo<T> ghType)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, $"ExtractObject<{typeName}>: GH_ModelGoo wrapper found");
                 return ghType.Value;
+            }
+
+            // Specific check for SteelFrameProperties
+            if (typeof(T) == typeof(SteelFrameProperties) && obj is GH_SteelFrameProperties ghSteelProps)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, $"ExtractObject<{typeName}>: GH_SteelFrameProperties found directly");
+                return ghSteelProps.Value as T;
+            }
+
+            // Specific check for ConcreteFrameProperties  
+            if (typeof(T) == typeof(ConcreteFrameProperties) && obj is GH_ConcreteFrameProperties ghConcreteProps)
+            {
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, $"ExtractObject<{typeName}>: GH_ConcreteFrameProperties found directly");
+                return ghConcreteProps.Value as T;
+            }
 
             // Handle IGH_Goo objects that can be cast
-            if (obj is GH_Types.IGH_Goo goo && goo.CastTo<T>(out var castObj))
+            if (obj is GH_Types.IGH_Goo goo)
             {
-                return castObj;
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, $"ExtractObject<{typeName}>: IGH_Goo found, attempting cast");
+                T result = null;
+                bool success = goo.CastTo<T>(out result);
+                AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, $"ExtractObject<{typeName}>: Cast success = {success}");
+                if (success)
+                    return result;
             }
 
             AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,

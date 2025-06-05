@@ -108,6 +108,9 @@ namespace ModelDebugger
 
             // Analyze Braces and their relationships
             AnalyzeBraces(model);
+
+            // Analyze Frame Properties
+            AnalyzeFrameProperties(model);
         }
 
         static void AnalyzeDuplicateGeometry(BaseModel model)
@@ -368,9 +371,7 @@ namespace ModelDebugger
                 for (int i = 0; i < duplicateGroups.Count; i++)
                 {
                     var group = duplicateGroups[i];
-                    var baseLevelInfo = FormatLevelInfo(group[0].BaseLevelId, levelLookup);
-                    var topLevelInfo = FormatLevelInfo(group[0].TopLevelId, levelLookup);
-                    Console.WriteLine($"  Group {i + 1}: {group.Count} duplicate columns between {baseLevelInfo} and {topLevelInfo}");
+                    Console.WriteLine($"  Group {i + 1}: {group.Count} duplicate columns between levels {group[0].BaseLevelId} and {group[0].TopLevelId}");
                     foreach (var column in group)
                     {
                         var start = column.StartPoint;
@@ -425,9 +426,7 @@ namespace ModelDebugger
                 for (int i = 0; i < duplicateGroups.Count; i++)
                 {
                     var group = duplicateGroups[i];
-                    var baseLevelInfo = FormatLevelInfo(group[0].BaseLevelId, levelLookup);
-                    var topLevelInfo = FormatLevelInfo(group[0].TopLevelId, levelLookup);
-                    Console.WriteLine($"  Group {i + 1}: {group.Count} duplicate braces between {baseLevelInfo} and {topLevelInfo}");
+                    Console.WriteLine($"  Group {i + 1}: {group.Count} duplicate braces between levels {group[0].BaseLevelId} and {group[0].TopLevelId}");
                     foreach (var brace in group)
                     {
                         var start = brace.StartPoint;
@@ -859,7 +858,7 @@ namespace ModelDebugger
                     {
                         coords = $"({brace.StartPoint.X},{brace.StartPoint.Y}) to ({brace.EndPoint.X},{brace.EndPoint.Y})";
                     }
-                    
+
                     string baseLevelName = "N/A";
                     if (!string.IsNullOrEmpty(brace.BaseLevelId) && levelsById.ContainsKey(brace.BaseLevelId))
                     {
@@ -867,6 +866,303 @@ namespace ModelDebugger
                     }
 
                     Console.WriteLine($"    Brace ID: {brace.Id} - Props: {brace.FramePropertiesId} - Base Level: {baseLevelName} - Coords: {coords}");
+                }
+                Console.WriteLine();
+            }
+        }
+
+        static void AnalyzeFrameProperties(BaseModel model)
+        {
+            Console.WriteLine("=== FRAME PROPERTIES ANALYSIS ===");
+
+            var frameProperties = model.Properties?.FrameProperties;
+            var materials = model.Properties?.Materials;
+            var columns = model.Elements?.Columns;
+            var beams = model.Elements?.Beams;
+            var braces = model.Elements?.Braces;
+
+            if (frameProperties == null || frameProperties.Count == 0)
+            {
+                Console.WriteLine("No frame properties found");
+                return;
+            }
+
+            // Create material lookup
+            Dictionary<string, string> materialNames = new Dictionary<string, string>();
+            if (materials != null)
+            {
+                foreach (var material in materials)
+                {
+                    materialNames[material.Id] = material.Name;
+                }
+            }
+
+            Console.WriteLine($"Found {frameProperties.Count} frame properties:");
+            Console.WriteLine("{0,-40} {1,-15} {2,-40} {3,-40}", "Name", "Type", "Material", "Property ID");
+            Console.WriteLine(new string('-', 135));
+
+            foreach (var frameProp in frameProperties)
+            {
+                string materialInfo = "N/A";
+                if (!string.IsNullOrEmpty(frameProp.MaterialId) && materialNames.ContainsKey(frameProp.MaterialId))
+                {
+                    materialInfo = $"{materialNames[frameProp.MaterialId]} (ID: {frameProp.MaterialId})";
+                }
+                else if (!string.IsNullOrEmpty(frameProp.MaterialId))
+                {
+                    materialInfo = $"Missing Material (ID: {frameProp.MaterialId})";
+                }
+
+                Console.WriteLine("{0,-40} {1,-15} {2,-40} {3,-40}",
+                    frameProp.Name ?? "N/A", frameProp.Type, materialInfo, frameProp.Id);
+            }
+            Console.WriteLine();
+
+            // Analyze columns by frame properties
+            AnalyzeColumnsByFrameProperties(columns, frameProperties, materialNames);
+
+            // Analyze beams by frame properties
+            AnalyzeBeamsByFrameProperties(beams, frameProperties, materialNames);
+
+            // Analyze braces by frame properties
+            AnalyzeBracesByFrameProperties(braces, frameProperties, materialNames);
+        }
+
+        static void AnalyzeColumnsByFrameProperties(List<Core.Models.Elements.Column> columns,
+            List<Core.Models.Properties.FrameProperties> frameProperties,
+            Dictionary<string, string> materialNames)
+        {
+            Console.WriteLine("=== COLUMNS BY FRAME PROPERTIES ===");
+
+            if (columns == null || columns.Count == 0)
+            {
+                Console.WriteLine("No columns found");
+                return;
+            }
+
+            // Create frame properties lookup
+            Dictionary<string, Core.Models.Properties.FrameProperties> framePropsById =
+                new Dictionary<string, Core.Models.Properties.FrameProperties>();
+            if (frameProperties != null)
+            {
+                foreach (var frameProp in frameProperties)
+                {
+                    framePropsById[frameProp.Id] = frameProp;
+                }
+            }
+
+            // Group columns by frame properties
+            var columnsByFrameProps = columns.GroupBy(c => c.FramePropertiesId).ToList();
+
+            Console.WriteLine($"Found {columns.Count} columns using {columnsByFrameProps.Count} different frame properties:");
+            Console.WriteLine();
+
+            foreach (var group in columnsByFrameProps.OrderBy(g =>
+                framePropsById.ContainsKey(g.Key ?? "") ? framePropsById[g.Key].Name : "ZZZ_Missing"))
+            {
+                string propName = "Missing Property";
+                string materialInfo = "N/A";
+                bool isMissing = false;
+
+                if (!string.IsNullOrEmpty(group.Key) && framePropsById.ContainsKey(group.Key))
+                {
+                    var frameProp = framePropsById[group.Key];
+                    propName = frameProp.Name ?? "Unnamed Property";
+
+                    if (!string.IsNullOrEmpty(frameProp.MaterialId) && materialNames.ContainsKey(frameProp.MaterialId))
+                    {
+                        materialInfo = $"{materialNames[frameProp.MaterialId]} (ID: {frameProp.MaterialId})";
+                    }
+                    else if (!string.IsNullOrEmpty(frameProp.MaterialId))
+                    {
+                        materialInfo = $"Missing Material (ID: {frameProp.MaterialId})";
+                    }
+                }
+                else
+                {
+                    isMissing = true;
+                    propName = $"MISSING PROPERTY (ID: {group.Key ?? "null"})";
+                }
+
+                string warningFlag = isMissing ? " ⚠️" : "";
+                Console.WriteLine($"Frame Property: {propName}{warningFlag}");
+                Console.WriteLine($"  Material: {materialInfo}");
+                Console.WriteLine($"  Property ID: {group.Key ?? "null"}");
+                Console.WriteLine($"  Columns using this property: {group.Count()}");
+
+                // Sample a few columns
+                int sampleSize = Math.Min(3, group.Count());
+                Console.WriteLine($"  Sample of {sampleSize} columns:");
+
+                foreach (var column in group.Take(sampleSize))
+                {
+                    string coords = "N/A";
+                    if (column.StartPoint != null)
+                    {
+                        coords = $"({column.StartPoint.X:F1},{column.StartPoint.Y:F1})";
+                    }
+
+                    Console.WriteLine($"    Column ID: {column.Id} - Location: {coords} - Base: {column.BaseLevelId} - Top: {column.TopLevelId}");
+                }
+                Console.WriteLine();
+            }
+        }
+
+        static void AnalyzeBeamsByFrameProperties(List<Core.Models.Elements.Beam> beams,
+            List<Core.Models.Properties.FrameProperties> frameProperties,
+            Dictionary<string, string> materialNames)
+        {
+            Console.WriteLine("=== BEAMS BY FRAME PROPERTIES ===");
+
+            if (beams == null || beams.Count == 0)
+            {
+                Console.WriteLine("No beams found");
+                return;
+            }
+
+            // Create frame properties lookup
+            Dictionary<string, Core.Models.Properties.FrameProperties> framePropsById =
+                new Dictionary<string, Core.Models.Properties.FrameProperties>();
+            if (frameProperties != null)
+            {
+                foreach (var frameProp in frameProperties)
+                {
+                    framePropsById[frameProp.Id] = frameProp;
+                }
+            }
+
+            // Group beams by frame properties
+            var beamsByFrameProps = beams.GroupBy(b => b.FramePropertiesId).ToList();
+
+            Console.WriteLine($"Found {beams.Count} beams using {beamsByFrameProps.Count} different frame properties:");
+            Console.WriteLine();
+
+            foreach (var group in beamsByFrameProps.OrderBy(g =>
+                framePropsById.ContainsKey(g.Key ?? "") ? framePropsById[g.Key].Name : "ZZZ_Missing"))
+            {
+                string propName = "Missing Property";
+                string materialInfo = "N/A";
+                bool isMissing = false;
+
+                if (!string.IsNullOrEmpty(group.Key) && framePropsById.ContainsKey(group.Key))
+                {
+                    var frameProp = framePropsById[group.Key];
+                    propName = frameProp.Name ?? "Unnamed Property";
+
+                    if (!string.IsNullOrEmpty(frameProp.MaterialId) && materialNames.ContainsKey(frameProp.MaterialId))
+                    {
+                        materialInfo = $"{materialNames[frameProp.MaterialId]} (ID: {frameProp.MaterialId})";
+                    }
+                    else if (!string.IsNullOrEmpty(frameProp.MaterialId))
+                    {
+                        materialInfo = $"Missing Material (ID: {frameProp.MaterialId})";
+                    }
+                }
+                else
+                {
+                    isMissing = true;
+                    propName = $"MISSING PROPERTY (ID: {group.Key ?? "null"})";
+                }
+
+                string warningFlag = isMissing ? " ⚠️" : "";
+                Console.WriteLine($"Frame Property: {propName}{warningFlag}");
+                Console.WriteLine($"  Material: {materialInfo}");
+                Console.WriteLine($"  Property ID: {group.Key ?? "null"}");
+                Console.WriteLine($"  Beams using this property: {group.Count()}");
+
+                // Sample a few beams
+                int sampleSize = Math.Min(3, group.Count());
+                Console.WriteLine($"  Sample of {sampleSize} beams:");
+
+                foreach (var beam in group.Take(sampleSize))
+                {
+                    string coords = "N/A";
+                    if (beam.StartPoint != null && beam.EndPoint != null)
+                    {
+                        coords = $"({beam.StartPoint.X:F1},{beam.StartPoint.Y:F1}) to ({beam.EndPoint.X:F1},{beam.EndPoint.Y:F1})";
+                    }
+
+                    Console.WriteLine($"    Beam ID: {beam.Id} - Level: {beam.LevelId} - Coords: {coords}");
+                }
+                Console.WriteLine();
+            }
+        }
+
+        static void AnalyzeBracesByFrameProperties(List<Core.Models.Elements.Brace> braces,
+            List<Core.Models.Properties.FrameProperties> frameProperties,
+            Dictionary<string, string> materialNames)
+        {
+            Console.WriteLine("=== BRACES BY FRAME PROPERTIES ===");
+
+            if (braces == null || braces.Count == 0)
+            {
+                Console.WriteLine("No braces found");
+                return;
+            }
+
+            // Create frame properties lookup
+            Dictionary<string, Core.Models.Properties.FrameProperties> framePropsById =
+                new Dictionary<string, Core.Models.Properties.FrameProperties>();
+            if (frameProperties != null)
+            {
+                foreach (var frameProp in frameProperties)
+                {
+                    framePropsById[frameProp.Id] = frameProp;
+                }
+            }
+
+            // Group braces by frame properties
+            var bracesByFrameProps = braces.GroupBy(b => b.FramePropertiesId).ToList();
+
+            Console.WriteLine($"Found {braces.Count} braces using {bracesByFrameProps.Count} different frame properties:");
+            Console.WriteLine();
+
+            foreach (var group in bracesByFrameProps.OrderBy(g =>
+                framePropsById.ContainsKey(g.Key ?? "") ? framePropsById[g.Key].Name : "ZZZ_Missing"))
+            {
+                string propName = "Missing Property";
+                string materialInfo = "N/A";
+                bool isMissing = false;
+
+                if (!string.IsNullOrEmpty(group.Key) && framePropsById.ContainsKey(group.Key))
+                {
+                    var frameProp = framePropsById[group.Key];
+                    propName = frameProp.Name ?? "Unnamed Property";
+
+                    if (!string.IsNullOrEmpty(frameProp.MaterialId) && materialNames.ContainsKey(frameProp.MaterialId))
+                    {
+                        materialInfo = $"{materialNames[frameProp.MaterialId]} (ID: {frameProp.MaterialId})";
+                    }
+                    else if (!string.IsNullOrEmpty(frameProp.MaterialId))
+                    {
+                        materialInfo = $"Missing Material (ID: {frameProp.MaterialId})";
+                    }
+                }
+                else
+                {
+                    isMissing = true;
+                    propName = $"MISSING PROPERTY (ID: {group.Key ?? "null"})";
+                }
+
+                string warningFlag = isMissing ? " ⚠️" : "";
+                Console.WriteLine($"Frame Property: {propName}{warningFlag}");
+                Console.WriteLine($"  Material: {materialInfo}");
+                Console.WriteLine($"  Property ID: {group.Key ?? "null"}");
+                Console.WriteLine($"  Braces using this property: {group.Count()}");
+
+                // Sample a few braces
+                int sampleSize = Math.Min(3, group.Count());
+                Console.WriteLine($"  Sample of {sampleSize} braces:");
+
+                foreach (var brace in group.Take(sampleSize))
+                {
+                    string coords = "N/A";
+                    if (brace.StartPoint != null && brace.EndPoint != null)
+                    {
+                        coords = $"({brace.StartPoint.X:F1},{brace.StartPoint.Y:F1}) to ({brace.EndPoint.X:F1},{brace.EndPoint.Y:F1})";
+                    }
+
+                    Console.WriteLine($"    Brace ID: {brace.Id} - Base: {brace.BaseLevelId} - Top: {brace.TopLevelId} - Coords: {coords}");
                 }
                 Console.WriteLine();
             }

@@ -6,6 +6,8 @@
       None
     </ResolveAssemblyWarnOrErrorOnTargetArchitectureMismatch>
     <TargetFrameworkProfile />
+    <NuGetPackageImportStamp>
+    </NuGetPackageImportStamp>
   </PropertyGroup>
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -139,10 +141,6 @@
       <HintPath>..\..\..\..\..\..\Program Files\Autodesk\Revit 2021\RevitAPI.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="RevitAPIUI" Condition="'$(Configuration)' == '2021Debug' or '$(Configuration)' == '2021Release'">
-      <HintPath>..\..\..\..\..\..\Program Files\Autodesk\Revit 2021\RevitAPIUI.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
     <Reference Include="RevitAPIUI, Version=24.0.0.0, Culture=neutral, processorArchitecture=AMD64">
       <HintPath>..\packages\Revit_API_x64.2024.0.2\lib\NET480\RevitAPIUI.dll</HintPath>
     </Reference>
@@ -200,6 +198,7 @@
     <Compile Include="Import\ModelLayout\LevelImport.cs" />
     <Compile Include="Export\ModelExportCommand.cs" />
     <Compile Include="Import\ModelTransformer.cs" />
+    <Compile Include="Import\ProcessIsolatedRAM.cs" />
     <Compile Include="Import\RAMImportCommand.cs" />
     <Compile Include="Import\StructuralModelImporter.cs" />
     <Compile Include="Import\StructuralModelLoader.cs" />

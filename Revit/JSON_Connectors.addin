@@ -1,14 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <RevitAddIns>
-  <!--<AddIn Type="Command">
-    <Text>Grid Import</Text>
-    <Description>Some description for Revit</Description>
-    <Assembly>JSON_Connectors.dll</Assembly>
-    <FullClassName>Revit.Import.GridImportCommand</FullClassName>
-    <ClientId>AC6394D8-6872-4D53-B977-A8F50E20DB07</ClientId>
-    <VendorId>com.imegcorp</VendorId>
-    <VendorDescription>IMEG Corp, https://www.imegcorp.com</VendorDescription>
-  </AddIn>-->
   <AddIn Type="Application">
     <Name>JSON Connectors</Name>
     <Assembly>JSON_Connectors.dll</Assembly>

@@ -301,26 +301,89 @@ namespace Core.Utilities
             if (properties == null) return result;
 
             var uniqueProperties = new List<FrameProperties>();
-            var processedNames = new Dictionary<string, FrameProperties>(StringComparer.OrdinalIgnoreCase);
+            var processedKeys = new Dictionary<string, FrameProperties>();
 
             foreach (var property in properties)
             {
                 if (property == null || string.IsNullOrEmpty(property.Name))
                     continue;
 
-                if (!processedNames.ContainsKey(property.Name))
+                // Create comprehensive key that includes all property details
+                string propertyKey = GetFramePropertyKey(property);
+
+                if (!processedKeys.ContainsKey(propertyKey))
                 {
-                    processedNames[property.Name] = property;
+                    processedKeys[propertyKey] = property;
                     uniqueProperties.Add(property);
                 }
                 else
                 {
-                    result.IdMapping[property.Id] = processedNames[property.Name].Id;
+                    result.IdMapping[property.Id] = processedKeys[propertyKey].Id;
                 }
             }
 
             result.UniqueItems = uniqueProperties;
             return result;
+        }
+
+        private static string GetFramePropertyKey(FrameProperties property)
+        {
+            var keyParts = new List<string>
+    {
+        property.Name?.ToLowerInvariant() ?? "",
+        property.MaterialId ?? "",
+        property.Type.ToString()
+    };
+
+            // Add steel-specific properties
+            if (property.SteelProps != null)
+            {
+                keyParts.Add("STEEL");
+                keyParts.Add(property.SteelProps.SectionType.ToString());
+                keyParts.Add(property.SteelProps.SectionName ?? "");
+            }
+
+            // Add concrete-specific properties
+            if (property.ConcreteProps != null)
+            {
+                keyParts.Add("CONCRETE");
+                keyParts.Add(property.ConcreteProps.SectionType.ToString());
+                keyParts.Add(property.ConcreteProps.SectionName ?? "");
+                keyParts.Add(property.ConcreteProps.Width.ToString("F3"));
+                keyParts.Add(property.ConcreteProps.Depth.ToString("F3"));
+
+                // Add dimensions from dictionary
+                if (property.ConcreteProps.Dimensions != null)
+                {
+                    var sortedDims = property.ConcreteProps.Dimensions.OrderBy(kvp => kvp.Key);
+                    foreach (var dim in sortedDims)
+                    {
+                        keyParts.Add($"{dim.Key}:{dim.Value}");
+                    }
+                }
+            }
+
+            // Add ETABS modifiers if they differ from defaults
+            if (property.ETABSModifiers != null)
+            {
+                var mods = property.ETABSModifiers;
+                if (mods.Area != 1.0 || mods.A22 != 1.0 || mods.A33 != 1.0 ||
+                    mods.I22 != 1.0 || mods.I33 != 1.0 || mods.Torsion != 1.0 ||
+                    mods.Mass != 1.0 || mods.Weight != 1.0)
+                {
+                    keyParts.Add("ETABS");
+                    keyParts.Add($"A:{mods.Area:F3}");
+                    keyParts.Add($"A22:{mods.A22:F3}");
+                    keyParts.Add($"A33:{mods.A33:F3}");
+                    keyParts.Add($"I22:{mods.I22:F3}");
+                    keyParts.Add($"I33:{mods.I33:F3}");
+                    keyParts.Add($"T:{mods.Torsion:F3}");
+                    keyParts.Add($"M:{mods.Mass:F3}");
+                    keyParts.Add($"W:{mods.Weight:F3}");
+                }
+            }
+
+            return string.Join("|", keyParts);
         }
 
         public static DeduplicationResult<Diaphragm> RemoveDuplicateDiaphragms(IEnumerable<Diaphragm> diaphragms)

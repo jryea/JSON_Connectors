@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Reflection;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
@@ -6,7 +8,6 @@ using Autodesk.Revit.UI;
 using Revit.Views;
 using Revit.Utilities;
 using Revit.Import;
-using System.Collections.Generic;
 
 namespace Revit.Import
 {
@@ -25,10 +26,6 @@ namespace Revit.Import
                 ImportStructuralModelWindow importWindow = new ImportStructuralModelWindow(uiApp);
                 bool? dialogResult = importWindow.ShowDialog();
 
-                System.Diagnostics.Debug.WriteLine($"Dialog result: {dialogResult}");
-                System.Diagnostics.Debug.WriteLine($"DataContext type: {importWindow.DataContext?.GetType()}");
-
-                // If dialog was canceled, return cancelled
                 if (!dialogResult.HasValue || !dialogResult.Value)
                 {
                     return Result.Cancelled;
@@ -69,10 +66,13 @@ namespace Revit.Import
                     BaseLevelElevation = viewModel.BaseLevelElevation
                 };
 
-                // Perform import within the command context (like ETABSImportCommand)
+                // Handle file conversion based on type
+                string jsonPath = ConvertToJson(viewModel.InputLocation);
+
+                // Perform import using existing ImportManager
                 var importManager = new ImportManager(doc, uiApp);
                 int importedCount = importManager.ImportFromFile(
-                    viewModel.InputLocation,
+                    jsonPath,
                     elementFilters,
                     materialFilters,
                     transformParams);
@@ -88,6 +88,62 @@ namespace Revit.Import
                 TaskDialog.Show("Error",
                     $"An error occurred while importing structural model: {ex.Message}");
                 return Result.Failed;
+            }
+        }
+
+        private string ConvertToJson(string filePath)
+        {
+            string extension = Path.GetExtension(filePath).ToLowerInvariant();
+
+            switch (extension)
+            {
+                case ".json":
+                    return filePath;
+
+                case ".rss":
+                    return ConvertRAMToJson(filePath);
+
+                case ".e2k":
+                    return ConvertETABSToJson(filePath);
+
+                default:
+                    throw new NotSupportedException($"File format {extension} is not supported");
+            }
+        }
+
+        private string ConvertRAMToJson(string ramFilePath)
+        {
+            string tempJsonPath = Path.Combine(Path.GetTempPath(),
+                Path.GetFileNameWithoutExtension(ramFilePath) + "_temp.json");
+
+            // Use process isolation to avoid SQLite conflicts
+            ProcessIsolatedRAM ramConverter = new ProcessIsolatedRAM();
+            var conversionResult = ramConverter.ConvertRAMToJSON(ramFilePath, tempJsonPath);
+
+            if (!conversionResult.Success)
+            {
+                throw new Exception($"Failed to convert RAM file: {conversionResult.Message}");
+            }
+
+            return tempJsonPath;
+        }
+
+        private string ConvertETABSToJson(string etabsFilePath)
+        {
+            string tempJsonPath = Path.Combine(Path.GetTempPath(),
+                Path.GetFileNameWithoutExtension(etabsFilePath) + "_temp.json");
+
+            try
+            {
+                string e2kContent = File.ReadAllText(etabsFilePath);
+                var converter = new ETABS.ETABSToGrasshopper();
+                string jsonContent = converter.ProcessE2K(e2kContent);
+                File.WriteAllText(tempJsonPath, jsonContent);
+                return tempJsonPath;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Failed to convert ETABS file: {ex.Message}", ex);
             }
         }
 

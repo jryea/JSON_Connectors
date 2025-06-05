@@ -51,47 +51,6 @@ namespace Revit.Import.ModelLayout
             return testName;
         }
 
-        // Find the "S - Standard (document)" view template
-        private DB.ViewFamilyType FindStandardViewTemplate()
-        {
-            try
-            {
-                DB.FilteredElementCollector collector = new DB.FilteredElementCollector(_doc);
-                var viewTemplates = collector.OfClass(typeof(DB.View))
-                    .Cast<DB.View>()
-                    .Where(v => v.IsTemplate && v.ViewType == DB.ViewType.EngineeringPlan)
-                    .ToList();
-
-                // Look for the specific template name
-                var standardTemplate = viewTemplates.FirstOrDefault(vt =>
-                    vt.Name.Equals("S - Standard (document)", StringComparison.OrdinalIgnoreCase));
-
-                if (standardTemplate != null)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Found 'S - Standard (document)' view template: {standardTemplate.Name}");
-                    return null; // We'll use the template differently
-                }
-
-                // If not found, look for any template with "Standard" or "S -" in the name
-                standardTemplate = viewTemplates.FirstOrDefault(vt =>
-                    vt.Name.Contains("Standard") || vt.Name.StartsWith("S -"));
-
-                if (standardTemplate != null)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Found alternative standard template: {standardTemplate.Name}");
-                    return null; // We'll use the template differently
-                }
-
-                System.Diagnostics.Debug.WriteLine("No suitable view template found");
-                return null;
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Error finding view template: {ex.Message}");
-                return null;
-            }
-        }
-
         // Get the engineering plan view family type
         private DB.ViewFamilyType GetEngineeringPlanViewType()
         {

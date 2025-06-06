@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<OutputType>Exe</OutputType>
@@ -6,9 +6,7 @@
 		<AssemblyName>RAMWorker</AssemblyName>
 		<RootNamespace>RAMWorker</RootNamespace>
 	</PropertyGroup>
-	<PropertyGroup>
-		<PostBuildEvent>copy "$(TargetPath)" "$(AppData)\Autodesk\REVIT\Addins\2024\"</PostBuildEvent>
-	</PropertyGroup>
+	<PropertyGroup />
 	<PropertyGroup>
 		<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
 	</PropertyGroup>

@@ -108,7 +108,6 @@ namespace Revit.Import
                             {
                                 Success = true,
                                 Message = "RAM conversion completed successfully",
-                                JsonOutput = File.ReadAllText(outputJsonPath)
                             };
                         }
                         else

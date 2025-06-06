@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
 using Core.Converters;
 using Core.Models;
@@ -27,24 +28,85 @@ namespace StandaloneConverter.Services
         {
             string jsonContent;
 
-            // Step 1: Convert RAM to JSON
+            // Step 1: Convert RAM to JSON using Worker.exe
             logger.Log($"Converting RAM file to JSON: {options.InputFilePath}");
-            var ramExporter = new RAMExporter();
-            var ramResult = ramExporter.ConvertRAMToJSON(options.InputFilePath);
 
-            if (!ramResult.Success)
+            // Check if Worker.exe exists
+            string workerPath = Path.Combine(Directory.GetCurrentDirectory(), "Worker.exe");
+            Console.WriteLine($"Looking for Worker.exe at: {workerPath}");
+            Console.WriteLine($"Worker.exe exists: {File.Exists(workerPath)}");
+
+            if (!File.Exists(workerPath))
             {
-                logger.Log($"RAM to JSON conversion failed: {ramResult.Message}");
-                throw new Exception($"RAM to JSON conversion failed: {ramResult.Message}");
-            }
+                Console.WriteLine("Worker.exe not found - falling back to direct RAMExporter");
+                // Fallback to original RAMExporter code
+                var ramExporter = new RAMExporter();
+                var ramResult = ramExporter.ConvertRAMToJSON(options.InputFilePath);
 
-            jsonContent = ramResult.JsonOutput;
-            logger.Log("RAM to JSON conversion successful");
+                if (!ramResult.Success)
+                {
+                    logger.Log($"RAM to JSON conversion failed: {ramResult.Message}");
+                    throw new Exception($"RAM to JSON conversion failed: {ramResult.Message}");
+                }
+
+                jsonContent = ramResult.JsonOutput;
+                logger.Log("RAM to JSON conversion successful");
+            }
+            else
+            {
+                Console.WriteLine("Starting Worker.exe process...");
+
+                // Use Worker.exe for conversion
+                var processInfo = new ProcessStartInfo
+                {
+                    FileName = workerPath,
+                    Arguments = $"\"{options.InputFilePath}\" \"{options.IntermediateJsonPath}\"",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true
+                };
+
+                Console.WriteLine($"Command: {processInfo.FileName} {processInfo.Arguments}");
+
+                using (var process = Process.Start(processInfo))
+                {
+                    if (process == null)
+                    {
+                        throw new Exception("Failed to start Worker.exe process");
+                    }
+
+                    string output = process.StandardOutput.ReadToEnd();
+                    string error = process.StandardError.ReadToEnd();
+
+                    process.WaitForExit();
+
+                    // Log the output so you can see it
+                    Console.WriteLine($"Worker output: {output}");
+                    if (!string.IsNullOrEmpty(error))
+                        Console.WriteLine($"Worker error: {error}");
+
+                    if (process.ExitCode != 0)
+                    {
+                        throw new Exception($"Worker failed with exit code {process.ExitCode}. Error: {error}");
+                    }
+
+                    // Verify output file was created
+                    if (!File.Exists(options.IntermediateJsonPath))
+                    {
+                        throw new Exception("Worker completed but output file was not created");
+                    }
+
+                    Console.WriteLine("Worker.exe completed successfully - reading JSON file");
+                    jsonContent = File.ReadAllText(options.IntermediateJsonPath);
+                }
+
+                logger.Log("RAM to JSON conversion successful via Worker.exe");
+            }
 
             // Step 2: Clean the model (always done)
             logger.Log("Cleaning model (removing duplicates)...");
             var model = JsonConverter.Deserialize(jsonContent, false);
-            //model.RemoveDuplicateGeometry();
             jsonContent = JsonConverter.Serialize(model);
             logger.Log("Model cleaning complete");
 

@@ -5,9 +5,7 @@ using System.Threading.Tasks;
 
 namespace Revit.Import
 {
-    /// <summary>
-    /// Handles RAM conversion using a separate process to avoid SQLite conflicts
-    /// </summary>
+    // Handles RAM conversion using a separate process to avoid SQLite conflicts
     public class ProcessIsolatedRAM
     {
         private readonly string _workerExecutablePath;
@@ -21,12 +19,7 @@ namespace Revit.Import
             );
         }
 
-        /// <summary>
-        /// Converts RAM file to JSON using isolated process
-        /// </summary>
-        /// <param name="ramFilePath">Path to RAM file</param>
-        /// <param name="outputJsonPath">Path for output JSON</param>
-        /// <returns>Conversion result</returns>
+        // Converts RAM file to JSON using isolated process
         public RAMConversionResult ConvertRAMToJSON(string ramFilePath, string outputJsonPath)
         {
             try
@@ -72,6 +65,7 @@ namespace Revit.Import
 
                 using (var process = Process.Start(processInfo))
                 {
+
                     if (process == null)
                     {
                         return new RAMConversionResult
@@ -87,6 +81,11 @@ namespace Revit.Import
 
                     // Wait for completion with timeout (5 minutes)
                     bool completed = process.WaitForExit(300000);
+
+                    // Use Console.WriteLine since logger isn't available
+                    Console.WriteLine($"Worker output: {output}");
+                    if (!string.IsNullOrEmpty(error))
+                        Console.WriteLine($"Worker error: {error}");
 
                     if (!completed)
                     {
@@ -139,18 +138,14 @@ namespace Revit.Import
             }
         }
 
-        /// <summary>
-        /// Async version of ConvertRAMToJSON
-        /// </summary>
+        // Async version of ConvertRAMToJSON
         public async Task<RAMConversionResult> ConvertRAMToJSONAsync(string ramFilePath, string outputJsonPath)
         {
             return await Task.Run(() => ConvertRAMToJSON(ramFilePath, outputJsonPath));
         }
     }
 
-    /// <summary>
-    /// Result of RAM conversion operation
-    /// </summary>
+    // Result of RAM conversion operation
     public class RAMConversionResult
     {
         public bool Success { get; set; }

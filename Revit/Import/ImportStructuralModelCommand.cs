@@ -113,19 +113,20 @@ namespace Revit.Import
 
         private string ConvertRAMToJson(string ramFilePath)
         {
-            string tempJsonPath = Path.Combine(Path.GetTempPath(),
-                Path.GetFileNameWithoutExtension(ramFilePath) + "_temp.json");
+            string directory = Path.GetDirectoryName(ramFilePath);
+            string fileName = Path.GetFileNameWithoutExtension(ramFilePath);
+            string jsonPath = Path.Combine(directory, fileName + ".json");
 
             // Use process isolation to avoid SQLite conflicts
             ProcessIsolatedRAM ramConverter = new ProcessIsolatedRAM();
-            var conversionResult = ramConverter.ConvertRAMToJSON(ramFilePath, tempJsonPath);
+            var conversionResult = ramConverter.ConvertRAMToJSON(ramFilePath, jsonPath);
 
             if (!conversionResult.Success)
             {
                 throw new Exception($"Failed to convert RAM file: {conversionResult.Message}");
             }
 
-            return tempJsonPath;
+            return jsonPath;
         }
 
         private string ConvertETABSToJson(string etabsFilePath)

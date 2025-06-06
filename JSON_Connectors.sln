@@ -19,7 +19,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rhino", "Rhino\Rhino.csproj
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ModelDebugger", "ModelDebugger\ModelDebugger.csproj", "{5174FFE3-351D-49C7-B074-6F0FFFD5C962}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Worker", "Worker\Worker.csproj", "{C6B47074-BFEA-4E6A-B4D3-09D1527DD325}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RAMWorker", "RAMWorker\RAMWorker.csproj", "{035FD9CE-B762-40E2-83E9-49A51343B529}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -59,10 +59,10 @@ Global
 		{5174FFE3-351D-49C7-B074-6F0FFFD5C962}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5174FFE3-351D-49C7-B074-6F0FFFD5C962}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5174FFE3-351D-49C7-B074-6F0FFFD5C962}.Release|Any CPU.Build.0 = Release|Any CPU
-		{C6B47074-BFEA-4E6A-B4D3-09D1527DD325}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{C6B47074-BFEA-4E6A-B4D3-09D1527DD325}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{C6B47074-BFEA-4E6A-B4D3-09D1527DD325}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{C6B47074-BFEA-4E6A-B4D3-09D1527DD325}.Release|Any CPU.Build.0 = Release|Any CPU
+		{035FD9CE-B762-40E2-83E9-49A51343B529}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{035FD9CE-B762-40E2-83E9-49A51343B529}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{035FD9CE-B762-40E2-83E9-49A51343B529}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{035FD9CE-B762-40E2-83E9-49A51343B529}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

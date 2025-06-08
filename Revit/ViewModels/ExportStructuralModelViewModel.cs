@@ -111,6 +111,18 @@ namespace Revit.ViewModels
                     OnPropertyChanged();
                     OnPropertyChanged(nameof(IsAnalysisExport));
                     OnPropertyChanged(nameof(IsFloorLayoutEnabled));
+
+                    // Set Grasshopper-specific defaults
+                    if (value)
+                    {
+                        ExportGrids = true;
+                        ExportFloors = true;
+                        ExportBeams = false;
+                        ExportBraces = false;
+                        ExportColumns = false;
+                        ExportWalls = false;
+                        ExportFootings = false;
+                    }
                 }
             }
         }
@@ -395,6 +407,8 @@ namespace Revit.ViewModels
             ExportToETABS = true;
             ExportToRAM = false;
             ExportToGrasshopper = false;
+
+
 
             // Initialize the filtered views
             _filteredLevelCollection = CollectionViewSource.GetDefaultView(LevelCollection);

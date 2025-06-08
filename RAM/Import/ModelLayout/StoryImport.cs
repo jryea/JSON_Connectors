@@ -85,9 +85,22 @@ namespace RAM.Import.ModelLayout
                 var validStoryHeights = storyHeights.Where(sh => validLevels.Contains(sh.level)).ToList();
 
                 Console.WriteLine($"After filtering: {validStoryHeights.Count} valid levels remain");
+
+                // Create a mapping from Core level's floor type ID to RAM floor type
+                // This ensures each level gets its correct floor type regardless of filtering
+                var levelFloorTypeMappings = new Dictionary<string, IFloorType>();
                 foreach (var (level, height) in validStoryHeights)
                 {
-                    Console.WriteLine($"Valid level {level.Name}: will use height={height} inches ({height / 12:F1} feet)");
+                    if (!string.IsNullOrEmpty(level.FloorTypeId) &&
+                        _floorTypeMapping.TryGetValue(level.FloorTypeId, out IFloorType ramFloorType))
+                    {
+                        levelFloorTypeMappings[level.Id] = ramFloorType;
+                        Console.WriteLine($"Level {level.Name} (ID: {level.Id}) mapped to RAM floor type {ramFloorType.strLabel}");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Warning: No floor type mapping found for level {level.Name} (FloorTypeId: {level.FloorTypeId})");
+                    }
                 }
 
                 int storyCount = 1;
@@ -98,18 +111,21 @@ namespace RAM.Import.ModelLayout
 
                     string storyName = $"Story {storyCount++}";
 
+                    // Use the specific floor type mapping for this level
                     int floorTypeId = 0;
-                    if (!string.IsNullOrEmpty(level.FloorTypeId) &&
-                        _floorTypeMapping.TryGetValue(level.FloorTypeId, out IFloorType floorType))
+                    if (levelFloorTypeMappings.TryGetValue(level.Id, out IFloorType mappedFloorType))
                     {
-                        floorTypeId = floorType.lUID;
+                        floorTypeId = mappedFloorType.lUID;
+                        Console.WriteLine($"Using mapped floor type {mappedFloorType.strLabel} (UID: {floorTypeId}) for level {level.Name}");
                     }
                     else
                     {
+                        // Fallback to first available floor type
                         IFloorTypes ramFloorTypes = _model.GetFloorTypes();
                         if (ramFloorTypes.GetCount() > 0)
                         {
                             floorTypeId = ramFloorTypes.GetAt(0).lUID;
+                            Console.WriteLine($"Using fallback floor type for level {level.Name}");
                         }
                     }
 
@@ -126,7 +142,7 @@ namespace RAM.Import.ModelLayout
                         continue;
                     }
 
-                    Console.WriteLine($"Created RAM story '{storyName}' with height {height} inches ({height / 12:F1} feet) for level {level.Name}");
+                    Console.WriteLine($"Created RAM story '{storyName}' with height {height} inches ({height / 12:F1} feet) for level {level.Name} using floor type UID {floorTypeId}");
                     count++;
                 }
 

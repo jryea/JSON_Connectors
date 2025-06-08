@@ -162,6 +162,7 @@ namespace Revit.Export.Properties
             var collector = new DB.FilteredElementCollector(_doc);
             var walls = collector.OfCategory(DB.BuiltInCategory.OST_Walls)
                 .WhereElementIsNotElementType()
+                .OfClass(typeof(DB.Wall))
                 .Where(w => !(w is DB.DirectShape))
                 .Cast<DB.Wall>()
                 .ToList();

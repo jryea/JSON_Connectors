@@ -14,6 +14,7 @@ using Microsoft.Win32;
 using Revit.Export;
 using CG = Core.Models.Geometry;
 using Revit.Export.Models;
+using Core.Utilities;
 
 namespace Revit.ViewModels
 {
@@ -860,7 +861,7 @@ namespace Revit.ViewModels
                 if (ApplyRotation && Math.Abs(RotationAngle) > 0.001)
                 {
                     var rotationCenter = CalculateModelCenter(cleanModel);
-                    Core.Models.ModelTransformation.RotateModel(cleanModel, RotationAngle, rotationCenter);
+                    ModelTransformation.RotateModel(cleanModel, RotationAngle, rotationCenter);
 
                     // Save post-transform JSON
                     string directory = Path.GetDirectoryName(OutputLocation);
@@ -1022,7 +1023,7 @@ namespace Revit.ViewModels
                 var rotationCenter = CalculateModelCenter(model);
 
                 // Apply rotation
-                Core.Models.ModelTransformation.RotateModel(model, RotationAngle, rotationCenter);
+                ModelTransformation.RotateModel(model, RotationAngle, rotationCenter);
 
                 // Save the rotated model back to JSON
                 Core.Converters.JsonConverter.SaveToFile(model, jsonPath);
@@ -1168,13 +1169,13 @@ namespace Revit.ViewModels
             // Apply rotation around grid intersection
             if (Math.Abs(rotationAngle) > 0.001)
             {
-                Core.Models.ModelTransformation.RotateModel(model, rotationAngle, intersectionPoint);
+                ModelTransformation.RotateModel(model, rotationAngle, intersectionPoint);
             }
 
             // Apply translation
             if (Math.Abs(translation.X) > 0.001 || Math.Abs(translation.Y) > 0.001 || Math.Abs(translation.Z) > 0.001)
             {
-                Core.Models.ModelTransformation.TranslateModel(model, translation);
+                ModelTransformation.TranslateModel(model, translation);
             }
         }
 

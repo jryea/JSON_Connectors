@@ -56,7 +56,6 @@ namespace Core.Utilities
             return result;
         }
 
-        // Similar pattern for other element types...
         public static DeduplicationResult<Column> RemoveDuplicateColumns(IEnumerable<Column> columns)
         {
             var result = new DeduplicationResult<Column>();

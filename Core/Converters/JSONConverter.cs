@@ -28,12 +28,6 @@ namespace Core.Converters
             }
         }
 
-        private static BaseModel DeepCopy(BaseModel original)
-        {
-            string json = Serialize(original);
-            return Deserialize(json);
-        }
-
         public static BaseModel DeserializeWithDebugging(string json)
         {
             try
@@ -67,7 +61,6 @@ namespace Core.Converters
                 }
             }
         }
-
         public static BaseModel Deserialize(string json, bool removeDuplicates = true)
         {
             try

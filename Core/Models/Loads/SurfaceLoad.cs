@@ -10,6 +10,7 @@ namespace Core.Models.Loads
     public class SurfaceLoad
     {
         public string Id { get; set; }
+        public string Name { get; set; }    
         public string LayoutTypeId { get; set; }
         public string LiveLoadId { get; set; }
         public double LiveLoadValue { get; set; }

@@ -1,8 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using Core.Models;
 using Core.Models.Geometry;
 
-namespace Core.Models
+namespace Core.Utilities
 {
     // Utility for applying geometric transformations to entire structural models
     public static class ModelTransformation

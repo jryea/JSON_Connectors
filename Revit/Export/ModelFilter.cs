@@ -6,10 +6,7 @@ using Core.Models;
 
 namespace Revit.Export
 {
-    /// <summary>
-    /// Post-processing filter for complete structural model
-    /// Clean, predictable filtering after all elements are built
-    /// </summary>
+    // Post-processing filter for complete structural model
     public class ModelFilter
     {
         private readonly ExportContext _context;

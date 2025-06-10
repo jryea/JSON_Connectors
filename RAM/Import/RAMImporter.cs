@@ -160,7 +160,7 @@ namespace RAM
                                 Console.WriteLine($"  {ft.Name} (ID: {ft.Id})");
                             }
 
-                            floorTypeCount = floorTypeImporter.Import(sortedFloorTypes, validLevels);
+                            floorTypeCount = floorTypeImporter.Import(sortedFloorTypes, model.ModelLayout.Levels);
                             Console.WriteLine($"Imported {floorTypeCount} floor types");
                         }
 

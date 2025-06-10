@@ -5,6 +5,7 @@ using Core.Models;
 using CG = Core.Models.Geometry;
 using Autodesk.Revit.DB;
 using System.Collections.Generic;
+using Core.Utilities;
 
 namespace Revit.Import
 {
@@ -31,7 +32,7 @@ namespace Revit.Import
                 var transform = CalculateTransformation(model);
                 if (transform != null)
                 {
-                    Core.Models.ModelTransformation.TransformModel(
+                    ModelTransformation.TransformModel(
                         model,
                         transform.RotationAngle,
                         transform.RotationCenter,

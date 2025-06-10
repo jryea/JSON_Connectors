@@ -40,29 +40,22 @@ namespace Revit
 
             // Create model button data
             PushButtonData btnModelImport = ModelImportCommand.GetButtonData();
-            PushButtonData btnModelExport = ModelExportCommand.GetButtonData();
-            PushButtonData btnGrasshopperExport = GrasshopperExportCommand.GetButtonData();
             PushButtonData btnStructuralModelExport = StructuralModelExportCommand.GetButtonData();
 
             // Create RAM button data
             PushButtonData btnRAMImport = RAMImportCommand.GetButtonData();
-            PushButtonData btnRAMExport = RAMExportCommand.GetButtonData();
 
             // Create ETABS button data
             PushButtonData btnETABSImport = ETABSImportCommand.GetButtonData();
-            PushButtonData btnETABSExport = ETABSExportCommand.GetButtonData();
 
             // Add buttons to model panel
             PushButton buttonModelImport = modelPanel.AddItem(btnModelImport) as PushButton;
-            PushButton buttonModelExport = modelPanel.AddItem(btnModelExport) as PushButton;
-            PushButton buttonGrasshopperExport = modelPanel.AddItem(btnGrasshopperExport) as PushButton;
             PushButton buttonStructuralModelExport = modelPanel.AddItem(btnStructuralModelExport) as PushButton;
             buttonStructuralModelExport.LargeImage = btnStructuralModelExport.LargeImage;
             buttonStructuralModelExport.Image = btnStructuralModelExport.Image;
 
             // Add buttons to RAM panel
             PushButton buttonRAMImport = RAMPanel.AddItem(btnRAMImport) as PushButton;
-            PushButton buttonRAMExport = RAMPanel.AddItem(btnRAMExport) as PushButton;
 
             // In App.cs OnStartup method
             PushButtonData btnStructuralModelImport = ImportStructuralModelCommand.GetButtonData();
@@ -70,7 +63,6 @@ namespace Revit
 
             // Add buttons to ETABS panel
             PushButton buttonETABSImport = ETABSPanel.AddItem(btnETABSImport) as PushButton;
-            PushButton buttonETABSExport = ETABSPanel.AddItem(btnETABSExport) as PushButton;
 
             return Result.Succeeded;
         }

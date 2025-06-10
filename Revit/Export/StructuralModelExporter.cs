@@ -6,10 +6,8 @@ using Core.Models;
 
 namespace Revit.Export
 {
-    /// <summary>
-    /// Main orchestrator for structural model export
-    /// Clean separation: Build -> Filter -> Output
-    /// </summary>
+    // Main orchestrator for structural model export
+    // Clean separation: Build -> Filter -> Output
     public class StructuralModelExporter
     {
         public BaseModel Export(ExportContext context)
@@ -36,9 +34,7 @@ namespace Revit.Export
             }
         }
 
-        /// <summary>
-        /// Creates export context from legacy parameters for backward compatibility
-        /// </summary>
+        // Creates export context from legacy parameters for backward compatibility
         public static ExportContext CreateContext(Document doc,
             Dictionary<string, bool> elementFilters = null,
             Dictionary<string, bool> materialFilters = null,

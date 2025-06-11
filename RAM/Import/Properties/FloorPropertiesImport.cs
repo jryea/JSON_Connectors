@@ -93,6 +93,8 @@ namespace RAM.Import.Properties
 
                     if (slabProp != null)
                     {
+                        // Set additional properties
+
                         idMapping[floorProp.Id] = slabProp.lUID;
                         Console.WriteLine($"Created slab property: {floorProp.Name}, ID: {slabProp.lUID}");
                     }

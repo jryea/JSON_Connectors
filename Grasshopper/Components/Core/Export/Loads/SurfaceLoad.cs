@@ -20,6 +20,7 @@ namespace Grasshopper.Components
 
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
+            pManager.AddTextParameter("Name", "N", "Name of the surface load", GH_ParamAccess.item, "Surface Load");
             pManager.AddGenericParameter("Floor Type", "FT", "Floor type object", GH_ParamAccess.item);
             pManager.AddGenericParameter("Live Load", "LL", "Live load definition object", GH_ParamAccess.item);
             pManager.AddGenericParameter("Dead Load", "DL", "Dead load definition object", GH_ParamAccess.item);
@@ -38,6 +39,7 @@ namespace Grasshopper.Components
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             // Initialize variables
+            string name = "Surface Load"; // Default name
             GH_FloorType ghFloorType = null;
             GH_LoadDefinition ghLiveLoad = null;
             GH_LoadDefinition ghDeadLoad = null;
@@ -45,15 +47,17 @@ namespace Grasshopper.Components
             double deadLoadValue = 15.0; // Default value
 
             // Retrieve input data
-            if (!DA.GetData(0, ref ghFloorType)) return;
-            if (!DA.GetData(1, ref ghLiveLoad)) return;
-            if (!DA.GetData(2, ref ghDeadLoad)) return;
-            DA.GetData(3, ref liveLoadValue);
-            DA.GetData(4, ref deadLoadValue);
+            DA.GetData(0, ref name);
+            if (!DA.GetData(1, ref ghFloorType)) return;
+            if (!DA.GetData(2, ref ghLiveLoad)) return;
+            if (!DA.GetData(3, ref ghDeadLoad)) return;
+            DA.GetData(4, ref liveLoadValue);
+            DA.GetData(5, ref deadLoadValue);
 
             // Create the surface load
             CM.SurfaceLoad surfaceLoad = new CM.SurfaceLoad
             {
+                Name = name,    
                 LayoutTypeId = ghFloorType.Value.Id,
                 LiveLoadId = ghLiveLoad.Value.Id,
                 DeadLoadId = ghDeadLoad.Value.Id,

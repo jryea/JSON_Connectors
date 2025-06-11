@@ -16,7 +16,6 @@ namespace RAM.Utilities
         {
             InitializeDefaultMaterials();
         }
-
         private void InitializeDefaultMaterials()
         {
             // Create a single concrete material

@@ -438,7 +438,7 @@ namespace Grasshopper.Utilities
         public override string ToString()
         {
             if (Value == null) return "Null SurfaceLoad";
-            return $"SurfaceLoad: Layout={Value.LayoutTypeId}, Dead={Value.DeadLoadId}, Live={Value.LiveLoadId}";
+            return $"SurfaceLoad: Name={Value.Name}, Dead={Value.DeadLoadId}, Live={Value.LiveLoadId}";
         }
     }
 

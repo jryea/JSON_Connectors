@@ -270,10 +270,11 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>echo *** Configuration: $(Configuration)
-echo *** Copying results to $(RevitVersion) 
-if exist "$(AppData)\Autodesk\REVIT\Addins\$(RevitVersion)" copy "$(ProjectDir)*.addin" "$(AppData)\Autodesk\REVIT\Addins\$(RevitVersion)"
-if exist "$(AppData)\Autodesk\REVIT\Addins\$(RevitVersion)" copy "$(ProjectDir)$(OutputPath)*.dll" "$(AppData)\Autodesk\REVIT\Addins\$(RevitVersion)"</PostBuildEvent>
+    <PostBuildEvent>if not exist "$(AppData)\Autodesk\REVIT\Addins\$(RevitVersion)\JSON_Connectors" mkdir "$(AppData)\Autodesk\REVIT\Addins\$(RevitVersion)\JSON_Connectors"
+copy "$(ProjectDir)$(OutputPath)*.dll" "$(AppData)\Autodesk\REVIT\Addins\$(RevitVersion)\JSON_Connectors"
+copy "$(ProjectDir)$(OutputPath)*.pdb" "$(AppData)\Autodesk\REVIT\Addins\$(RevitVersion)\JSON_Connectors"
+copy "$(ProjectDir)$(OutputPath)*.exe" "$(AppData)\Autodesk\REVIT\Addins\$(RevitVersion)\JSON_Connectors"
+copy "$(ProjectDir)$(OutputPath)*.config" "$(AppData)\Autodesk\REVIT\Addins\$(RevitVersion)\JSON_Connectors"</PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it.
        Other similar extension points exist, see Microsoft.Common.targets.

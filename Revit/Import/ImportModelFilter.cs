@@ -1,11 +1,13 @@
 ﻿using System.Linq;
 using System.Diagnostics;
+using System.Collections.Generic;
 using Core.Models;
+using Core.Utilities;
 
 namespace Revit.Import
 {
     /// <summary>
-    /// Filters imported model based on user selections for element types and materials
+    /// Filters imported model based on user selections for element types and materials using Core utilities
     /// </summary>
     public class ImportModelFilter
     {
@@ -23,10 +25,10 @@ namespace Revit.Import
             // Filter elements by category
             FilterElementsByCategory(model);
 
-            // Filter elements by material
+            // Filter elements by material using Core utilities
             FilterElementsByMaterial(model);
 
-            // Clean up orphaned properties and references
+            // Clean up model - preserve properties for potential reuse (no property cleanup)
             CleanupModel(model);
 
             Debug.WriteLine("ImportModelFilter: Filtering complete");
@@ -36,40 +38,59 @@ namespace Revit.Import
         {
             if (model.Elements == null) return;
 
-            // Filter each element type based on user selection
-            if (!_context.ShouldImportElement("Grids"))
+            // Filter grids
+            if (!_context.ShouldImportElement("Grids") && model.ModelLayout?.Grids != null)
             {
-                model.ModelLayout.Grids?.Clear();
+                model.ModelLayout.Grids.Clear();
+                Debug.WriteLine("ImportModelFilter: Grids filtered out");
             }
 
-            if (!_context.ShouldImportElement("Beams"))
+            // Filter beams using Core utility
+            if (!_context.ShouldImportElement("Beams") && model.Elements.Beams != null)
             {
-                model.Elements.Beams?.Clear();
+                int initialCount = model.Elements.Beams.Count;
+                model.Elements.Beams.Clear();
+                Debug.WriteLine($"ImportModelFilter: Beams filtered out {initialCount} -> 0");
             }
 
-            if (!_context.ShouldImportElement("Columns"))
+            // Filter columns using Core utility
+            if (!_context.ShouldImportElement("Columns") && model.Elements.Columns != null)
             {
-                model.Elements.Columns?.Clear();
+                int initialCount = model.Elements.Columns.Count;
+                model.Elements.Columns.Clear();
+                Debug.WriteLine($"ImportModelFilter: Columns filtered out {initialCount} -> 0");
             }
 
-            if (!_context.ShouldImportElement("Braces"))
+            // Filter braces using Core utility
+            if (!_context.ShouldImportElement("Braces") && model.Elements.Braces != null)
             {
-                model.Elements.Braces?.Clear();
+                int initialCount = model.Elements.Braces.Count;
+                model.Elements.Braces.Clear();
+                Debug.WriteLine($"ImportModelFilter: Braces filtered out {initialCount} -> 0");
             }
 
-            if (!_context.ShouldImportElement("Walls"))
+            // Filter walls using Core utility
+            if (!_context.ShouldImportElement("Walls") && model.Elements.Walls != null)
             {
-                model.Elements.Walls?.Clear();
+                int initialCount = model.Elements.Walls.Count;
+                model.Elements.Walls.Clear();
+                Debug.WriteLine($"ImportModelFilter: Walls filtered out {initialCount} -> 0");
             }
 
-            if (!_context.ShouldImportElement("Floors"))
+            // Filter floors using Core utility
+            if (!_context.ShouldImportElement("Floors") && model.Elements.Floors != null)
             {
-                model.Elements.Floors?.Clear();
+                int initialCount = model.Elements.Floors.Count;
+                model.Elements.Floors.Clear();
+                Debug.WriteLine($"ImportModelFilter: Floors filtered out {initialCount} -> 0");
             }
 
-            if (!_context.ShouldImportElement("Footings"))
+            // Filter footings using Core utility
+            if (!_context.ShouldImportElement("Footings") && model.Elements.IsolatedFootings != null)
             {
-                model.Elements.IsolatedFootings?.Clear();
+                int initialCount = model.Elements.IsolatedFootings.Count;
+                model.Elements.IsolatedFootings.Clear();
+                Debug.WriteLine($"ImportModelFilter: Footings filtered out {initialCount} -> 0");
             }
         }
 
@@ -77,90 +98,154 @@ namespace Revit.Import
         {
             if (model.Properties?.Materials == null) return;
 
-            // Get material IDs to keep
-            var materialsToKeep = model.Properties.Materials
-                .Where(m => (_context.ShouldImportMaterial("Steel") && m.Type == Core.Models.MaterialType.Steel) ||
-                           (_context.ShouldImportMaterial("Concrete") && m.Type == Core.Models.MaterialType.Concrete))
-                .Select(m => m.Id)
-                .ToHashSet();
+            // Determine which material types to remove based on user selections
+            var materialTypesToRemove = new HashSet<MaterialType>();
 
-            // Remove unwanted materials
-            model.Properties.Materials = model.Properties.Materials
-                .Where(m => materialsToKeep.Contains(m.Id))
-                .ToList();
-
-            // Remove properties that reference unwanted materials
-            if (model.Properties.FrameProperties != null)
+            if (!_context.ShouldImportMaterial("Steel"))
             {
-                model.Properties.FrameProperties = model.Properties.FrameProperties
-                    .Where(fp => string.IsNullOrEmpty(fp.MaterialId) || materialsToKeep.Contains(fp.MaterialId))
-                    .ToList();
+                materialTypesToRemove.Add(MaterialType.Steel);
             }
 
-            if (model.Properties.WallProperties != null)
+            if (!_context.ShouldImportMaterial("Concrete"))
             {
-                model.Properties.WallProperties = model.Properties.WallProperties
-                    .Where(wp => string.IsNullOrEmpty(wp.MaterialId) || materialsToKeep.Contains(wp.MaterialId))
-                    .ToList();
+                materialTypesToRemove.Add(MaterialType.Concrete);
             }
 
-            if (model.Properties.FloorProperties != null)
+            // If no materials are being filtered out, skip this step
+            if (materialTypesToRemove.Count == 0)
             {
-                model.Properties.FloorProperties = model.Properties.FloorProperties
-                    .Where(fp => string.IsNullOrEmpty(fp.MaterialId) || materialsToKeep.Contains(fp.MaterialId))
-                    .ToList();
+                Debug.WriteLine("ImportModelFilter: No material filtering required");
+                return;
             }
 
-            // Remove elements that reference filtered-out frame properties
-            FilterElementsByProperties(model);
+            Debug.WriteLine($"ImportModelFilter: Filtering out material types: {string.Join(", ", materialTypesToRemove)}");
+
+            // Use Core utility to filter elements by material type
+            // This will remove elements that use the unwanted material types
+            Core.Utilities.ModelFilter.FilterElementsByMaterialType(model, materialTypesToRemove);
         }
 
-        private void FilterElementsByProperties(BaseModel model)
+        /// <summary>
+        /// Alternative manual approach for material filtering if Core utility doesn't meet specific needs
+        /// This method demonstrates how the old logic could be simplified using standard LINQ
+        /// </summary>
+        private void FilterMaterialsAndProperties(BaseModel model, HashSet<MaterialType> materialTypesToRemove)
         {
-            if (model.Elements == null) return;
+            // Get material IDs to remove
+            var materialIdsToRemove = new HashSet<string>();
+            if (model.Properties.Materials != null)
+            {
+                foreach (var material in model.Properties.Materials)
+                {
+                    if (materialTypesToRemove.Contains(material.Type))
+                    {
+                        materialIdsToRemove.Add(material.Id);
+                    }
+                }
+            }
 
-            var validFramePropertyIds = model.Properties.FrameProperties?.Select(fp => fp.Id).ToHashSet() ?? new System.Collections.Generic.HashSet<string>();
-            var validWallPropertyIds = model.Properties.WallProperties?.Select(wp => wp.Id).ToHashSet() ?? new System.Collections.Generic.HashSet<string>();
-            var validFloorPropertyIds = model.Properties.FloorProperties?.Select(fp => fp.Id).ToHashSet() ?? new System.Collections.Generic.HashSet<string>();
+            // Filter materials using simplified LINQ
+            if (model.Properties.Materials != null)
+            {
+                int initialCount = model.Properties.Materials.Count;
+                model.Properties.Materials = model.Properties.Materials
+                    .Where(m => !materialIdsToRemove.Contains(m.Id))
+                    .ToList();
+                Debug.WriteLine($"ImportModelFilter: Materials {initialCount} -> {model.Properties.Materials.Count}");
+            }
 
-            // Filter beams by frame properties
+            // Filter frame properties using simplified LINQ
+            if (model.Properties.FrameProperties != null)
+            {
+                int initialCount = model.Properties.FrameProperties.Count;
+                model.Properties.FrameProperties = model.Properties.FrameProperties
+                    .Where(fp => string.IsNullOrEmpty(fp.MaterialId) || !materialIdsToRemove.Contains(fp.MaterialId))
+                    .ToList();
+                Debug.WriteLine($"ImportModelFilter: FrameProperties {initialCount} -> {model.Properties.FrameProperties.Count}");
+            }
+
+            // Filter wall properties using simplified LINQ
+            if (model.Properties.WallProperties != null)
+            {
+                int initialCount = model.Properties.WallProperties.Count;
+                model.Properties.WallProperties = model.Properties.WallProperties
+                    .Where(wp => string.IsNullOrEmpty(wp.MaterialId) || !materialIdsToRemove.Contains(wp.MaterialId))
+                    .ToList();
+                Debug.WriteLine($"ImportModelFilter: WallProperties {initialCount} -> {model.Properties.WallProperties.Count}");
+            }
+
+            // Filter floor properties using simplified LINQ
+            if (model.Properties.FloorProperties != null)
+            {
+                int initialCount = model.Properties.FloorProperties.Count;
+                model.Properties.FloorProperties = model.Properties.FloorProperties
+                    .Where(fp => string.IsNullOrEmpty(fp.MaterialId) || !materialIdsToRemove.Contains(fp.MaterialId))
+                    .ToList();
+                Debug.WriteLine($"ImportModelFilter: FloorProperties {initialCount} -> {model.Properties.FloorProperties.Count}");
+            }
+
+            // Get valid property IDs after filtering
+            var validFramePropertyIds = model.Properties.FrameProperties?.Select(fp => fp.Id).ToHashSet() ?? new HashSet<string>();
+            var validWallPropertyIds = model.Properties.WallProperties?.Select(wp => wp.Id).ToHashSet() ?? new HashSet<string>();
+            var validFloorPropertyIds = model.Properties.FloorProperties?.Select(fp => fp.Id).ToHashSet() ?? new HashSet<string>();
+
+            // Filter elements by valid properties using simplified logic
+            FilterElementsByValidProperties(model, validFramePropertyIds, validWallPropertyIds, validFloorPropertyIds);
+        }
+
+        private void FilterElementsByValidProperties(BaseModel model,
+            HashSet<string> validFramePropertyIds,
+            HashSet<string> validWallPropertyIds,
+            HashSet<string> validFloorPropertyIds)
+        {
+            // Filter beams by frame properties using simplified LINQ
             if (model.Elements.Beams != null)
             {
+                int initialCount = model.Elements.Beams.Count;
                 model.Elements.Beams = model.Elements.Beams
                     .Where(b => string.IsNullOrEmpty(b.FramePropertiesId) || validFramePropertyIds.Contains(b.FramePropertiesId))
                     .ToList();
+                Debug.WriteLine($"ImportModelFilter: Beams by properties {initialCount} -> {model.Elements.Beams.Count}");
             }
 
-            // Filter columns by frame properties
+            // Filter columns by frame properties using simplified LINQ
             if (model.Elements.Columns != null)
             {
+                int initialCount = model.Elements.Columns.Count;
                 model.Elements.Columns = model.Elements.Columns
                     .Where(c => string.IsNullOrEmpty(c.FramePropertiesId) || validFramePropertyIds.Contains(c.FramePropertiesId))
                     .ToList();
+                Debug.WriteLine($"ImportModelFilter: Columns by properties {initialCount} -> {model.Elements.Columns.Count}");
             }
 
-            // Filter braces by frame properties
+            // Filter braces by frame properties using simplified LINQ
             if (model.Elements.Braces != null)
             {
+                int initialCount = model.Elements.Braces.Count;
                 model.Elements.Braces = model.Elements.Braces
                     .Where(b => string.IsNullOrEmpty(b.FramePropertiesId) || validFramePropertyIds.Contains(b.FramePropertiesId))
                     .ToList();
+                Debug.WriteLine($"ImportModelFilter: Braces by properties {initialCount} -> {model.Elements.Braces.Count}");
             }
 
-            // Filter walls by wall properties
+            // Filter walls by wall properties using simplified LINQ
             if (model.Elements.Walls != null)
             {
+                int initialCount = model.Elements.Walls.Count;
                 model.Elements.Walls = model.Elements.Walls
                     .Where(w => string.IsNullOrEmpty(w.PropertiesId) || validWallPropertyIds.Contains(w.PropertiesId))
                     .ToList();
+                Debug.WriteLine($"ImportModelFilter: Walls by properties {initialCount} -> {model.Elements.Walls.Count}");
             }
 
-            // Filter floors by floor properties
+            // Filter floors by floor properties using simplified LINQ
             if (model.Elements.Floors != null)
             {
+                int initialCount = model.Elements.Floors.Count;
                 model.Elements.Floors = model.Elements.Floors
                     .Where(f => string.IsNullOrEmpty(f.FloorPropertiesId) || validFloorPropertyIds.Contains(f.FloorPropertiesId))
                     .ToList();
+                Debug.WriteLine($"ImportModelFilter: Floors by properties {initialCount} -> {model.Elements.Floors.Count}");
             }
         }
 
@@ -168,6 +253,9 @@ namespace Revit.Import
         {
             // Remove duplicate elements if any were created during filtering
             model.RemoveDuplicates();
+
+            // Clean up unused properties for Import processing
+            Core.Utilities.ModelFilter.RemoveUnusedProperties(model);
 
             Debug.WriteLine("ImportModelFilter: Model cleanup complete");
         }

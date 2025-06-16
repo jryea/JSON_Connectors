@@ -343,33 +343,53 @@ namespace Revit.Import.Elements
 
                     try
                     {
-                        var thicknessParam = newType.LookupParameter("Thickness");
-                        if (thicknessParam != null && !thicknessParam.IsReadOnly)
+                        // Try common thickness parameter names
+                        string[] thicknessParamNames = { "Thickness", "Height", "Depth", "h", "d" };
+                        bool thicknessSet = false;
+
+                        foreach (var paramName in thicknessParamNames)
                         {
-                            thicknessParam.Set(thicknessFeet);
-                            Debug.WriteLine("  Set thickness parameter successfully");
+                            var thicknessParam = newType.LookupParameter(paramName);
+                            if (thicknessParam != null && !thicknessParam.IsReadOnly)
+                            {
+                                thicknessParam.Set(thicknessFeet);
+                                Debug.WriteLine($"  Set thickness parameter '{paramName}' successfully");
+                                thicknessSet = true;
+                                break;
+                            }
                         }
-                        else
+
+                        if (!thicknessSet)
                         {
                             Debug.WriteLine("  Thickness parameter not found or read-only");
-
-                            // Try alternative thickness parameter names
-                            string[] altThicknessParams = { "Height", "h", "THICKNESS", "Depth", "d" };
-                            foreach (var paramName in altThicknessParams)
-                            {
-                                var altParam = newType.LookupParameter(paramName);
-                                if (altParam != null && !altParam.IsReadOnly)
-                                {
-                                    altParam.Set(thicknessFeet);
-                                    Debug.WriteLine($"  Set alternative thickness parameter '{paramName}' successfully");
-                                    break;
-                                }
-                            }
                         }
                     }
                     catch (Exception ex)
                     {
                         Debug.WriteLine($"  Error setting thickness: {ex.Message}");
+                    }
+
+                    // Set the Type Mark with the specified format
+                    try
+                    {
+                        // Use the width for the type mark, rounding to single decimal place
+                        double widthForMark = Math.Round(widthFeet, 1);
+                        string typeMark = $"F{widthForMark:0.0}";
+
+                        var typeMarkParam = newType.get_Parameter(DB.BuiltInParameter.ALL_MODEL_TYPE_MARK);
+                        if (typeMarkParam != null && !typeMarkParam.IsReadOnly)
+                        {
+                            typeMarkParam.Set(typeMark);
+                            Debug.WriteLine($"  Set type mark successfully: {typeMark}");
+                        }
+                        else
+                        {
+                            Debug.WriteLine("  Type mark parameter not found or read-only");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"  Error setting type mark: {ex.Message}");
                     }
 
                     // Add to cached collections

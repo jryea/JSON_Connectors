@@ -2,7 +2,7 @@
 using System.Runtime.CompilerServices;
 using Autodesk.Revit.DB;
 
-namespace Revit.Export.Models
+namespace Revit.Models
 {
     public class SheetViewModel : INotifyPropertyChanged
     {

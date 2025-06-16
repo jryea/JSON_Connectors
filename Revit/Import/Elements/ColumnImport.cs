@@ -829,6 +829,7 @@ namespace Revit.Import.Elements
                 }
             }
 
+            // Updated ProcessColumnAttachment to apply offset like beamImport
             private void ProcessColumnAttachment(FamilyInstance column, List<Floor> allFloors, ref int beamAttachmentCount, ref int floorAttachmentCount)
             {
                 try
@@ -858,7 +859,7 @@ namespace Revit.Import.Elements
                                 1, // 1 = Top attachment
                                 ColumnAttachmentCutStyle.CutColumn,
                                 ColumnAttachmentJustification.Minimum,
-                                0.0 // No offset
+                                0.0 // No offset for beam attachment
                             );
 
                             beamAttachmentCount++;
@@ -872,13 +873,19 @@ namespace Revit.Import.Elements
                         }
                     }
 
-                    // If beam attachment failed or no beam found, try to attach to floor above
+                    // If beam attachment failed or no beam found, try to attach to floor
                     var floorToAttach = FindFloorForColumnAttachment(columnPoint, columnTopLevelId, allFloors);
 
                     if (floorToAttach != null)
                     {
                         try
                         {
+                            // FIXED: Apply offset like beamImport does
+                            // Get floor thickness at the column's top level
+                            var columnTopLevel = _doc.GetElement(columnTopLevelId) as Level;
+                            double floorThickness = GetFloorThicknessAtLevel(columnTopLevel?.Name, allFloors);
+                            double offset = -floorThickness; // Negative to position below the floor
+
                             ColumnAttachment.AddColumnAttachment(
                                 _doc,
                                 column,
@@ -886,11 +893,11 @@ namespace Revit.Import.Elements
                                 1, // 1 = Top attachment
                                 ColumnAttachmentCutStyle.CutColumn,
                                 ColumnAttachmentJustification.Minimum,
-                                0.0 // No offset
+                                offset // Apply offset based on floor thickness
                             );
 
                             floorAttachmentCount++;
-                            Debug.WriteLine($"Attached column {column.Id} to floor {floorToAttach.Id}");
+                            Debug.WriteLine($"Attached column {column.Id} to floor {floorToAttach.Id} with offset {offset}");
                         }
                         catch (Exception floorAttachEx)
                         {
@@ -903,6 +910,44 @@ namespace Revit.Import.Elements
                     Debug.WriteLine($"Error processing column attachment: {colEx.Message}");
                 }
             }
+
+            // Helper method to get floor thickness (similar to beamImport)
+            private double GetFloorThicknessAtLevel(string levelName, List<Floor> allFloors)
+            {
+                try
+                {
+                    // Find floors at this level and get their thickness
+                    var floorsAtLevel = allFloors.Where(f =>
+                    {
+                        var floorLevel = _doc.GetElement(f.LevelId) as Level;
+                        return floorLevel?.Name == levelName;
+                    }).ToList();
+
+                    if (floorsAtLevel.Any())
+                    {
+                        // Get thickness from the first floor found
+                        var floor = floorsAtLevel.First();
+                        var floorType = _doc.GetElement(floor.GetTypeId()) as FloorType;
+                        if (floorType != null)
+                        {
+                            var thickness = floorType.get_Parameter(BuiltInParameter.FLOOR_ATTR_THICKNESS_PARAM);
+                            if (thickness != null && thickness.HasValue)
+                            {
+                                return thickness.AsDouble();
+                            }
+                        }
+                    }
+
+                    // Default thickness if not found
+                    return 1.0; // 1 foot default
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error getting floor thickness: {ex.Message}");
+                    return 1.0; // Default thickness
+                }
+            }
+
 
 
             private FamilyInstance FindBeamForColumnAttachment(XYZ columnPoint, ElementId columnTopLevelId)
@@ -1203,7 +1248,6 @@ namespace Revit.Import.Elements
             }
 
             // Find a floor for column attachment
-            // Find a floor above the column for attachment
             private Floor FindFloorForColumnAttachment(XYZ columnPoint, ElementId columnTopLevelId, List<Floor> allFloors)
             {
                 try
@@ -1212,37 +1256,22 @@ namespace Revit.Import.Elements
                     var columnTopLevel = _doc.GetElement(columnTopLevelId) as Level;
                     if (columnTopLevel == null) return null;
 
-                    // Get all levels in the document ordered by elevation
-                    var allLevels = new FilteredElementCollector(_doc)
-                        .OfClass(typeof(Level))
-                        .Cast<Level>()
-                        .OrderBy(l => l.Elevation)
-                        .ToList();
-
-                    // Find the next level above the column's top level
-                    var nextLevelAbove = allLevels
-                        .FirstOrDefault(l => l.Elevation > columnTopLevel.Elevation);
-
-                    if (nextLevelAbove == null)
-                    {
-                        Debug.WriteLine($"No level found above column top level {columnTopLevel.Name}");
-                        return null;
-                    }
-
-                    // Look for floors at the level above
-                    var floorsAtLevelAbove = allFloors.Where(f =>
+                    // FIXED: Look for floors at the SAME level as the column's top level
+                    // This matches the beamImport logic where beams are offset from floors at their own level
+                    var floorsAtColumnTopLevel = allFloors.Where(f =>
                     {
                         var floorLevelId = f.LevelId;
-                        return floorLevelId.IntegerValue == nextLevelAbove.Id.IntegerValue;
+                        return floorLevelId.IntegerValue == columnTopLevelId.IntegerValue;
                     }).ToList();
 
-                    Debug.WriteLine($"Found {floorsAtLevelAbove.Count} floors at level above: {nextLevelAbove.Name}");
+                    Debug.WriteLine($"Found {floorsAtColumnTopLevel.Count} floors at column top level: {columnTopLevel.Name}");
 
-                    return floorsAtLevelAbove.FirstOrDefault();
+                    // Return the first floor found at this level
+                    return floorsAtColumnTopLevel.FirstOrDefault();
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"Error finding floor above column: {ex.Message}");
+                    Debug.WriteLine($"Error finding floor for column attachment: {ex.Message}");
                     return null;
                 }
             }

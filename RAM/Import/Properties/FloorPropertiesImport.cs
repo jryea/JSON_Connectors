@@ -208,7 +208,7 @@ namespace RAM.Import.Properties
                     if (nonCompDeckProp != null)
                     {
                         // Set properties
-                        double effectiveThickness = UnitConversionUtils.ConvertToInches(floorProp.Thickness, _lengthUnit);
+                        double effectiveThickness = floorProp.DeckProperties.DeckShearThickness;
                         nonCompDeckProp.dEffectiveThickness = effectiveThickness;
 
                         // Set self weight

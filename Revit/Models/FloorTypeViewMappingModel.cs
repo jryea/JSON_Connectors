@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
-namespace Revit.Export.Models
+namespace Revit.Models
 {
     public class FloorTypeViewMappingModel : INotifyPropertyChanged
     {

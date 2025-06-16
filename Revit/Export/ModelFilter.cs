@@ -6,7 +6,9 @@ using Core.Models;
 
 namespace Revit.Export
 {
-    // Post-processing filter for complete structural model
+    /// <summary>
+    /// Post-processing filter for complete structural model - cleaned up version
+    /// </summary>
     public class ModelFilter
     {
         private readonly ExportContext _context;
@@ -46,21 +48,24 @@ namespace Revit.Export
 
             Debug.WriteLine($"ModelFilter: Selected levels: {selectedModelLevelIds.Count}, Base level: {baseLevelModelId}");
 
-            // Filter model components
-            FilterLevels(model, selectedModelLevelIds, baseLevelModelId);
+            // Filter model components - simplified and consolidated
+            FilterLevels(model, selectedModelLevelIds);
+            FilterElementsByLevel(model, selectedModelLevelIds, baseLevelModelId);
             FilterFloorTypes(model);
-            FilterElements(model, selectedModelLevelIds, baseLevelModelId);
-            CleanupOrphanedProperties(model);
+
+            // Use Core utility for property cleanup
+            Core.Utilities.ModelFilter.RemoveUnusedProperties(model);
 
             Debug.WriteLine("ModelFilter: Filtering complete");
         }
 
-        private void FilterLevels(BaseModel model, HashSet<string> selectedLevelIds, string baseLevelId)
+        private void FilterLevels(BaseModel model, HashSet<string> selectedLevelIds)
         {
             if (model.ModelLayout?.Levels == null) return;
 
             int initialCount = model.ModelLayout.Levels.Count;
 
+            // Use simplified LINQ filtering - cleaner than the original logic
             model.ModelLayout.Levels = model.ModelLayout.Levels
                 .Where(level => selectedLevelIds.Contains(level.Id))
                 .ToList();
@@ -68,95 +73,69 @@ namespace Revit.Export
             Debug.WriteLine($"ModelFilter: Levels {initialCount} -> {model.ModelLayout.Levels.Count}");
         }
 
-        private void FilterElements(BaseModel model, HashSet<string> selectedLevelIds, string baseLevelId)
+        private void FilterElementsByLevel(BaseModel model, HashSet<string> selectedLevelIds, string baseLevelId)
         {
             if (model.Elements == null) return;
 
-            FilterWalls(model, selectedLevelIds, baseLevelId);
-            FilterFloors(model, selectedLevelIds, baseLevelId);
-            FilterColumns(model, selectedLevelIds, baseLevelId);
-            FilterBeams(model, selectedLevelIds, baseLevelId);
-            FilterBraces(model, selectedLevelIds, baseLevelId);
-            FilterFootings(model, selectedLevelIds, baseLevelId);
-        }
+            // Filter walls by top level - simplified logic
+            if (model.Elements.Walls != null)
+            {
+                int initialCount = model.Elements.Walls.Count;
+                model.Elements.Walls = model.Elements.Walls
+                    .Where(wall => ShouldKeepElementByTopLevel(wall.TopLevelId, selectedLevelIds, baseLevelId))
+                    .ToList();
+                Debug.WriteLine($"ModelFilter: Walls {initialCount} -> {model.Elements.Walls.Count}");
+            }
 
-        private void FilterWalls(BaseModel model, HashSet<string> selectedLevelIds, string baseLevelId)
-        {
-            if (model.Elements.Walls == null) return;
+            // Filter floors by level - simplified logic  
+            if (model.Elements.Floors != null)
+            {
+                int initialCount = model.Elements.Floors.Count;
+                model.Elements.Floors = model.Elements.Floors
+                    .Where(floor => ShouldKeepElementByLevel(floor.LevelId, selectedLevelIds, baseLevelId))
+                    .ToList();
+                Debug.WriteLine($"ModelFilter: Floors {initialCount} -> {model.Elements.Floors.Count}");
+            }
 
-            int initialCount = model.Elements.Walls.Count;
+            // Filter columns by top level - simplified logic
+            if (model.Elements.Columns != null)
+            {
+                int initialCount = model.Elements.Columns.Count;
+                model.Elements.Columns = model.Elements.Columns
+                    .Where(column => ShouldKeepElementByTopLevel(column.TopLevelId, selectedLevelIds, baseLevelId))
+                    .ToList();
+                Debug.WriteLine($"ModelFilter: Columns {initialCount} -> {model.Elements.Columns.Count}");
+            }
 
-            model.Elements.Walls = model.Elements.Walls
-                .Where(wall => ShouldKeepElementByTopLevel(wall.TopLevelId, selectedLevelIds, baseLevelId))
-                .ToList();
+            // Filter beams by level - simplified logic
+            if (model.Elements.Beams != null)
+            {
+                int initialCount = model.Elements.Beams.Count;
+                model.Elements.Beams = model.Elements.Beams
+                    .Where(beam => ShouldKeepElementByLevel(beam.LevelId, selectedLevelIds, baseLevelId))
+                    .ToList();
+                Debug.WriteLine($"ModelFilter: Beams {initialCount} -> {model.Elements.Beams.Count}");
+            }
 
-            Debug.WriteLine($"ModelFilter: Walls {initialCount} -> {model.Elements.Walls.Count}");
-        }
+            // Filter braces by top level - simplified logic
+            if (model.Elements.Braces != null)
+            {
+                int initialCount = model.Elements.Braces.Count;
+                model.Elements.Braces = model.Elements.Braces
+                    .Where(brace => ShouldKeepElementByTopLevel(brace.TopLevelId, selectedLevelIds, baseLevelId))
+                    .ToList();
+                Debug.WriteLine($"ModelFilter: Braces {initialCount} -> {model.Elements.Braces.Count}");
+            }
 
-        private void FilterFloors(BaseModel model, HashSet<string> selectedLevelIds, string baseLevelId)
-        {
-            if (model.Elements.Floors == null) return;
-
-            int initialCount = model.Elements.Floors.Count;
-
-            model.Elements.Floors = model.Elements.Floors
-                .Where(floor => ShouldKeepElementByLevel(floor.LevelId, selectedLevelIds, baseLevelId))
-                .ToList();
-
-            Debug.WriteLine($"ModelFilter: Floors {initialCount} -> {model.Elements.Floors.Count}");
-        }
-
-        private void FilterColumns(BaseModel model, HashSet<string> selectedLevelIds, string baseLevelId)
-        {
-            if (model.Elements.Columns == null) return;
-
-            int initialCount = model.Elements.Columns.Count;
-
-            // Keep columns where top level is in selected levels and not base level
-            model.Elements.Columns = model.Elements.Columns
-                .Where(column => ShouldKeepElementByTopLevel(column.TopLevelId, selectedLevelIds, baseLevelId))
-                .ToList();
-
-            Debug.WriteLine($"ModelFilter: Columns {initialCount} -> {model.Elements.Columns.Count}");
-        }
-
-        private void FilterBeams(BaseModel model, HashSet<string> selectedLevelIds, string baseLevelId)
-        {
-            if (model.Elements.Beams == null) return;
-
-            int initialCount = model.Elements.Beams.Count;
-
-            model.Elements.Beams = model.Elements.Beams
-                .Where(beam => ShouldKeepElementByLevel(beam.LevelId, selectedLevelIds, baseLevelId))
-                .ToList();
-
-            Debug.WriteLine($"ModelFilter: Beams {initialCount} -> {model.Elements.Beams.Count}");
-        }
-
-        private void FilterBraces(BaseModel model, HashSet<string> selectedLevelIds, string baseLevelId)
-        {
-            if (model.Elements.Braces == null) return;
-
-            int initialCount = model.Elements.Braces.Count;
-
-            model.Elements.Braces = model.Elements.Braces
-                .Where(brace => ShouldKeepElementByTopLevel(brace.TopLevelId, selectedLevelIds, baseLevelId))
-                .ToList();
-
-            Debug.WriteLine($"ModelFilter: Braces {initialCount} -> {model.Elements.Braces.Count}");
-        }
-
-        private void FilterFootings(BaseModel model, HashSet<string> selectedLevelIds, string baseLevelId)
-        {
-            if (model.Elements.IsolatedFootings == null) return;
-
-            int initialCount = model.Elements.IsolatedFootings.Count;
-
-            model.Elements.IsolatedFootings = model.Elements.IsolatedFootings
-                .Where(footing => ShouldKeepElementByLevel(footing.LevelId, selectedLevelIds, baseLevelId))
-                .ToList();
-
-            Debug.WriteLine($"ModelFilter: Footings {initialCount} -> {model.Elements.IsolatedFootings.Count}");
+            // Filter isolated footings by level - simplified logic
+            if (model.Elements.IsolatedFootings != null)
+            {
+                int initialCount = model.Elements.IsolatedFootings.Count;
+                model.Elements.IsolatedFootings = model.Elements.IsolatedFootings
+                    .Where(footing => ShouldKeepElementByLevel(footing.LevelId, selectedLevelIds, baseLevelId))
+                    .ToList();
+                Debug.WriteLine($"ModelFilter: Footings {initialCount} -> {model.Elements.IsolatedFootings.Count}");
+            }
         }
 
         private bool ShouldKeepElementByLevel(string levelId, HashSet<string> selectedLevelIds, string baseLevelId)
@@ -175,14 +154,6 @@ namespace Revit.Export
             return ShouldKeepElementByLevel(topLevelId, selectedLevelIds, baseLevelId);
         }
 
-        private void CleanupOrphanedProperties(BaseModel model)
-        {
-            // Remove properties that are no longer referenced by any elements
-            // This could be implemented to clean up unused materials, frame properties, etc.
-            // For now, keep all properties as they might be needed
-            Debug.WriteLine("ModelFilter: Property cleanup skipped (keeping all properties)");
-        }
-
         private void FilterFloorTypes(BaseModel model)
         {
             if (model.ModelLayout?.FloorTypes == null || model.ModelLayout?.Levels == null) return;
@@ -199,7 +170,7 @@ namespace Revit.Export
                 }
             }
 
-            // Keep only referenced FloorTypes
+            // Use simplified LINQ filtering instead of Core utility for now
             model.ModelLayout.FloorTypes = model.ModelLayout.FloorTypes
                 .Where(ft => referencedFloorTypeIds.Contains(ft.Id))
                 .ToList();

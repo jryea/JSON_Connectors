@@ -183,17 +183,14 @@
     <Compile Include="Import\Elements\FloorImport.cs" />
     <Compile Include="Import\Elements\IsolatedFootingImport.cs" />
     <Compile Include="Import\Elements\WallImport.cs" />
-    <Compile Include="Import\ETABSImportCommand.cs" />
     <Compile Include="Import\ImportContext.cs" />
     <Compile Include="Import\ImportManager.cs" />
     <Compile Include="Import\ImportModelFilter.cs" />
     <Compile Include="Import\ImportStructuralModelCommand.cs" />
     <Compile Include="Import\ModelLayout\GridImport.cs" />
-    <Compile Include="Import\ModelImportCommand.cs" />
     <Compile Include="Import\ModelLayout\LevelImport.cs" />
     <Compile Include="Import\ModelTransformer.cs" />
     <Compile Include="Import\ProcessIsolatedRAM.cs" />
-    <Compile Include="Import\RAMImportCommand.cs" />
     <Compile Include="Import\StructuralModelImporter.cs" />
     <Compile Include="Import\StructuralModelLoader.cs" />
     <Compile Include="Models\FloorTypeModel.cs" />

@@ -4,7 +4,7 @@ using Core.Converters;
 using Core.Models;
 using CM = Core.Models.Metadata;
 using CL = Core.Models.ModelLayout;
-using Revit.Export.Models;
+using Revit.Models;
 using Revit.Export.ModelLayout;
 using Revit.Export.Elements;
 using Revit.Utilities;

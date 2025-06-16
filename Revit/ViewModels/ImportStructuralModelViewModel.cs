@@ -13,7 +13,7 @@ using Autodesk.Revit.UI;
 using Microsoft.Win32;
 using Revit.Import;
 using CG = Core.Models.Geometry;
-using Revit.Export.Models;
+using Revit.Models;
 
 namespace Revit.ViewModels
 {

@@ -52,7 +52,6 @@ namespace Core.Models.Elements
         }
 
         // ITransformable implementation
-        // Fixed ITransformable implementation for Column.cs
         public void Rotate(double angleDegrees, Point2D center)
         {
             Debug.WriteLine($"Column {Id}: Rotating {angleDegrees}° around ({center.X:F2}, {center.Y:F2})");
@@ -65,10 +64,10 @@ namespace Core.Models.Elements
             Debug.WriteLine($"  After: ({StartPoint.X:F2}, {StartPoint.Y:F2})");
 
             // Rotate orientation
-            //Orientation += angleDegrees;
+            Orientation += angleDegrees;
             // Normalize to 0-180 range (columns have 180-degree symmetry)
-            //while (Orientation >= 180.0) Orientation -= 180.0;
-            //while (Orientation < 0.0) Orientation += 180.0;
+            while (Orientation >= 180.0) Orientation -= 180.0;
+            while (Orientation < 0.0) Orientation += 180.0;
         }
 
         public void Translate(Point3D offset)

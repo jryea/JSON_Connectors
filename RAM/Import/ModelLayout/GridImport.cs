@@ -2,8 +2,9 @@
 using System;
 using System.Collections.Generic;
 using Core.Models.Elements;
+using Core.Models.Geometry;
 using Core.Models.ModelLayout;
-using Core.Utilities; 
+using Core.Utilities;
 using RAM.Utilities;
 using RAMDATAACCESSLib;
 
@@ -22,6 +23,8 @@ namespace RAM.Import.ModelLayout
             _lengthUnit = lengthUnit;
             _gridSystemName = gridSystemName;
         }
+
+        
 
         // Imports grid lines to RAM
         public int Import(IEnumerable<Grid> grids)
@@ -52,26 +55,41 @@ namespace RAM.Import.ModelLayout
                     if (grid.StartPoint == null || grid.EndPoint == null || string.IsNullOrEmpty(grid.Name))
                         continue;
 
-                    // Determine if grid is horizontal or vertical
-                    bool isVertical = Core.Utilities.ModelUtils.AreLinePointsVertical(grid.StartPoint, grid.EndPoint);
-
                     // Convert coordinates to RAM units (inches)
                     double startX = UnitConversionUtils.ConvertToInches(grid.StartPoint.X, _lengthUnit);
                     double startY = UnitConversionUtils.ConvertToInches(grid.StartPoint.Y, _lengthUnit);
                     double endX = UnitConversionUtils.ConvertToInches(grid.EndPoint.X, _lengthUnit);
                     double endY = UnitConversionUtils.ConvertToInches(grid.EndPoint.Y, _lengthUnit);
 
-                    // For vertical grids, the X coordinate is constant
-                    if (isVertical)
+                    // Determine grid type
+                    bool isVertical = AreLinePointsVertical(grid.StartPoint, grid.EndPoint);
+                    bool isHorizontal = AreLinePointsHorizontal(grid.StartPoint, grid.EndPoint);
+                    bool isAngled = !isVertical && !isHorizontal;
+
+                    IModelGrid modelGrid;
+
+                    if (isAngled)
+                    {
+                        // Calculate angle for angled grid
+                        double deltaX = endX - startX;
+                        double deltaY = endY - startY;
+                        double angleRadians = Math.Atan2(deltaY, deltaX);
+                        double angleDegrees = angleRadians * (180.0 / Math.PI);
+
+                        // Add angled grid using radial axis
+                        modelGrid = modelGrids.Add(grid.Name, EGridAxis.eGridXorRadialAxis, angleDegrees);
+                        count++;
+                    }
+                    else if (isVertical)
                     {
                         // Add vertical grid
-                        IModelGrid modelGrid = modelGrids.Add(grid.Name, EGridAxis.eGridXorRadialAxis, startX);
+                        modelGrid = modelGrids.Add(grid.Name, EGridAxis.eGridXorRadialAxis, startX);
                         count++;
                     }
                     else
                     {
                         // Add horizontal grid
-                        IModelGrid modelGrid = modelGrids.Add(grid.Name, EGridAxis.eGridYorCircularAxis, startY);
+                        modelGrid = modelGrids.Add(grid.Name, EGridAxis.eGridYorCircularAxis, startY);
                         count++;
                     }
                 }
@@ -86,6 +104,18 @@ namespace RAM.Import.ModelLayout
                 Console.WriteLine($"Error importing grids: {ex.Message}");
                 throw;
             }
+        }
+
+        // Helper method to check if two points form a vertical line
+        private bool AreLinePointsVertical(GridPoint startPoint, GridPoint endPoint)
+        {
+            return Math.Abs(startPoint.X - endPoint.X) < 1e-6;
+        }
+
+        // Helper method to check if two points form a horizontal line
+        private bool AreLinePointsHorizontal(GridPoint startPoint, GridPoint endPoint)
+        {
+            return Math.Abs(startPoint.Y - endPoint.Y) < 1e-6;
         }
 
         // Applies the grid system to all floor types in the model

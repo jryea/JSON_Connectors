@@ -100,7 +100,7 @@ namespace Revit.Export.Elements
 
                         // Set location
                         columnSegment.StartPoint = new CG.Point2D(point.X * 12.0, point.Y * 12.0); // Convert to inches
-                        columnSegment.EndPoint = columnSegment.StartPoint; // Same as start point for simple representation
+                        columnSegment.EndPoint = new CG.Point2D(point.X * 12.0, point.Y * 12.0); 
 
                         // Set levels
                         if (levelIdMap.ContainsKey(baseLevel.Id) && levelIdMap.ContainsKey(topLevel.Id))

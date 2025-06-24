@@ -1,7 +1,6 @@
 ﻿// GridImport.cs
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Core.Models.Elements;
 using Core.Models.Geometry;
 using Core.Models.ModelLayout;
@@ -17,14 +16,12 @@ namespace RAM.Import.ModelLayout
         private IModel _model;
         private string _lengthUnit;
         private string _gridSystemName;
-        private string _skewedGridSystemName;
 
         public GridImport(IModel model, string lengthUnit = "inches", string gridSystemName = "StandardGrids")
         {
             _model = model;
             _lengthUnit = lengthUnit;
             _gridSystemName = gridSystemName;
-            _skewedGridSystemName = "SkewedGrids";
         }
 
         // Imports grid lines to RAM
@@ -33,38 +30,70 @@ namespace RAM.Import.ModelLayout
             try
             {
                 int count = 0;
-                var gridList = grids.ToList();
 
-                // Separate grids into orthogonal and angled
-                var orthogonalGrids = new List<Grid>();
-                var angledGrids = new List<Grid>();
+                // Get grid systems from model
+                IGridSystems gridSystems = _model.GetGridSystems();
+                IGridSystem gridSystem;
 
-                foreach (var grid in gridList)
+                // Create a new grid system or use existing one
+                if (gridSystems.GetCount() > 0)
+                {
+                    gridSystem = gridSystems.GetAt(0);
+                }
+                else
+                {
+                    gridSystem = gridSystems.Add(_gridSystemName);
+                }
+
+                // Get grids from the grid system
+                IModelGrids modelGrids = gridSystem.GetGrids();
+
+                foreach (var grid in grids)
                 {
                     if (grid.StartPoint == null || grid.EndPoint == null || string.IsNullOrEmpty(grid.Name))
                         continue;
 
+                    // Convert coordinates to RAM units (inches)
+                    double startX = UnitConversionUtils.ConvertToInches(grid.StartPoint.X, _lengthUnit);
+                    double startY = UnitConversionUtils.ConvertToInches(grid.StartPoint.Y, _lengthUnit);
+                    double endX = UnitConversionUtils.ConvertToInches(grid.EndPoint.X, _lengthUnit);
+                    double endY = UnitConversionUtils.ConvertToInches(grid.EndPoint.Y, _lengthUnit);
+
+                    // Determine grid type
                     bool isVertical = AreLinePointsVertical(grid.StartPoint, grid.EndPoint);
                     bool isHorizontal = AreLinePointsHorizontal(grid.StartPoint, grid.EndPoint);
                     bool isAngled = !isVertical && !isHorizontal;
 
+                    IModelGrid modelGrid;
+
                     if (isAngled)
-                        angledGrids.Add(grid);
+                    {
+                        // Calculate angle for angled grid
+                        double deltaX = endX - startX;
+                        double deltaY = endY - startY;
+                        double angleRadians = Math.Atan2(deltaY, deltaX);
+                        double angleDegrees = angleRadians * (180.0 / Math.PI);
+
+                        // Add angled grid using radial axis
+                        modelGrid = modelGrids.Add(grid.Name, EGridAxis.eGridXorRadialAxis, angleDegrees);
+                        count++;
+                    }
+                    else if (isVertical)
+                    {
+                        // Add vertical grid
+                        modelGrid = modelGrids.Add(grid.Name, EGridAxis.eGridXorRadialAxis, startX);
+                        count++;
+                    }
                     else
-                        orthogonalGrids.Add(grid);
+                    {
+                        // Add horizontal grid
+                        modelGrid = modelGrids.Add(grid.Name, EGridAxis.eGridYorCircularAxis, startY);
+                        count++;
+                    }
                 }
 
-                // Import orthogonal grids to standard grid system
-                if (orthogonalGrids.Any())
-                {
-                    count += ImportOrthogonalGrids(orthogonalGrids);
-                }
-
-                // Import angled grids to skewed grid system
-                if (angledGrids.Any())
-                {
-                    count += ImportSkewedGrids(angledGrids);
-                }
+                // Apply grid system to all floor types
+                ApplyGridSystemToFloorTypes(gridSystem);
 
                 return count;
             }
@@ -72,154 +101,6 @@ namespace RAM.Import.ModelLayout
             {
                 Console.WriteLine($"Error importing grids: {ex.Message}");
                 throw;
-            }
-        }
-
-        // Import orthogonal grids to standard grid system
-        private int ImportOrthogonalGrids(List<Grid> grids)
-        {
-            int count = 0;
-
-            // Get grid systems from model
-            IGridSystems gridSystems = _model.GetGridSystems();
-            IGridSystem gridSystem;
-
-            // Create a new orthogonal grid system or use existing one
-            gridSystem = FindOrCreateGridSystem(gridSystems, _gridSystemName, SGridSysType.eGridOrthogonal);
-
-            // Get grids from the grid system
-            IModelGrids modelGrids = gridSystem.GetGrids();
-
-            foreach (var grid in grids)
-            {
-                // Convert coordinates to RAM units (inches)
-                double startX = UnitConversionUtils.ConvertToInches(grid.StartPoint.X, _lengthUnit);
-                double startY = UnitConversionUtils.ConvertToInches(grid.StartPoint.Y, _lengthUnit);
-                double endX = UnitConversionUtils.ConvertToInches(grid.EndPoint.X, _lengthUnit);
-                double endY = UnitConversionUtils.ConvertToInches(grid.EndPoint.Y, _lengthUnit);
-
-                // Determine grid type
-                bool isVertical = AreLinePointsVertical(grid.StartPoint, grid.EndPoint);
-                bool isHorizontal = AreLinePointsHorizontal(grid.StartPoint, grid.EndPoint);
-
-                IModelGrid modelGrid;
-
-                if (isVertical)
-                {
-                    // Add vertical grid
-                    modelGrid = modelGrids.Add(grid.Name, EGridAxis.eGridXorRadialAxis, startX);
-                    count++;
-                }
-                else if (isHorizontal)
-                {
-                    // Add horizontal grid
-                    modelGrid = modelGrids.Add(grid.Name, EGridAxis.eGridYorCircularAxis, startY);
-                    count++;
-                }
-            }
-
-            // Apply grid system to all floor types
-            ApplyGridSystemToFloorTypes(gridSystem);
-
-            return count;
-        }
-
-        // Import angled grids to skewed grid system
-        private int ImportSkewedGrids(List<Grid> grids)
-        {
-            int count = 0;
-
-            // Get grid systems from model
-            IGridSystems gridSystems = _model.GetGridSystems();
-            IGridSystem skewedGridSystem;
-
-            // Create a new skewed grid system or use existing one
-            skewedGridSystem = FindOrCreateGridSystem(gridSystems, _skewedGridSystemName, SGridSysType.eGridSkewed);
-
-            // Get grids from the skewed grid system
-            IModelGrids modelGrids = skewedGridSystem.GetGrids();
-
-            foreach (var grid in grids)
-            {
-                // Convert coordinates to RAM units (inches)
-                double startX = UnitConversionUtils.ConvertToInches(grid.StartPoint.X, _lengthUnit);
-                double startY = UnitConversionUtils.ConvertToInches(grid.StartPoint.Y, _lengthUnit);
-                double endX = UnitConversionUtils.ConvertToInches(grid.EndPoint.X, _lengthUnit);
-                double endY = UnitConversionUtils.ConvertToInches(grid.EndPoint.Y, _lengthUnit);
-
-                // Calculate angle for angled grid
-                double deltaX = endX - startX;
-                double deltaY = endY - startY;
-                double angleRadians = Math.Atan2(deltaY, deltaX);
-                double angleDegrees = angleRadians * (180.0 / Math.PI);
-
-                // Add angled grid using radial axis (even for skewed systems, angled grids use the radial axis)
-                IModelGrid modelGrid = modelGrids.Add(grid.Name, EGridAxis.eGridXorRadialAxis, angleDegrees);
-                count++;
-            }
-
-            // Apply skewed grid system to all floor types
-            ApplyGridSystemToFloorTypes(skewedGridSystem);
-
-            return count;
-        }
-
-        // Find existing grid system or create new one with specified type
-        private IGridSystem FindOrCreateGridSystem(IGridSystems gridSystems, string systemName, SGridSysType systemType)
-        {
-            // Look for existing grid system with the same name
-            for (int i = 0; i < gridSystems.GetCount(); i++)
-            {
-                IGridSystem existingSystem = gridSystems.GetAt(i);
-                if (existingSystem.strLabel == systemName)
-                {
-                    return existingSystem;
-                }
-            }
-
-            // Create new grid system
-            IGridSystem newGridSystem = gridSystems.Add(systemName);
-
-            // Set the grid system type
-            SetGridSystemType(newGridSystem, systemType);
-
-            return newGridSystem;
-        }
-
-        // Set the grid system type (orientation type)
-        private void SetGridSystemType(IGridSystem gridSystem, SGridSysType systemType)
-        {
-            try
-            {
-                // Try to set the eOrientationType property directly
-                gridSystem.eOrientationType = systemType;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Warning: Could not set grid system type directly: {ex.Message}");
-
-                // If direct property access fails, try using SetGridSysInfo if available
-                try
-                {
-                    // Get current grid system info
-                    string label = gridSystem.strLabel;
-                    double xOffset = 0.0;
-                    double yOffset = 0.0;
-                    double rotation = 0.0;
-                    int numXRadialGrids = 0;
-                    int numYCircularGrids = 0;
-
-                    // Note: You may need to call GetGridSysInfo first to get current values
-                    // if the API requires all parameters to be set
-
-                    // Call SetGridSysInfo with the desired type
-                    // This is a hypothetical method - you'll need to check the actual RAM API
-                    // gridSystem.SetGridSysInfo(label, systemType, xOffset, yOffset, rotation, numXRadialGrids, numYCircularGrids);
-                }
-                catch (Exception ex2)
-                {
-                    Console.WriteLine($"Warning: Could not set grid system type using SetGridSysInfo: {ex2.Message}");
-                }
             }
         }
 

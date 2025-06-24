@@ -48,157 +48,118 @@ namespace RAM.Export.Elements
 
                     Console.WriteLine($"Processing floor type: {floorType.strLabel} (UID: {floorType.lUID})");
 
-                    // Find floor property ID (if available)
-                    string floorPropertiesId = ModelMappingUtility.GetFloorTypeIdForUid(floorType.lUID.ToString());
-                    Console.WriteLine($"Floor properties ID mapping: {(string.IsNullOrEmpty(floorPropertiesId) ? "NOT FOUND" : floorPropertiesId)}");
-
-                    // Get slab perimeters for this floor type
-                    ISlabPerimeters slabPerimeters = floorType.GetSlabPerimeters();
-                    if (slabPerimeters == null)
+                    // Get decks for this floor type
+                    IDecks decks = floorType.GetDecks();
+                    if (decks == null || decks.GetCount() == 0)
                     {
-                        Console.WriteLine($"ERROR: Slab perimeters object is null for floor type {floorType.strLabel}");
+                        Console.WriteLine($"No decks found for floor type {floorType.strLabel}");
                         continue;
                     }
 
-                    Console.WriteLine($"Found {slabPerimeters.GetCount()} slab perimeters for floor type {floorType.strLabel}");
+                    Console.WriteLine($"Found {decks.GetCount()} deck(s) for floor type {floorType.strLabel}");
 
-                    if (slabPerimeters.GetCount() == 0)
-                    {
-                        Console.WriteLine($"WARNING: No slab perimeters found for floor type {floorType.strLabel}");
-                        continue;
-                    }
-
-                    // Process each story that uses this floor type
+                    // Find stories that use this floor type
                     IStories ramStories = _model.GetStories();
                     if (ramStories == null || ramStories.GetCount() == 0)
                     {
-                        Console.WriteLine("ERROR: No stories found in RAM model");
+                        Console.WriteLine("No stories found in RAM model");
                         continue;
                     }
 
-                    Console.WriteLine($"Checking {ramStories.GetCount()} stories for floor type {floorType.strLabel}");
                     bool foundMatchingStory = false;
 
-                    for (int k = 0; k < ramStories.GetCount(); k++)
+                    // Check each story to see if it uses this floor type
+                    for (int storyIdx = 0; storyIdx < ramStories.GetCount(); storyIdx++)
                     {
-                        IStory ramStory = ramStories.GetAt(k);
-                        if (ramStory == null)
-                        {
-                            Console.WriteLine($"ERROR: Story at index {k} is null");
+                        IStory ramStory = ramStories.GetAt(storyIdx);
+                        if (ramStory == null || ramStory.GetFloorType() == null)
                             continue;
-                        }
-
-                        if (ramStory.GetFloorType() == null)
-                        {
-                            Console.WriteLine($"WARNING: Story {ramStory.strLabel} has no floor type");
-                            continue;
-                        }
 
                         if (ramStory.GetFloorType().lUID != floorType.lUID)
-                        {
-                            Console.WriteLine($"Story {ramStory.strLabel} uses different floor type: {ramStory.GetFloorType().strLabel}");
                             continue;
-                        }
 
                         Console.WriteLine($"Found matching story: {ramStory.strLabel} (UID: {ramStory.lUID}) using floor type {floorType.strLabel}");
                         foundMatchingStory = true;
 
-                        // Find the corresponding level ID for this story
+                        // Find the corresponding level ID for this story using ModelMappingUtility
                         string levelId = ModelMappingUtility.GetLevelIdForStoryUid(ramStory.lUID.ToString());
                         if (string.IsNullOrEmpty(levelId))
                         {
                             Console.WriteLine($"ERROR: No level mapping found for story {ramStory.strLabel} (UID: {ramStory.lUID})");
-
-                            // Debug the mapping dictionary contents
-                            Console.WriteLine("Debugging mappings in ModelMappingUtility:");
-                            PrintMappingDictionaries();
                             continue;
                         }
 
                         Console.WriteLine($"Found level ID for story {ramStory.strLabel}: {levelId}");
 
-                        // Process each slab perimeter
-                        for (int j = 0; j < slabPerimeters.GetCount(); j++)
+                        // Process each deck in this floor type
+                        for (int deckIdx = 0; deckIdx < decks.GetCount(); deckIdx++)
                         {
-                            ISlabPerimeter slabPerimeter = slabPerimeters.GetAt(j);
-                            if (slabPerimeter == null)
+                            IDeck deck = decks.GetAt(deckIdx);
+                            if (deck == null)
                             {
-                                Console.WriteLine($"ERROR: Slab perimeter at index {j} is null");
+                                Console.WriteLine($"ERROR: Deck at index {deckIdx} is null");
                                 continue;
                             }
 
-                            List<Point2D> floorPoints = new List<Point2D>();
+                            Console.WriteLine($"Processing deck with property ID: {deck.lUID}");
 
-                            // Get points for the slab perimeter
-                            IPoints slabPerimeterPoints = slabPerimeter.GetPerimeterVertices();
-                            if (slabPerimeterPoints == null)
+                            // Use ModelMappingUtility to get FloorProperties ID from deck property UID
+                            string floorPropertiesId = ModelMappingUtility.GetFloorPropertiesIdForUid(deck.lUID.ToString());
+                            if (string.IsNullOrEmpty(floorPropertiesId))
                             {
-                                Console.WriteLine($"ERROR: Perimeter vertices object is null for slab perimeter {j}");
+                                Console.WriteLine($"ERROR: No FloorProperties mapping found for deck property UID {deck.lUID}");
                                 continue;
                             }
 
-                            if (slabPerimeterPoints.GetCount() < 3)
+                            Console.WriteLine($"Found FloorProperties ID: {floorPropertiesId}");
+
+                            // Get deck geometry points
+                            IPoints deckPoints = deck.GetPoints();
+                            if (deckPoints == null || deckPoints.GetCount() < 3)
                             {
-                                Console.WriteLine($"WARNING: Slab perimeter {j} has only {slabPerimeterPoints.GetCount()} points (minimum 3 required)");
+                                Console.WriteLine($"Deck has insufficient points ({deckPoints?.GetCount() ?? 0})");
                                 continue;
                             }
 
-                            Console.WriteLine($"Slab perimeter {j} has {slabPerimeterPoints.GetCount()} points");
-
-                            // Extract points from the perimeter
-                            for (int p = 0; p < slabPerimeterPoints.GetCount(); p++)
+                            // Convert deck points to model coordinates
+                            var floorPoints = new List<Point2D>();
+                            for (int ptIdx = 0; ptIdx < deckPoints.GetCount(); ptIdx++)
                             {
-                                IPoint slabPerimeterPoint = slabPerimeterPoints.GetAt(p);
-                                if (slabPerimeterPoint == null)
-                                {
-                                    Console.WriteLine($"ERROR: Perimeter point at index {p} is null");
-                                    continue;
-                                }
+                                IPoint deckPoint = deckPoints.GetAt(ptIdx);
 
-                                // Get the coordinates of the slab perimeter point
-                                SCoordinate slabPoint = new SCoordinate();
-                                slabPerimeterPoint.GetCoordinate(ref slabPoint);
+                                // Get the coordinates
+                                SCoordinate coord = new SCoordinate();
+                                deckPoint.GetCoordinate(ref coord);
 
-                                // Convert to Point2D
-                                Point2D point2D = new Point2D(
-                                    UnitConversionUtils.ConvertFromInches(slabPoint.dXLoc, "inches"),
-                                    UnitConversionUtils.ConvertFromInches(slabPoint.dYLoc, "inches")
+                                var point = new Point2D(
+                                    UnitConversionUtils.ConvertFromInches(coord.dXLoc, _lengthUnit),
+                                    UnitConversionUtils.ConvertFromInches(coord.dYLoc, _lengthUnit)
                                 );
-
-                                floorPoints.Add(point2D);
-                                // Console.WriteLine($"  Point {p}: ({point2D.X}, {point2D.Y})");
+                                floorPoints.Add(point);
                             }
 
-                            // Skip floors with insufficient points
-                            if (floorPoints.Count < 3)
-                            {
-                                Console.WriteLine($"WARNING: Not enough valid points for floor from slab perimeter {j} (only {floorPoints.Count}, minimum 3 required)");
-                                continue;
-                            }
-
-                            // Create floor from RAM data
-                            Floor floor = new Floor
+                            // Create floor object
+                            var floor = new Floor
                             {
                                 Id = IdGenerator.Generate(IdGenerator.Elements.FLOOR),
                                 LevelId = levelId,
                                 FloorPropertiesId = floorPropertiesId,
                                 Points = floorPoints,
-                                DiaphragmId = null, // Assuming no diaphragm mapping for now
-                                SurfaceLoadId = null // Assuming no surface load mapping for now
+                                SpanDirection = deck.dAngle
                             };
 
                             floors.Add(floor);
-                            Console.WriteLine($"SUCCESS: Created floor with ID {floor.Id} at level {levelId} with {floorPoints.Count} points");
+                            Console.WriteLine($"Created floor {floor.Id} with {floorPoints.Count} points on level {levelId}");
                         }
                     }
 
                     if (!foundMatchingStory)
                     {
-                        Console.WriteLine($"WARNING: No stories found using floor type {floorType.strLabel}");
+                        Console.WriteLine($"No stories found using floor type {floorType.strLabel}");
                     }
                 }
 
-                Console.WriteLine($"Floor export complete. Created {floors.Count} floors.");
+                Console.WriteLine($"Successfully created {floors.Count} floors.");
                 return floors;
             }
             catch (Exception ex)
@@ -208,48 +169,5 @@ namespace RAM.Export.Elements
                 return floors;
             }
         }
-
-        // Helper method to print mapping dictionaries for debugging
-        private void PrintMappingDictionaries()
-        {
-            // Use reflection to access private static fields in ModelMappingUtility
-            Type type = typeof(ModelMappingUtility);
-            var fields = type.GetFields(System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-
-            foreach (var field in fields)
-            {
-                if (field.Name.EndsWith("Uid") || field.Name.EndsWith("Id"))
-                {
-                    Console.WriteLine($"Dictionary {field.Name}:");
-                    var dictionary = field.GetValue(null);
-                    if (dictionary != null)
-                    {
-                        var count = (int)dictionary.GetType().GetProperty("Count").GetValue(dictionary);
-                        Console.WriteLine($"  Contains {count} entries");
-
-                        // If the dictionary is small enough, print its contents
-                        if (count < 10)
-                        {
-                            var entries = dictionary.GetType().GetMethod("GetEnumerator").Invoke(dictionary, null);
-                            var moveNext = entries.GetType().GetMethod("MoveNext");
-                            var current = entries.GetType().GetProperty("Current");
-
-                            while ((bool)moveNext.Invoke(entries, null))
-                            {
-                                var entry = current.GetValue(entries);
-                                var key = entry.GetType().GetProperty("Key").GetValue(entry);
-                                var value = entry.GetType().GetProperty("Value").GetValue(entry);
-                                Console.WriteLine($"    {key} -> {value}");
-                            }
-                        }
-                    }
-                    else
-                    {
-                        Console.WriteLine("  Dictionary is null");
-                    }
-                }
-            }
-        }
-
     }
 }

@@ -13,6 +13,7 @@ namespace RAM.Export.Properties
         private readonly IModel _model;
         private readonly string _lengthUnit;
         private readonly MaterialProvider _materialProvider;
+        private readonly Dictionary<string, string> _floorPropMappings = new Dictionary<string, string>();
 
         public FloorPropertiesExport(
             IModel model,
@@ -42,6 +43,11 @@ namespace RAM.Export.Properties
                 // Export non-composite decks
                 floorProperties.AddRange(ExportNonCompositeDecks());
 
+                // Store mappings in ModelMappingUtility for FloorExport to use
+                ModelMappingUtility.SetFloorPropertiesMappings(_floorPropMappings);
+
+                Console.WriteLine($"Exported {floorProperties.Count} floor properties with {_floorPropMappings.Count} UID mappings");
+
                 return floorProperties;
             }
             catch (Exception ex)
@@ -69,7 +75,8 @@ namespace RAM.Export.Properties
                 if (concSlabProps == null || concSlabProps.GetCount() == 0)
                 {
                     // Add a default slab property
-                    slabProperties.Add(CreateDefaultSlabProperty());
+                    var defaultSlab = CreateDefaultSlabProperty();
+                    slabProperties.Add(defaultSlab);
                     return slabProperties;
                 }
 
@@ -95,13 +102,18 @@ namespace RAM.Export.Properties
                     };
 
                     slabProperties.Add(floorProp);
+
+                    // Store mapping: RAM property UID -> FloorProperties ID
+                    _floorPropMappings[slabProp.lUID.ToString()] = floorProp.Id;
+                    Console.WriteLine($"Mapped slab UID {slabProp.lUID} -> FloorProperties {floorProp.Id}");
                 }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error exporting concrete slab properties: {ex.Message}");
                 // Add a default slab property
-                slabProperties.Add(CreateDefaultSlabProperty());
+                var defaultSlab = CreateDefaultSlabProperty();
+                slabProperties.Add(defaultSlab);
             }
 
             return slabProperties;
@@ -151,6 +163,10 @@ namespace RAM.Export.Properties
                     floorProp.DeckProperties.DeckUnitWeight = deckProp.dSelfWtDeck;
 
                     deckProperties.Add(floorProp);
+
+                    // Store mapping: RAM property UID -> FloorProperties ID
+                    _floorPropMappings[deckProp.lUID.ToString()] = floorProp.Id;
+                    Console.WriteLine($"Mapped composite deck UID {deckProp.lUID} -> FloorProperties {floorProp.Id}");
                 }
             }
             catch (Exception ex)
@@ -203,6 +219,10 @@ namespace RAM.Export.Properties
                     floorProp.DeckProperties.DeckUnitWeight = deckProp.dSelfWeight;
 
                     deckProperties.Add(floorProp);
+
+                    // Store mapping: RAM property UID -> FloorProperties ID
+                    _floorPropMappings[deckProp.lUID.ToString()] = floorProp.Id;
+                    Console.WriteLine($"Mapped non-composite deck UID {deckProp.lUID} -> FloorProperties {floorProp.Id}");
                 }
             }
             catch (Exception ex)

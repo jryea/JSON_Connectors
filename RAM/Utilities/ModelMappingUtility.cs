@@ -12,6 +12,8 @@ namespace RAM.Utilities
     /// </summary>
     public static class ModelMappingUtility
     {
+        #region Private Static Fields
+
         // Static mapping collections
         private static Dictionary<string, string> _levelIdToStoryUid = new Dictionary<string, string>();
         private static Dictionary<string, string> _storyUidToLevelId = new Dictionary<string, string>();
@@ -19,7 +21,13 @@ namespace RAM.Utilities
         private static Dictionary<string, string> _storyNameToUid = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private static Dictionary<string, string> _floorTypeUidToId = new Dictionary<string, string>();
         private static Dictionary<string, string> _sectionLabelToFramePropId = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        private static Dictionary<string, string> _floorPropUidToId = new Dictionary<string, string>();
+        private static Dictionary<double, string> _wallThicknessToId = new Dictionary<double, string>();
         private static string _groundLevelId = null;
+
+        #endregion
+
+        #region Public Initialization Methods
 
         /// <summary>
         /// Initialize all mappings between RAM and Core models
@@ -57,6 +65,20 @@ namespace RAM.Utilities
                     SetFramePropertyMappings(framePropMappings);
                 }
 
+                // Set floor properties mappings if available
+                if (coreModel?.Properties?.FloorProperties != null)
+                {
+                    Dictionary<string, string> floorPropMappings = new Dictionary<string, string>();
+                    foreach (var prop in coreModel.Properties.FloorProperties)
+                    {
+                        if (!string.IsNullOrEmpty(prop.Name) && !string.IsNullOrEmpty(prop.Id))
+                        {
+                            floorPropMappings[prop.Name] = prop.Id;
+                        }
+                    }
+                    SetFloorPropertiesMappings(floorPropMappings);
+                }
+
                 Console.WriteLine("Mappings initialized successfully");
             }
             catch (Exception ex)
@@ -76,10 +98,16 @@ namespace RAM.Utilities
             _storyNameToUid.Clear();
             _floorTypeUidToId.Clear();
             _sectionLabelToFramePropId.Clear();
+            _floorPropUidToId.Clear();
+            _wallThicknessToId.Clear();
             _groundLevelId = null;
 
             Console.WriteLine("All mappings cleared");
         }
+
+        #endregion
+
+        #region Level/Story Mapping Methods
 
         /// <summary>
         /// Build mappings between RAM stories and Core levels
@@ -89,187 +117,137 @@ namespace RAM.Utilities
             var ramStories = ramModel.GetStories();
             Console.WriteLine("Building level mappings...");
 
-            // Build name-to-ID mappings for quick lookup
+            // Build name-to-ID mappings for levels
             foreach (var level in levels)
             {
                 if (!string.IsNullOrEmpty(level.Name) && !string.IsNullOrEmpty(level.Id))
                 {
                     _levelNameToId[level.Name] = level.Id;
-                    _levelNameToId[NormalizeName(level.Name)] = level.Id;
-
-                    // Store ground level ID (elevation near 0)
-                    if (Math.Abs(level.Elevation) < 0.01 && string.IsNullOrEmpty(_groundLevelId))
-                    {
-                        _groundLevelId = level.Id;
-                        Console.WriteLine($"Found ground level: {level.Name} (ID: {level.Id})");
-                    }
+                    Console.WriteLine($"Level name mapping: '{level.Name}' -> {level.Id}");
                 }
             }
 
-            // Build story name mappings
+            // Build name-to-UID mappings for stories
             for (int i = 0; i < ramStories.GetCount(); i++)
             {
                 IStory story = ramStories.GetAt(i);
-                if (story != null)
+                if (story != null && !string.IsNullOrEmpty(story.strLabel))
                 {
                     _storyNameToUid[story.strLabel] = story.lUID.ToString();
-                    _storyNameToUid[NormalizeName(story.strLabel)] = story.lUID.ToString();
+                    Console.WriteLine($"Story name mapping: '{story.strLabel}' -> {story.lUID}");
                 }
             }
 
-            // Primary mapping approach: Map by elevation (most reliable)
+            // Create cross-mappings between stories and levels
             foreach (var level in levels)
             {
-                bool mapped = false;
-
-                for (int i = 0; i < ramStories.GetCount(); i++)
+                string levelName = level.Name;
+                if (_storyNameToUid.TryGetValue(levelName, out string storyUid))
                 {
-                    IStory story = ramStories.GetAt(i);
-                    if (Math.Abs(level.Elevation - story.dElevation) < 0.01)
-                    {
-                        _levelIdToStoryUid[level.Id] = story.lUID.ToString();
-                        _storyUidToLevelId[story.lUID.ToString()] = level.Id;
-                        Console.WriteLine($"Mapped level {level.Name} to story {story.strLabel} by elevation");
-                        mapped = true;
-                        break;
-                    }
-                }
-
-                // If not mapped by elevation, try by name
-                if (!mapped)
-                {
-                    string normalizedLevelName = NormalizeName(level.Name);
-                    for (int i = 0; i < ramStories.GetCount(); i++)
-                    {
-                        IStory story = ramStories.GetAt(i);
-                        string normalizedStoryName = NormalizeName(story.strLabel);
-
-                        if (normalizedLevelName == normalizedStoryName)
-                        {
-                            _levelIdToStoryUid[level.Id] = story.lUID.ToString();
-                            _storyUidToLevelId[story.lUID.ToString()] = level.Id;
-                            Console.WriteLine($"Mapped level {level.Name} to story {story.strLabel} by name");
-                            mapped = true;
-                            break;
-                        }
-                    }
-                }
-
-                if (!mapped)
-                {
-                    Console.WriteLine($"Warning: No mapping found for level {level.Name}");
+                    _levelIdToStoryUid[level.Id] = storyUid;
+                    _storyUidToLevelId[storyUid] = level.Id;
+                    Console.WriteLine($"Cross mapping: Level '{levelName}' ({level.Id}) <-> Story UID {storyUid}");
                 }
             }
 
-            // If ground level not found by elevation, try to find by name
-            if (string.IsNullOrEmpty(_groundLevelId))
-            {
-                SetGroundLevelByName(levels);
-            }
+            // Set ground level
+            SetGroundLevelByName(levels);
 
-            LogLevelMappings();
+            Console.WriteLine($"Level mappings built: {_levelIdToStoryUid.Count} level-story pairs");
         }
+
+        /// <summary>
+        /// Get the Core Level ID for a RAM Story UID
+        /// </summary>
+        public static string GetLevelIdForStoryUid(string storyUid)
+        {
+            return _storyUidToLevelId.TryGetValue(storyUid, out string levelId) ? levelId : null;
+        }
+
+        /// <summary>
+        /// Get the RAM Story UID for a Core Level ID
+        /// </summary>
+        public static string GetStoryUidForLevelId(string levelId)
+        {
+            return _levelIdToStoryUid.TryGetValue(levelId, out string storyUid) ? storyUid : null;
+        }
+
+        /// <summary>
+        /// Get the Core Level ID for a level name
+        /// </summary>
+        public static string GetLevelIdForName(string levelName)
+        {
+            return _levelNameToId.TryGetValue(levelName, out string levelId) ? levelId : null;
+        }
+
+        public static string GetGroundLevelId()
+        {
+            return _groundLevelId;
+        }
+
+        /// <summary>
+        /// Get the RAM Story UID for a story name
+        /// </summary>
+        public static string GetStoryUidForName(string storyName)
+        {
+            return _storyNameToUid.TryGetValue(storyName, out string storyUid) ? storyUid : null;
+        }
+
+        #endregion
+
+        #region Floor Type Mapping Methods
 
         /// <summary>
         /// Build mappings between RAM floor types and Core floor types
         /// </summary>
-        private static void BuildFloorTypeMappings(IModel ramModel, IEnumerable<FloorType> floorTypes, IEnumerable<Level> levels = null)
+        private static void BuildFloorTypeMappings(IModel ramModel, IEnumerable<FloorType> floorTypes, IEnumerable<Level> levels)
         {
-            var ramFloorTypes = ramModel.GetFloorTypes();
-            _floorTypeUidToId.Clear();
-
-            Console.WriteLine("Building floor type mappings...");
-
-            // 1. First try to match by name (most reliable approach)
-            Dictionary<string, IFloorType> matchedRamFloorTypes = new Dictionary<string, IFloorType>();
-
-            for (int i = 0; i < ramFloorTypes.GetCount(); i++)
+            try
             {
-                IFloorType ramFloorType = ramFloorTypes.GetAt(i);
-                if (ramFloorType != null && !string.IsNullOrEmpty(ramFloorType.strLabel))
-                {
-                    // Try to find matching core floor type by name
-                    var matchingFloorType = floorTypes.FirstOrDefault(ft =>
-                        string.Equals(ft.Name, ramFloorType.strLabel, StringComparison.OrdinalIgnoreCase));
+                IFloorTypes ramFloorTypes = ramModel.GetFloorTypes();
+                Console.WriteLine("Building floor type mappings...");
 
-                    if (matchingFloorType != null)
+                // First pass: map by name
+                Dictionary<string, string> floorTypeNameToId = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var floorType in floorTypes)
+                {
+                    if (!string.IsNullOrEmpty(floorType.Name) && !string.IsNullOrEmpty(floorType.Id))
                     {
-                        _floorTypeUidToId[ramFloorType.lUID.ToString()] = matchingFloorType.Id;
-                        matchedRamFloorTypes[ramFloorType.strLabel] = ramFloorType;
-                        Console.WriteLine($"Matched floor type by name: {matchingFloorType.Name} (ID: {matchingFloorType.Id}) -> RAM ID: {ramFloorType.lUID}");
+                        floorTypeNameToId[floorType.Name] = floorType.Id;
+                    }
+                }
+
+                // Map RAM floor type UIDs to Core floor type IDs
+                for (int i = 0; i < ramFloorTypes.GetCount(); i++)
+                {
+                    IFloorType ramFloorType = ramFloorTypes.GetAt(i);
+                    if (ramFloorType != null && !string.IsNullOrEmpty(ramFloorType.strLabel))
+                    {
+                        if (floorTypeNameToId.TryGetValue(ramFloorType.strLabel, out string floorTypeId))
+                        {
+                            _floorTypeUidToId[ramFloorType.lUID.ToString()] = floorTypeId;
+                            Console.WriteLine($"Floor type mapping: RAM UID {ramFloorType.lUID} ('{ramFloorType.strLabel}') -> Core ID {floorTypeId}");
+                        }
                     }
                 }
             }
-
-            // 2. For remaining unmatched floor types, try matching by elevation order if levels are provided
-            if (levels != null && levels.Any())
+            catch (Exception ex)
             {
-                // Find floor types that haven't been matched yet
-                var unmatchedFloorTypes = floorTypes.Where(ft =>
-                    !_floorTypeUidToId.Values.Contains(ft.Id)).ToList();
-
-                if (unmatchedFloorTypes.Any())
-                {
-                    // Find RAM floor types that haven't been matched yet
-                    var unmatchedRamFloorTypes = new List<IFloorType>();
-                    for (int i = 0; i < ramFloorTypes.GetCount(); i++)
-                    {
-                        IFloorType ramFloorType = ramFloorTypes.GetAt(i);
-                        if (ramFloorType != null && !matchedRamFloorTypes.Values.Contains(ramFloorType))
-                        {
-                            unmatchedRamFloorTypes.Add(ramFloorType);
-                        }
-                    }
-
-                    // Get average elevation for each floor type
-                    var floorTypeElevations = new Dictionary<string, double>();
-                    var floorTypeLevelCount = new Dictionary<string, int>();
-
-                    foreach (var level in levels)
-                    {
-                        if (!string.IsNullOrEmpty(level.FloorTypeId))
-                        {
-                            if (!floorTypeElevations.ContainsKey(level.FloorTypeId))
-                            {
-                                floorTypeElevations[level.FloorTypeId] = 0;
-                                floorTypeLevelCount[level.FloorTypeId] = 0;
-                            }
-
-                            floorTypeElevations[level.FloorTypeId] += level.Elevation;
-                            floorTypeLevelCount[level.FloorTypeId]++;
-                        }
-                    }
-
-                    // Calculate average elevations
-                    foreach (var ftId in floorTypeElevations.Keys.ToList())
-                    {
-                        if (floorTypeLevelCount[ftId] > 0)
-                        {
-                            floorTypeElevations[ftId] /= floorTypeLevelCount[ftId];
-                        }
-                    }
-
-                    // Sort unmatched floor types by elevation
-                    var sortedUnmatchedFloorTypes = unmatchedFloorTypes
-                        .Where(ft => floorTypeElevations.ContainsKey(ft.Id))
-                        .OrderBy(ft => floorTypeElevations[ft.Id])
-                        .ToList();
-
-                    // Match remaining floor types in elevation order
-                    int count = Math.Min(sortedUnmatchedFloorTypes.Count, unmatchedRamFloorTypes.Count);
-                    for (int i = 0; i < count; i++)
-                    {
-                        var floorType = sortedUnmatchedFloorTypes[i];
-                        var ramFloorType = unmatchedRamFloorTypes[i];
-
-                        _floorTypeUidToId[ramFloorType.lUID.ToString()] = floorType.Id;
-                        Console.WriteLine($"Matched floor type by elevation: {floorType.Name} (ID: {floorType.Id}) -> RAM ID: {ramFloorType.lUID}");
-                    }
-                }
+                Console.WriteLine($"Error building floor type mappings: {ex.Message}");
             }
         }
 
-        // Get the RAM Floor Type UID for a Core Floor Type ID
+        /// <summary>
+        /// Get the Core Floor Type ID for a RAM Floor Type UID
+        /// </summary>
+        public static string GetFloorTypeIdForUid(string uid)
+        {
+            return _floorTypeUidToId.TryGetValue(uid, out string floorTypeId) ? floorTypeId : null;
+        }
+
+        /// <summary>
+        /// Get the RAM Floor Type UID for a Core Floor Type ID
+        /// </summary>
         public static string GetRamFloorTypeUidForFloorTypeId(string floorTypeId)
         {
             if (string.IsNullOrEmpty(floorTypeId))
@@ -285,6 +263,10 @@ namespace RAM.Utilities
             return null;
         }
 
+        #endregion
+
+        #region Frame Properties Mapping Methods
+
         /// <summary>
         /// Set frame property mappings
         /// </summary>
@@ -299,6 +281,150 @@ namespace RAM.Utilities
         }
 
         /// <summary>
+        /// Get the Core Frame Property ID for a RAM Section Label
+        /// </summary>
+        public static string GetFramePropertyIdForSectionLabel(string sectionLabel)
+        {
+            if (string.IsNullOrEmpty(sectionLabel))
+                return _sectionLabelToFramePropId.Values.FirstOrDefault();
+
+            // Try direct lookup
+            if (_sectionLabelToFramePropId.TryGetValue(sectionLabel, out string framePropertyId))
+            {
+                return framePropertyId;
+            }
+
+            // Return first frame property ID as fallback
+            return _sectionLabelToFramePropId.Values.FirstOrDefault();
+        }
+
+        /// <summary>
+        /// Get default frame property ID when no specific match is found
+        /// </summary>
+        public static string GetDefaultFramePropertyId()
+        {
+            // Return first frame property ID if available
+            return _sectionLabelToFramePropId.Values.FirstOrDefault();
+        }
+
+        #endregion
+
+        #region Floor Properties Mapping Methods
+
+        /// <summary>
+        /// Set floor properties mappings (RAM UID -> FloorProperties ID)
+        /// </summary>
+        public static void SetFloorPropertiesMappings(Dictionary<string, string> uidToFloorPropId)
+        {
+            _floorPropUidToId.Clear();
+            foreach (var mapping in uidToFloorPropId)
+            {
+                _floorPropUidToId[mapping.Key] = mapping.Value;
+            }
+            Console.WriteLine($"Set {_floorPropUidToId.Count} floor properties mappings");
+        }
+
+        /// <summary>
+        /// Get the Core FloorProperties ID for a RAM deck property UID
+        /// </summary>
+        public static string GetFloorPropertiesIdForUid(string uid)
+        {
+            if (string.IsNullOrEmpty(uid))
+                return _floorPropUidToId.Values.FirstOrDefault();
+
+            // Try direct lookup
+            if (_floorPropUidToId.TryGetValue(uid, out string floorPropertiesId))
+            {
+                return floorPropertiesId;
+            }
+
+            // Return first floor properties ID as fallback
+            return _floorPropUidToId.Values.FirstOrDefault();
+        }
+
+        #endregion
+
+        #region Wall Properties Mapping Methods
+
+        /// <summary>
+        /// Set mapping from wall thickness to wall property ID
+        /// </summary>
+        public static void SetWallThicknessMapping(Dictionary<double, string> thicknessToIdMapping)
+        {
+            _wallThicknessToId.Clear();
+            foreach (var mapping in thicknessToIdMapping)
+            {
+                _wallThicknessToId[mapping.Key] = mapping.Value;
+            }
+            Console.WriteLine($"Set {_wallThicknessToId.Count} wall thickness mappings");
+        }
+
+        /// <summary>
+        /// Get wall property ID for a given thickness
+        /// </summary>
+        public static string GetWallPropertyIdForThickness(double thickness, double tolerance = 0.01)
+        {
+            // Try to find an exact match first
+            if (_wallThicknessToId.TryGetValue(thickness, out string propId))
+                return propId;
+
+            // If no exact match, look for one within tolerance
+            foreach (var kvp in _wallThicknessToId)
+            {
+                if (Math.Abs(kvp.Key - thickness) < tolerance)
+                    return kvp.Value;
+            }
+
+            // Return first available as fallback
+            return _wallThicknessToId.Values.FirstOrDefault();
+        }
+
+        /// <summary>
+        /// Set wall property mappings
+        /// </summary>
+        public static void SetWallPropertyMappings(Dictionary<string, string> wallPropMappings)
+        {
+            if (wallPropMappings == null)
+                return;
+
+            var _wallPropMappings = new Dictionary<string, string>();
+            foreach (var mapping in wallPropMappings)
+            {
+                _wallPropMappings[mapping.Key] = mapping.Value;
+            }
+
+            Console.WriteLine($"Set {_wallPropMappings.Count} wall property mappings");
+        }
+
+        /// <summary>
+        /// Find the Core Wall Property ID for a RAM Wall
+        /// </summary>
+        public static string FindWallPropertiesId(IWall wall, Dictionary<string, string> wallPropMappings)
+        {
+            if (wall == null || wallPropMappings == null || wallPropMappings.Count == 0)
+                return null;
+
+            // Try to find wall property by thickness
+            double thickness = wall.dThickness;
+
+            // Look for a wall property with matching thickness
+            foreach (var entry in wallPropMappings)
+            {
+                // This is a simplified approach - in a real implementation,
+                // you would need to retrieve the actual wall properties and compare
+                if (entry.Key.Contains(thickness.ToString("0.##")))
+                    return entry.Value;
+            }
+
+            // Return first wall property ID as fallback
+            return wallPropMappings.Values.FirstOrDefault();
+        }
+
+        #endregion
+
+        #region Utility Methods
+
+        /// <summary>
         /// Try to find the ground level from level names
         /// </summary>
         private static void SetGroundLevelByName(IEnumerable<Level> levels)
@@ -310,118 +436,41 @@ namespace RAM.Utilities
                 if (name.Contains("ground") || name.Contains("base") || name == "0")
                 {
                     _groundLevelId = level.Id;
-                    Console.WriteLine($"Found ground level by name: {level.Name} (ID: {level.Id})");
-                    return;
+                    Console.WriteLine($"Set ground level ID: {_groundLevelId} ('{level.Name}')");
+                    break;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Create level-to-floor-type mapping
+        /// </summary>
+        public static Dictionary<string, string> CreateLevelToFloorTypeMapping(IEnumerable<Level> levels)
+        {
+            var mapping = new Dictionary<string, string>();
+
+            foreach (var level in levels)
+            {
+                if (!string.IsNullOrEmpty(level.Id) && !string.IsNullOrEmpty(level.FloorTypeId))
+                {
+                    mapping[level.Id] = level.FloorTypeId;
                 }
             }
 
-            // If still not found, use the lowest level
-            if (string.IsNullOrEmpty(_groundLevelId) && levels.Any())
-            {
-                var lowestLevel = levels.OrderBy(l => l.Elevation).First();
-                _groundLevelId = lowestLevel.Id;
-                Console.WriteLine($"Using lowest level as ground level: {lowestLevel.Name} (ID: {lowestLevel.Id})");
-            }
+            return mapping;
         }
 
         /// <summary>
-        /// Normalize a name by removing "Story" prefix and trimming
+        /// Get the Core Level ID for the wall's top level
         /// </summary>
-        public static string NormalizeName(string name)
+        public static string FindTopLevelIdForWall(IWall wall, IStory currentStory)
         {
-            if (string.IsNullOrEmpty(name))
-                return string.Empty;
-
-            name = name.Trim();
-
-            if (name.StartsWith("Story ", StringComparison.OrdinalIgnoreCase))
-                return name.Substring(6).Trim();
-
-            if (name.StartsWith("Story", StringComparison.OrdinalIgnoreCase))
-                return name.Substring(5).Trim();
-
-            return name;
-        }
-
-        /// <summary>
-        /// Log all level mappings to console for debugging
-        /// </summary>
-        private static void LogLevelMappings()
-        {
-            Console.WriteLine("=== Level to Story Mappings ===");
-            foreach (var mapping in _levelIdToStoryUid)
-            {
-                Console.WriteLine($"Level ID: {mapping.Key} -> Story UID: {mapping.Value}");
-            }
-
-            Console.WriteLine($"Ground Level ID: {_groundLevelId ?? "Not Found"}");
-        }
-
-        #region Public Mapping Methods
-
-        /// <summary>
-        /// Get the RAM Story UID for a Core Level ID
-        /// </summary>
-        public static string GetStoryUidForLevelId(string levelId)
-        {
-            if (string.IsNullOrEmpty(levelId))
+            if (wall == null || currentStory == null)
                 return null;
 
-            return _levelIdToStoryUid.TryGetValue(levelId, out string storyUid) ? storyUid : null;
-        }
-
-        /// <summary>
-        /// Get the Core Level ID for a RAM Story UID
-        /// </summary>
-        public static string GetLevelIdForStoryUid(string storyUid)
-        {
-            if (string.IsNullOrEmpty(storyUid))
-                return null;
-
-            return _storyUidToLevelId.TryGetValue(storyUid, out string levelId) ? levelId : null;
-        }
-
-        /// <summary>
-        /// Get the Core Level ID for a RAM Story name
-        /// </summary>
-        public static string GetLevelIdForStoryName(string storyName)
-        {
-            if (string.IsNullOrEmpty(storyName))
-                return null;
-
-            // Try direct lookup
-            if (_storyNameToUid.TryGetValue(storyName, out string storyUid))
-            {
-                return GetLevelIdForStoryUid(storyUid);
-            }
-
-            // Try normalized name
-            string normalizedName = NormalizeName(storyName);
-            if (_storyNameToUid.TryGetValue(normalizedName, out storyUid))
-            {
-                return GetLevelIdForStoryUid(storyUid);
-            }
-
-            return null;
-        }
-
-        /// <summary>
-        /// Get the Core Level ID for a level name
-        /// </summary>
-        public static string GetLevelIdForName(string levelName)
-        {
-            if (string.IsNullOrEmpty(levelName))
-                return null;
-
-            return _levelNameToId.TryGetValue(levelName, out string levelId) ? levelId : null;
-        }
-
-        /// <summary>
-        /// Get the ground/foundation level ID
-        /// </summary>
-        public static string GetGroundLevelId()
-        {
-            return _groundLevelId;
+            // Get the current story's level ID
+            string storyUid = currentStory.lUID.ToString();
+            return GetLevelIdForStoryUid(storyUid);
         }
 
         /// <summary>
@@ -481,97 +530,8 @@ namespace RAM.Utilities
         }
 
         /// <summary>
-        /// Get the Core Floor Type ID for a RAM Floor Type UID
+        /// Get a mapping of RAM Sections to Core Frame Properties
         /// </summary>
-        public static string GetFloorTypeIdForUid(string floorTypeUid)
-        {
-            if (string.IsNullOrEmpty(floorTypeUid))
-                return null;
-
-            return _floorTypeUidToId.TryGetValue(floorTypeUid, out string floorTypeId) ? floorTypeId : null;
-        }
-
-        /// <summary>
-        /// Get the Core Frame Property ID for a RAM Section Label
-        /// </summary>
-        public static string GetFramePropertyIdForSectionLabel(string sectionLabel)
-        {
-            if (string.IsNullOrEmpty(sectionLabel))
-                return _sectionLabelToFramePropId.Values.FirstOrDefault();
-
-            // Try direct lookup
-            if (_sectionLabelToFramePropId.TryGetValue(sectionLabel, out string framePropertyId))
-            {
-                return framePropertyId;
-            }
-
-            // Return first frame property ID as fallback
-            return _sectionLabelToFramePropId.Values.FirstOrDefault();
-        }
-
-        public static Dictionary<string, string> CreateLevelToFloorTypeMapping(IEnumerable<Level> levels)
-        {
-            var mapping = new Dictionary<string, string>();
-
-            foreach (var level in levels)
-            {
-                if (!string.IsNullOrEmpty(level.Id) && !string.IsNullOrEmpty(level.FloorTypeId))
-                {
-                    mapping[level.Id] = level.FloorTypeId;
-                }
-            }
-
-            return mapping;
-        }
-
-        // Get the Core Level ID for the wall's top level
-        public static string FindTopLevelIdForWall(IWall wall, IStory currentStory)
-        {
-            if (wall == null || currentStory == null)
-                return null;
-
-            // Get the current story's level ID
-            string storyUid = currentStory.lUID.ToString();
-            return GetLevelIdForStoryUid(storyUid);
-        }
-
-        // Get the Core Wall Property ID for a RAM Wall
-        public static string FindWallPropertiesId(IWall wall, Dictionary<string, string> wallPropMappings)
-        {
-            if (wall == null || wallPropMappings == null || wallPropMappings.Count == 0)
-                return null;
-
-            // Try to find wall property by thickness
-            double thickness = wall.dThickness;
-
-            // Look for a wall property with matching thickness
-            foreach (var entry in wallPropMappings)
-            {
-                // This is a simplified approach - in a real implementation,
-                // you would need to retrieve the actual wall properties and compare
-                if (entry.Key.Contains(thickness.ToString("0.##")))
-                    return entry.Value;
-            }
-
-            // Return first wall property ID as fallback
-            return wallPropMappings.Values.FirstOrDefault();
-        }
-
-        public static void SetWallPropertyMappings(Dictionary<string, string> wallPropMappings)
-        {
-            if (wallPropMappings == null)
-                return;
-
-            var _wallPropMappings = new Dictionary<string, string>();
-            foreach (var mapping in wallPropMappings)
-            {
-                _wallPropMappings[mapping.Key] = mapping.Value;
-            }
-
-            Console.WriteLine($"Set {_wallPropMappings.Count} wall property mappings");
-        }
-
-        // Get a mapping of RAM Sections to Core Frame Properties
         public static Dictionary<string, string> GetFramePropertyMappings(IModel ramModel, IEnumerable<Core.Models.Properties.FrameProperties> frameProperties)
         {
             var mappings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -590,45 +550,13 @@ namespace RAM.Utilities
             return mappings;
         }
 
-        // Add to ModelMappingUtility class
-        private static Dictionary<double, string> _wallThicknessToId = new Dictionary<double, string>();
+        #endregion
 
-        // Set mapping from wall thickness to wall property ID
-        public static void SetWallThicknessMapping(Dictionary<double, string> thicknessToIdMapping)
-        {
-            _wallThicknessToId.Clear();
-            foreach (var mapping in thicknessToIdMapping)
-            {
-                _wallThicknessToId[mapping.Key] = mapping.Value;
-            }
-            Console.WriteLine($"Set {_wallThicknessToId.Count} wall thickness mappings");
-        }
+        #region Debug Methods
 
-        // Get wall property ID for a given thickness
-        public static string GetWallPropertyIdForThickness(double thickness, double tolerance = 0.01)
-        {
-            // Try to find an exact match first
-            if (_wallThicknessToId.TryGetValue(thickness, out string propId))
-                return propId;
-
-            // If no exact match, look for one within tolerance
-            foreach (var kvp in _wallThicknessToId)
-            {
-                if (Math.Abs(kvp.Key - thickness) < tolerance)
-                    return kvp.Value;
-            }
-
-            // Return first available as fallback
-            return _wallThicknessToId.Values.FirstOrDefault();
-        }
-
-        // Get default frame property ID when no specific match is found
-        public static string GetDefaultFramePropertyId()
-        {
-            // Return first frame property ID if available
-            return _sectionLabelToFramePropId.Values.FirstOrDefault();
-        }
-
+        /// <summary>
+        /// Dump the current state of all mappings for debugging
+        /// </summary>
         public static void DumpMappingState()
         {
             Console.WriteLine("\n=== MAPPING UTILITY STATE ===");
@@ -676,6 +604,15 @@ namespace RAM.Utilities
             foreach (var mapping in _sectionLabelToFramePropId)
             {
                 Console.WriteLine("{0,-30} {1,-40}", mapping.Key, mapping.Value);
+            }
+
+            // Dump floor properties mappings
+            Console.WriteLine("\nFloor Property UID to ID Mappings:");
+            Console.WriteLine("{0,-10} {1,-40}", "Property UID", "Floor Prop ID");
+            Console.WriteLine(new string('-', 50));
+            foreach (var mapping in _floorPropUidToId)
+            {
+                Console.WriteLine("{0,-10} {1,-40}", mapping.Key, mapping.Value);
             }
 
             // Dump wall thickness mappings

@@ -101,7 +101,11 @@ namespace RAM.Export.Properties
                         SlabType = SlabType.Slab
                     };
 
+                    // Slabs don't have deck properties
+                    floorProp.DeckProperties = null;
+
                     slabProperties.Add(floorProp);
+                    floorProp.ShearStudProperties = null;
 
                     // Store mapping: RAM property UID -> FloorProperties ID
                     _floorPropMappings[slabProp.lUID.ToString()] = floorProp.Id;
@@ -141,7 +145,20 @@ namespace RAM.Export.Properties
                         continue;
 
                     // Get deck physical properties
-                    double deckDepth = 1.5; // Default deck depth
+                    string deckType = deckProp.strDeckType ?? "VULCRAFT 2VL";
+                    double deckDepth = 1.5; // default
+                    if (deckType.Contains("1.5VL"))
+                    {
+                        deckDepth = 1.5;
+                    }
+                    else if (deckType.Contains("2VL"))
+                    {
+                        deckDepth = 2.0;
+                    }
+                    else if (deckType.Contains("3VL"))
+                    {
+                        deckDepth = 3.0;
+                    }
                     double toppingThickness = UnitConversionUtils.ConvertFromInches(deckProp.dThickAboveFlutes, _lengthUnit);
                     double totalThickness = toppingThickness + deckDepth;
 

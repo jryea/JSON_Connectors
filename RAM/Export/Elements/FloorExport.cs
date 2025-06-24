@@ -104,7 +104,9 @@ namespace RAM.Export.Elements
                             Console.WriteLine($"Processing deck with property ID: {deck.lUID}");
 
                             // Use ModelMappingUtility to get FloorProperties ID from deck property UID
-                            string floorPropertiesId = ModelMappingUtility.GetFloorPropertiesIdForUid(deck.lUID.ToString());
+                            string floorPropertiesId = ModelMappingUtility.GetFloorPropertiesIdForUid(deck.lPropID.ToString());
+
+
                             if (string.IsNullOrEmpty(floorPropertiesId))
                             {
                                 Console.WriteLine($"ERROR: No FloorProperties mapping found for deck property UID {deck.lUID}");

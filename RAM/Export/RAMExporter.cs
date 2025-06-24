@@ -84,8 +84,6 @@ namespace RAM
                         GridExport gridExporter = new GridExport(modelManager.Model, lengthUnit);
                         model.ModelLayout.Grids = gridExporter.Export();
 
-                        // Initialize mappings using the ModelMappingUtility
-                        ModelMappingUtility.InitializeMappings(modelManager.Model, model);
 
                         // Extract frame properties with material provider
                         var framePropertiesExporter = new FramePropertiesExport(
@@ -101,6 +99,9 @@ namespace RAM
                             lengthUnit);
                         model.Properties.FloorProperties = floorPropertiesExporter.Export();
                         Console.WriteLine($"Exported {model.Properties.FloorProperties.Count} floor properties");
+
+                        // Initialize mappings using the ModelMappingUtility
+                        ModelMappingUtility.InitializeMappings(modelManager.Model, model);
 
                         // Extract diaphragm properties
                         model.Properties.Diaphragms = ExtractDiaphragms();

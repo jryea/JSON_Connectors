@@ -59,20 +59,6 @@ namespace RAM.Utilities
                     SetFramePropertyMappings(framePropMappings);
                 }
 
-                // Set floor properties mappings if available
-                if (coreModel?.Properties?.FloorProperties != null)
-                {
-                    Dictionary<string, string> floorPropMappings = new Dictionary<string, string>();
-                    foreach (var prop in coreModel.Properties.FloorProperties)
-                    {
-                        if (!string.IsNullOrEmpty(prop.Name) && !string.IsNullOrEmpty(prop.Id))
-                        {
-                            floorPropMappings[prop.Name] = prop.Id;
-                        }
-                    }
-                    SetFloorPropertiesMappings(floorPropMappings);
-                }
-
                 Console.WriteLine("Mappings initialized successfully");
             }
             catch (Exception ex)

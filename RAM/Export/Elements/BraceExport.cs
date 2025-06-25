@@ -50,11 +50,29 @@ namespace RAM.Export.Elements
 
                     // Get level IDs from the mapping utility
                     string topLevelId = ModelMappingUtility.GetLevelIdForStoryUid(topStoryUid);
-                    string baseLevelId = ModelMappingUtility.GetLevelIdForStoryUid(baseStoryUid);
+                    string baseLevelId;
 
-                    if (string.IsNullOrEmpty(topLevelId) || string.IsNullOrEmpty(baseLevelId))
+                    // Handle special case: -1 story ID means foundation/ground level
+                    if (baseStoryUid == "-1")
                     {
-                        Console.WriteLine($"Could not find level mappings for brace {i + 1}");
+                        baseLevelId = ModelMappingUtility.GetGroundLevelId();
+                        Console.WriteLine($"Brace {i + 1} extends to ground level (story ID -1)");
+                    }
+                    else
+                    {
+                        baseLevelId = ModelMappingUtility.GetLevelIdForStoryUid(baseStoryUid);
+                    }
+
+                    // Check if we have valid level mappings
+                    if (string.IsNullOrEmpty(topLevelId))
+                    {
+                        Console.WriteLine($"Could not find top level mapping for brace {i + 1} (story UID: {topStoryUid})");
+                        continue;
+                    }
+
+                    if (string.IsNullOrEmpty(baseLevelId))
+                    {
+                        Console.WriteLine($"Could not find base level mapping for brace {i + 1} (story UID: {baseStoryUid})");
                         continue;
                     }
 

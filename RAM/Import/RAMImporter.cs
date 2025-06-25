@@ -127,7 +127,8 @@ namespace RAM
                     bool result = modelManager.CreateNewModel(ramFilePath, ramUnits);
                     if (!result)
                     {
-                        return (false, "Failed to create RAM model file.");
+                        string detailedError = modelManager.LastErrorMessage ?? "Failed to create RAM model file.";
+                        return (false, detailedError);
                     }
 
                     Console.WriteLine("RAM model created successfully");
@@ -329,7 +330,7 @@ namespace RAM
                                     model.Elements.Floors,
                                     validLevels,
                                     detailedLevelToFloorTypeMap,
-                                    floorPropertyMappings); 
+                                    floorPropertyMappings);
                                 Console.WriteLine($"Imported {floorCount} floors");
                             }
 
@@ -357,10 +358,14 @@ namespace RAM
                             }
                         }
 
-
                         // Save model
                         Console.WriteLine("Saving RAM model");
-                        modelManager.SaveModel();
+                        bool saveResult = modelManager.SaveModel();
+                        if (!saveResult)
+                        {
+                            string detailedError = modelManager.LastErrorMessage ?? "Failed to save RAM model.";
+                            return (false, detailedError);
+                        }
                         Console.WriteLine("RAM model saved successfully");
 
                         return (true, $"Successfully created RAM model with {floorTypeCount} floor types, {gridCount} grids, {storyCount} stories, {surfaceLoadCount} surface loads, {beamCount} beams, {columnCount} columns, and {wallCount} walls.");
@@ -374,8 +379,16 @@ namespace RAM
                         // Try to save the model anyway
                         try
                         {
-                            modelManager.SaveModel();
-                            Console.WriteLine("Attempted to save partial model despite error");
+                            bool saveResult = modelManager.SaveModel();
+                            if (!saveResult)
+                            {
+                                string saveError = modelManager.LastErrorMessage ?? "Unknown save error";
+                                Console.WriteLine($"Failed to save partial model: {saveError}");
+                            }
+                            else
+                            {
+                                Console.WriteLine("Attempted to save partial model despite error");
+                            }
                         }
                         catch (Exception saveEx)
                         {

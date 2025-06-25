@@ -40,7 +40,8 @@ namespace RAM
                     bool isOpen = modelManager.OpenModel(ramFilePath);
                     if (!isOpen)
                     {
-                        return (null, "Failed to open RAM model file.", false);
+                        string detailedError = modelManager.LastErrorMessage ?? "Failed to open RAM model file.";
+                        return (null, detailedError, false);
                     }
 
                     // Create the base model structure
@@ -83,7 +84,6 @@ namespace RAM
                         // Extract grids
                         GridExport gridExporter = new GridExport(modelManager.Model, lengthUnit);
                         model.ModelLayout.Grids = gridExporter.Export();
-
 
                         // Extract frame properties with material provider
                         var framePropertiesExporter = new FramePropertiesExport(

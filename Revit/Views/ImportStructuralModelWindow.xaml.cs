@@ -18,13 +18,12 @@ namespace Revit.Views
             _viewModel = new ImportStructuralModelViewModel(uiApp);
             DataContext = _viewModel;
 
-
             // Set up event handling for the view model
             _viewModel.RequestClose += () =>
             {
                 if (this.IsLoaded && this.IsVisible)
                 {
-                    this.DialogResult = _viewModel.DialogResult ?? false;
+                    this.DialogResult = _viewModel.DialogResult;
                     this.Close();
                 }
             };

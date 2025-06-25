@@ -33,6 +33,14 @@ namespace Revit.ViewModels
         private double _rotationAngle = 0.0;
         private double _baseLevelElevation = 0.0;
 
+        // Grid selection properties
+        private string _selectedGridSource;
+        private Autodesk.Revit.DB.Grid _selectedHorizontalGrid;
+        private Autodesk.Revit.DB.Grid _selectedVerticalGrid;
+        private ObservableCollection<string> _availableGridSources;
+        private ObservableCollection<Autodesk.Revit.DB.Grid> _availableHorizontalGrids;
+        private ObservableCollection<Autodesk.Revit.DB.Grid> _availableVerticalGrids;
+
         // Element categories
         private bool _importGrids = true;
         private bool _importBeams = true;
@@ -107,7 +115,12 @@ namespace Revit.ViewModels
                 if (_useGridIntersection != value)
                 {
                     _useGridIntersection = value;
-                    if (value) _useManualRotation = false;
+                    if (value)
+                    {
+                        _useManualRotation = false;
+                        // Populate grid collections when grid intersection is selected
+                        PopulateGridCollections();
+                    }
                     OnPropertyChanged();
                     OnPropertyChanged(nameof(UseManualRotation));
                 }
@@ -145,6 +158,72 @@ namespace Revit.ViewModels
             set
             {
                 _baseLevelElevation = value;
+                OnPropertyChanged();
+            }
+        }
+
+        // Grid Selection Properties
+        public string SelectedGridSource
+        {
+            get => _selectedGridSource;
+            set
+            {
+                if (_selectedGridSource != value)
+                {
+                    _selectedGridSource = value;
+                    OnPropertyChanged();
+                    // Refresh grid lists when source changes
+                    PopulateGridCollections();
+                }
+            }
+        }
+
+        public Autodesk.Revit.DB.Grid SelectedHorizontalGrid
+        {
+            get => _selectedHorizontalGrid;
+            set
+            {
+                _selectedHorizontalGrid = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public Autodesk.Revit.DB.Grid SelectedVerticalGrid
+        {
+            get => _selectedVerticalGrid;
+            set
+            {
+                _selectedVerticalGrid = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public ObservableCollection<string> AvailableGridSources
+        {
+            get => _availableGridSources;
+            set
+            {
+                _availableGridSources = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public ObservableCollection<Autodesk.Revit.DB.Grid> AvailableHorizontalGrids
+        {
+            get => _availableHorizontalGrids;
+            set
+            {
+                _availableHorizontalGrids = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public ObservableCollection<Autodesk.Revit.DB.Grid> AvailableVerticalGrids
+        {
+            get => _availableVerticalGrids;
+            set
+            {
+                _availableVerticalGrids = value;
                 OnPropertyChanged();
             }
         }
@@ -252,6 +331,7 @@ namespace Revit.ViewModels
         public ImportStructuralModelViewModel()
         {
             InitializeCommands();
+            InitializeGridCollections();
         }
 
         public ImportStructuralModelViewModel(UIApplication uiApp)
@@ -259,6 +339,13 @@ namespace Revit.ViewModels
             _uiApp = uiApp;
             _document = uiApp?.ActiveUIDocument?.Document;
             InitializeCommands();
+            InitializeGridCollections();
+
+            // Populate grid sources on initialization
+            if (_document != null)
+            {
+                PopulateGridSources();
+            }
         }
         #endregion
 
@@ -268,6 +355,159 @@ namespace Revit.ViewModels
             BrowseInputCommand = new RelayCommand(BrowseInput);
             ImportCommand = new RelayCommand(Import, CanImport);
             CancelCommand = new RelayCommand(obj => RequestClose?.Invoke());
+        }
+
+        private void InitializeGridCollections()
+        {
+            AvailableGridSources = new ObservableCollection<string>();
+            AvailableHorizontalGrids = new ObservableCollection<Autodesk.Revit.DB.Grid>();
+            AvailableVerticalGrids = new ObservableCollection<Autodesk.Revit.DB.Grid>();
+
+            // Populate initial grid sources
+            PopulateGridSources();
+        }
+
+        private void PopulateGridSources()
+        {
+            AvailableGridSources.Clear();
+
+            // Add current structural model option
+            AvailableGridSources.Add("Current Structural Model");
+
+            // Add linked architectural models
+            if (_document != null)
+            {
+                try
+                {
+                    var linkedModels = new FilteredElementCollector(_document)
+                        .OfCategory(BuiltInCategory.OST_RvtLinks)
+                        .WhereElementIsNotElementType()
+                        .Cast<RevitLinkInstance>()
+                        .Where(link => link.GetLinkDocument() != null)
+                        .ToList();
+
+                    foreach (var link in linkedModels)
+                    {
+                        var linkDoc = link.GetLinkDocument();
+                        if (linkDoc != null)
+                        {
+                            // Check if the linked model has grids
+                            var gridCount = new FilteredElementCollector(linkDoc)
+                                .OfClass(typeof(Autodesk.Revit.DB.Grid))
+                                .GetElementCount();
+
+                            if (gridCount > 0)
+                            {
+                                string linkName = linkDoc.Title;
+                                AvailableGridSources.Add($"Linked: {linkName}");
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // If we can't get linked models, just use current model
+                    System.Diagnostics.Debug.WriteLine($"Error getting linked models: {ex.Message}");
+                }
+            }
+
+            // Set default selection
+            if (AvailableGridSources.Count > 0 && string.IsNullOrEmpty(SelectedGridSource))
+            {
+                SelectedGridSource = AvailableGridSources.First();
+            }
+        }
+
+        private void PopulateGridCollections()
+        {
+            // Clear existing collections
+            AvailableHorizontalGrids.Clear();
+            AvailableVerticalGrids.Clear();
+
+            if (string.IsNullOrEmpty(SelectedGridSource) || _document == null)
+                return;
+
+            try
+            {
+                List<Autodesk.Revit.DB.Grid> allGrids = new List<Autodesk.Revit.DB.Grid>();
+
+                if (SelectedGridSource == "Current Structural Model")
+                {
+                    // Get grids from current document
+                    allGrids = new FilteredElementCollector(_document)
+                        .OfClass(typeof(Autodesk.Revit.DB.Grid))
+                        .Cast<Autodesk.Revit.DB.Grid>()
+                        .ToList();
+                }
+                else if (SelectedGridSource.StartsWith("Linked:"))
+                {
+                    // Get grids from linked document
+                    string linkName = SelectedGridSource.Substring(7).Trim(); // Remove "Linked: " prefix
+
+                    var linkedModel = new FilteredElementCollector(_document)
+                        .OfCategory(BuiltInCategory.OST_RvtLinks)
+                        .WhereElementIsNotElementType()
+                        .Cast<RevitLinkInstance>()
+                        .FirstOrDefault(link => link.GetLinkDocument()?.Title == linkName);
+
+                    if (linkedModel?.GetLinkDocument() != null)
+                    {
+                        allGrids = new FilteredElementCollector(linkedModel.GetLinkDocument())
+                            .OfClass(typeof(Autodesk.Revit.DB.Grid))
+                            .Cast<Autodesk.Revit.DB.Grid>()
+                            .ToList();
+                    }
+                }
+
+                // Filter grids by direction
+                foreach (var grid in allGrids)
+                {
+                    if (IsHorizontalGrid(grid))
+                    {
+                        AvailableHorizontalGrids.Add(grid);
+                    }
+                    else if (IsVerticalGrid(grid))
+                    {
+                        AvailableVerticalGrids.Add(grid);
+                    }
+                }
+
+                // Auto-select first grid of each type if available
+                if (AvailableHorizontalGrids.Count > 0 && SelectedHorizontalGrid == null)
+                {
+                    SelectedHorizontalGrid = AvailableHorizontalGrids.First();
+                }
+                if (AvailableVerticalGrids.Count > 0 && SelectedVerticalGrid == null)
+                {
+                    SelectedVerticalGrid = AvailableVerticalGrids.First();
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error populating grid collections: {ex.Message}");
+            }
+        }
+
+        private bool IsHorizontalGrid(Autodesk.Revit.DB.Grid grid)
+        {
+            if (grid?.Curve is Line line)
+            {
+                var direction = line.Direction.Normalize();
+                // Consider horizontal if the X component is greater (more horizontal than vertical)
+                return Math.Abs(direction.X) > Math.Abs(direction.Y);
+            }
+            return false;
+        }
+
+        private bool IsVerticalGrid(Autodesk.Revit.DB.Grid grid)
+        {
+            if (grid?.Curve is Line line)
+            {
+                var direction = line.Direction.Normalize();
+                // Consider vertical if the Y component is greater (more vertical than horizontal)
+                return Math.Abs(direction.Y) > Math.Abs(direction.X);
+            }
+            return false;
         }
 
         private void BrowseInput(object parameter)
@@ -314,6 +554,16 @@ namespace Revit.ViewModels
                 return;
             }
 
+            // Validate grid selection if using grid intersection
+            if (UseGridIntersection)
+            {
+                if (SelectedHorizontalGrid == null || SelectedVerticalGrid == null)
+                {
+                    MessageBox.Show("Please select both horizontal and vertical grids for grid intersection alignment.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+            }
+
             // Just close the dialog with success - let the command handle the actual import
             DialogResult = true;
             RequestClose?.Invoke();
@@ -324,6 +574,27 @@ namespace Revit.ViewModels
             return true;
             //return !string.IsNullOrEmpty(InputLocation);
         }
+        #endregion
+
+        #region Public Methods for Command Access
+
+        /// <summary>
+        /// Gets the transformation parameters including grid selections
+        /// </summary>
+        public ImportTransformationParameters GetTransformationParameters()
+        {
+            return new ImportTransformationParameters
+            {
+                UseGridIntersection = UseGridIntersection,
+                UseManualRotation = UseManualRotation,
+                RotationAngle = RotationAngle,
+                BaseLevelElevation = BaseLevelElevation,
+                GridSource = SelectedGridSource,
+                HorizontalGrid = SelectedHorizontalGrid,
+                VerticalGrid = SelectedVerticalGrid
+            };
+        }
+
         #endregion
 
         #region Events
@@ -353,5 +624,10 @@ namespace Revit.ViewModels
         public string ImportedGrid2Name { get; set; }
         public double RotationAngle { get; set; }
         public double BaseLevelElevation { get; set; }
+
+        // New properties for grid intersection
+        public string GridSource { get; set; }
+        public Autodesk.Revit.DB.Grid HorizontalGrid { get; set; }
+        public Autodesk.Revit.DB.Grid VerticalGrid { get; set; }
     }
 }

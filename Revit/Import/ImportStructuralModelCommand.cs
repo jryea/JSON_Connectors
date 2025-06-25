@@ -32,7 +32,7 @@ namespace Revit.Import
                 }
 
                 // Get import parameters from the dialog
-                var viewModel = importWindow.DataContext as Revit.ViewModels.ImportStructuralModelViewModel;
+                var viewModel = importWindow.ViewModel;
                 if (viewModel == null || string.IsNullOrEmpty(viewModel.InputLocation))
                 {
                     message = "No input file selected";
@@ -57,14 +57,8 @@ namespace Revit.Import
                     { "Concrete", viewModel.ImportConcrete }
                 };
 
-                // Create transformation parameters
-                var transformParams = new Revit.ViewModels.ImportTransformationParameters
-                {
-                    UseGridIntersection = viewModel.UseGridIntersection,
-                    UseManualRotation = viewModel.UseManualRotation,
-                    RotationAngle = viewModel.RotationAngle,
-                    BaseLevelElevation = viewModel.BaseLevelElevation
-                };
+                // Get transformation parameters including grid selections
+                var transformParams = viewModel.GetTransformationParameters();
 
                 // Handle file conversion based on type
                 string jsonPath = ConvertToJson(viewModel.InputLocation);

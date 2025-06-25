@@ -32,12 +32,32 @@ namespace Revit.Import
                 var transform = CalculateTransformation(model);
                 if (transform != null)
                 {
+                    // Debug: Log column positions before transformation
+                    if (model.Elements?.Columns != null)
+                    {
+                        Debug.WriteLine("=== COLUMN POSITIONS BEFORE TRANSFORM ===");
+                        foreach (var column in model.Elements.Columns.Take(3)) // Log first 3 columns
+                        {
+                            Debug.WriteLine($"Column {column.Id}: Start=({column.StartPoint?.X:F2}, {column.StartPoint?.Y:F2}), End=({column.EndPoint?.X:F2}, {column.EndPoint?.Y:F2})");
+                        }
+                    }
+
                     ModelTransformation.TransformModel(
                         model,
                         transform.RotationAngle,
                         transform.RotationCenter,
                         transform.Translation
                     );
+
+                    // Debug: Log column positions after transformation
+                    if (model.Elements?.Columns != null)
+                    {
+                        Debug.WriteLine("=== COLUMN POSITIONS AFTER TRANSFORM ===");
+                        foreach (var column in model.Elements.Columns.Take(3)) // Log first 3 columns
+                        {
+                            Debug.WriteLine($"Column {column.Id}: Start=({column.StartPoint?.X:F2}, {column.StartPoint?.Y:F2}), End=({column.EndPoint?.X:F2}, {column.EndPoint?.Y:F2})");
+                        }
+                    }
 
                     Debug.WriteLine($"Applied transformation: Rotation={transform.RotationAngle:F2}°, Translation=({transform.Translation.X:F2}, {transform.Translation.Y:F2}, {transform.Translation.Z:F2})");
                 }
@@ -54,10 +74,10 @@ namespace Revit.Import
             var result = new TransformationResult();
             var tp = _context.TransformationParams;
 
-            // Auto grid intersection transformation
+            // Grid intersection transformation (using selected grids)
             if (tp.UseGridIntersection)
             {
-                var gridTransform = CalculateAutoGridIntersectionTransform(model);
+                var gridTransform = CalculateGridIntersectionTransform(model);
                 if (gridTransform != null)
                 {
                     result = gridTransform;
@@ -84,70 +104,112 @@ namespace Revit.Import
             return result;
         }
 
-        private TransformationResult CalculateAutoGridIntersectionTransform(BaseModel model)
+        private TransformationResult CalculateGridIntersectionTransform(BaseModel model)
         {
             try
             {
-                Debug.WriteLine("=== STARTING AUTO GRID INTERSECTION TRANSFORM ===");
+                Debug.WriteLine("=== STARTING GRID INTERSECTION TRANSFORM ===");
 
-                // Get lower-left intersection from imported model
+                // Get lower-left intersection from imported model (automatic)
                 Debug.WriteLine("Getting model grid intersection...");
                 var modelIntersection = GetLowerLeftGridIntersection(model);
-                if (modelIntersection == null)
+                if (modelIntersection.Intersection == null)
                 {
                     Debug.WriteLine("ERROR: Could not find lower-left grid intersection in imported model");
                     return null;
                 }
-                Debug.WriteLine($"Model intersection found: ({modelIntersection.Value.Intersection.X:F2}, {modelIntersection.Value.Intersection.Y:F2})");
+                Debug.WriteLine($"Model intersection found: ({modelIntersection.Intersection.X:F2}, {modelIntersection.Intersection.Y:F2})");
 
-                // Get lower-left intersection from Revit
-                Debug.WriteLine("Getting Revit grid intersection...");
-                var revitIntersection = GetRevitLowerLeftGridIntersection();
-                if (revitIntersection == null)
+                // Get intersection from selected Revit grids
+                Debug.WriteLine("Getting selected Revit grid intersection...");
+                var revitIntersection = GetSelectedGridIntersection();
+                if (revitIntersection.Intersection == null)
                 {
-                    Debug.WriteLine("ERROR: Could not find lower-left grid intersection in Revit model");
+                    Debug.WriteLine("ERROR: Could not find intersection of selected Revit grids");
                     return null;
                 }
-                Debug.WriteLine($"Revit intersection found: ({revitIntersection.Value.Intersection.X:F2}, {revitIntersection.Value.Intersection.Y:F2})");
+                Debug.WriteLine($"Revit intersection found: ({revitIntersection.Intersection.X:F2}, {revitIntersection.Intersection.Y:F2})");
 
                 // Calculate rotation based on horizontal grid angle difference
                 Debug.WriteLine("Calculating rotation difference...");
-                double rotationAngle = CalculateGridRotationDifference(model);
+                double rotationAngle = CalculateGridRotationDifference(model, revitIntersection.HorizontalGridRevit);
                 Debug.WriteLine($"Calculated rotation angle: {rotationAngle:F2}°");
 
                 // Calculate translation
                 var translation = new CG.Point3D(
-                    revitIntersection.Value.Intersection.X - modelIntersection.Value.Intersection.X,
-                    revitIntersection.Value.Intersection.Y - modelIntersection.Value.Intersection.Y,
+                    revitIntersection.Intersection.X - modelIntersection.Intersection.X,
+                    revitIntersection.Intersection.Y - modelIntersection.Intersection.Y,
                     0
                 );
                 Debug.WriteLine($"Calculated translation: ({translation.X:F2}, {translation.Y:F2}, {translation.Z:F2})");
 
-                Debug.WriteLine("=== AUTO GRID INTERSECTION TRANSFORM COMPLETE ===");
+                Debug.WriteLine("=== GRID INTERSECTION TRANSFORM COMPLETE ===");
 
                 return new TransformationResult
                 {
                     RotationAngle = rotationAngle,
-                    RotationCenter = modelIntersection.Value.Intersection,
+                    RotationCenter = modelIntersection.Intersection,
                     Translation = translation
                 };
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"ERROR in CalculateAutoGridIntersectionTransform: {ex.Message}");
+                Debug.WriteLine($"ERROR in CalculateGridIntersectionTransform: {ex.Message}");
                 Debug.WriteLine($"Stack trace: {ex.StackTrace}");
                 return null;
             }
         }
 
-        private GridIntersectionInfo? GetLowerLeftGridIntersection(BaseModel model)
+        private GridIntersectionInfo GetSelectedGridIntersection()
+        {
+            Debug.WriteLine("--- Getting Selected Grid Intersection ---");
+
+            var tp = _context.TransformationParams;
+            if (tp.HorizontalGrid == null || tp.VerticalGrid == null)
+            {
+                Debug.WriteLine("ERROR: No grids selected in UI");
+                return new GridIntersectionInfo();
+            }
+
+            try
+            {
+                Debug.WriteLine($"Selected horizontal grid: '{tp.HorizontalGrid.Name}'");
+                Debug.WriteLine($"Selected vertical grid: '{tp.VerticalGrid.Name}'");
+
+                // Calculate intersection of selected grids
+                var intersection = CalculateRevitGridIntersection(tp.HorizontalGrid, tp.VerticalGrid);
+                if (intersection == null)
+                {
+                    Debug.WriteLine("ERROR: Could not calculate intersection between selected grids");
+                    return new GridIntersectionInfo();
+                }
+
+                Debug.WriteLine($"Selected grid intersection calculated: ({intersection.X:F2}, {intersection.Y:F2}) feet");
+                Debug.WriteLine($"Selected grid intersection in inches: ({intersection.X * 12.0:F2}, {intersection.Y * 12.0:F2})");
+
+                return new GridIntersectionInfo
+                {
+                    Intersection = new CG.Point2D(intersection.X * 12.0, intersection.Y * 12.0), // Convert to inches
+                    HorizontalGridRevit = tp.HorizontalGrid,
+                    VerticalGridRevit = tp.VerticalGrid
+                };
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"ERROR getting selected grid intersection: {ex.Message}");
+                Debug.WriteLine($"Stack trace: {ex.StackTrace}");
+                return new GridIntersectionInfo();
+            }
+        }
+
+        private GridIntersectionInfo GetLowerLeftGridIntersection(BaseModel model)
         {
             Debug.WriteLine("--- Getting Model Grid Intersection ---");
 
             if (model.ModelLayout?.Grids == null || model.ModelLayout.Grids.Count < 2)
             {
                 Debug.WriteLine($"ERROR: Not enough grids in model. Count: {model.ModelLayout?.Grids?.Count ?? 0}");
-                return null;
+                return new GridIntersectionInfo();
             }
 
             Debug.WriteLine($"Total model grids: {model.ModelLayout.Grids.Count}");
@@ -163,7 +225,7 @@ namespace Revit.Import
             if (horizontalGrids.Count == 0 || verticalGrids.Count == 0)
             {
                 Debug.WriteLine("ERROR: Missing horizontal or vertical grids");
-                return null;
+                return new GridIntersectionInfo();
             }
 
             // Find bottommost horizontal grid and leftmost vertical grid
@@ -177,7 +239,7 @@ namespace Revit.Import
             if (intersection == null)
             {
                 Debug.WriteLine("ERROR: Could not calculate intersection between bottom and left grids");
-                return null;
+                return new GridIntersectionInfo();
             }
 
             Debug.WriteLine($"Model intersection calculated: ({intersection.X:F2}, {intersection.Y:F2})");
@@ -190,244 +252,126 @@ namespace Revit.Import
             };
         }
 
-        private GridIntersectionInfo? GetRevitLowerLeftGridIntersection()
-        {
-            Debug.WriteLine("--- Getting Revit Grid Intersection ---");
-
-            try
-            {
-                var collector = new FilteredElementCollector(_context.RevitDoc);
-                var revitGrids = collector.OfClass(typeof(Autodesk.Revit.DB.Grid))
-                    .Cast<Autodesk.Revit.DB.Grid>()
-                    .Where(g => g.Curve is Line)
-                    .ToList();
-
-                Debug.WriteLine($"Total Revit grids found: {revitGrids.Count}");
-                foreach (var grid in revitGrids)
-                {
-                    if (grid.Curve is Line line)
-                    {
-                        var start = line.GetEndPoint(0);
-                        var end = line.GetEndPoint(1);
-                        Debug.WriteLine($"  Grid '{grid.Name}': ({start.X:F2}, {start.Y:F2}) to ({end.X:F2}, {end.Y:F2})");
-                    }
-                }
-
-                if (revitGrids.Count < 2)
-                {
-                    Debug.WriteLine("ERROR: Not enough Revit grids found");
-                    return null;
-                }
-
-                var (horizontalGrids, verticalGrids) = SeparateRevitGridsByDirection(revitGrids);
-
-                Debug.WriteLine($"Revit Horizontal grids: {horizontalGrids.Count}, Vertical grids: {verticalGrids.Count}");
-
-                if (horizontalGrids.Count == 0 || verticalGrids.Count == 0)
-                {
-                    Debug.WriteLine("ERROR: Missing horizontal or vertical Revit grids");
-                    return null;
-                }
-
-                // Find bottommost horizontal and leftmost vertical
-                var bottomGrid = horizontalGrids.OrderBy(g => GetRevitGridMinY(g)).First();
-                var leftGrid = verticalGrids.OrderBy(g => GetRevitGridMinX(g)).First();
-
-                Debug.WriteLine($"Revit Bottom grid: '{bottomGrid.Name}' - Y: {GetRevitGridMinY(bottomGrid):F2}");
-                Debug.WriteLine($"Revit Left grid: '{leftGrid.Name}' - X: {GetRevitGridMinX(leftGrid):F2}");
-
-                var intersection = CalculateRevitGridIntersection(bottomGrid, leftGrid);
-                if (intersection == null)
-                {
-                    Debug.WriteLine("ERROR: Could not calculate Revit grid intersection");
-                    return null;
-                }
-
-                Debug.WriteLine($"Revit intersection calculated: ({intersection.X:F2}, {intersection.Y:F2}) feet");
-                Debug.WriteLine($"Revit intersection in inches: ({intersection.X * 12.0:F2}, {intersection.Y * 12.0:F2})");
-
-                return new GridIntersectionInfo
-                {
-                    Intersection = new CG.Point2D(intersection.X * 12.0, intersection.Y * 12.0), // Convert to inches
-                    HorizontalGridRevit = bottomGrid,
-                    VerticalGridRevit = leftGrid
-                };
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"ERROR getting Revit lower-left grid intersection: {ex.Message}");
-                Debug.WriteLine($"Stack trace: {ex.StackTrace}");
-                return null;
-            }
-        }
-
-        private double CalculateGridRotationDifference(BaseModel model)
+        private double CalculateGridRotationDifference(BaseModel model, Autodesk.Revit.DB.Grid revitHorizontalGrid)
         {
             Debug.WriteLine("--- Calculating Grid Rotation Difference ---");
 
             try
             {
-                // Get horizontal grids from both models
+                // Get horizontal grids from model
                 var modelHorizontalGrids = SeparateGridsByDirection(model.ModelLayout.Grids).Item1;
-                var revitGrids = new FilteredElementCollector(_context.RevitDoc)
-                    .OfClass(typeof(Autodesk.Revit.DB.Grid))
-                    .Cast<Autodesk.Revit.DB.Grid>()
-                    .Where(g => g.Curve is Line)
-                    .ToList();
-                var revitHorizontalGrids = SeparateRevitGridsByDirection(revitGrids).Item1;
-
-                Debug.WriteLine($"Model horizontal grids count: {modelHorizontalGrids.Count}");
-                Debug.WriteLine($"Revit horizontal grids count: {revitHorizontalGrids.Count}");
-
-                if (modelHorizontalGrids.Count == 0 || revitHorizontalGrids.Count == 0)
+                if (modelHorizontalGrids.Count == 0)
                 {
-                    Debug.WriteLine("ERROR: No horizontal grids found in one or both models");
-                    return 0;
+                    Debug.WriteLine("ERROR: No horizontal grids in model");
+                    return 0.0;
                 }
 
-                // Use the first horizontal grid from each model
-                var modelGrid = modelHorizontalGrids.First();
-                var revitGrid = revitHorizontalGrids.First();
+                // Use the bottom-most grid from model (should match the one used for intersection)
+                var modelHorizontalGrid = modelHorizontalGrids.OrderBy(g => Math.Min(g.StartPoint.Y, g.EndPoint.Y)).First();
 
-                // Calculate angles
-                double modelAngle = CalculateGridAngle(modelGrid);
-                double revitAngle = CalculateRevitGridAngle(revitGrid);
+                // Calculate model grid angle (ensure consistent direction - left to right)
+                var modelStart = modelHorizontalGrid.StartPoint;
+                var modelEnd = modelHorizontalGrid.EndPoint;
 
-                Debug.WriteLine($"Model grid '{modelGrid.Name}' angle: {modelAngle:F2}°");
-                Debug.WriteLine($"Revit grid '{revitGrid.Name}' angle: {revitAngle:F2}°");
+                // Always calculate from left to right for consistency
+                if (modelStart.X > modelEnd.X)
+                {
+                    var temp = modelStart;
+                    modelStart = modelEnd;
+                    modelEnd = temp;
+                }
 
-                // Return the difference
-                double angleDiff = revitAngle - modelAngle;
-                Debug.WriteLine($"Raw angle difference: {angleDiff:F2}°");
+                var modelVector = new CG.Point2D(
+                    modelEnd.X - modelStart.X,
+                    modelEnd.Y - modelStart.Y
+                );
+                double modelAngle = Math.Atan2(modelVector.Y, modelVector.X) * 180.0 / Math.PI;
 
-                // Normalize to [-180, 180] range
-                while (angleDiff > 180) angleDiff -= 360;
-                while (angleDiff < -180) angleDiff += 360;
+                // Calculate Revit grid angle (ensure consistent direction - left to right)
+                if (revitHorizontalGrid.Curve is Line revitLine)
+                {
+                    var revitStart = revitLine.GetEndPoint(0);
+                    var revitEnd = revitLine.GetEndPoint(1);
 
-                Debug.WriteLine($"Normalized angle difference: {angleDiff:F2}°");
-                return angleDiff;
+                    // Always calculate from left to right for consistency
+                    if (revitStart.X > revitEnd.X)
+                    {
+                        var temp = revitStart;
+                        revitStart = revitEnd;
+                        revitEnd = temp;
+                    }
+
+                    var revitVector = new CG.Point2D(revitEnd.X - revitStart.X, revitEnd.Y - revitStart.Y);
+                    double revitAngle = Math.Atan2(revitVector.Y, revitVector.X) * 180.0 / Math.PI;
+
+                    // Calculate rotation needed to align model grid to Revit grid
+                    double rotationDifference = revitAngle - modelAngle;
+
+                    // Normalize to [-180, 180] range
+                    while (rotationDifference > 180) rotationDifference -= 360;
+                    while (rotationDifference < -180) rotationDifference += 360;
+
+                    Debug.WriteLine($"Model grid '{modelHorizontalGrid.Name}' angle: {modelAngle:F2}°");
+                    Debug.WriteLine($"Revit grid '{revitHorizontalGrid.Name}' angle: {revitAngle:F2}°");
+                    Debug.WriteLine($"Rotation difference: {rotationDifference:F2}°");
+
+                    return rotationDifference;
+                }
+
+                Debug.WriteLine("ERROR: Revit grid is not a line");
+                return 0.0;
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"ERROR calculating rotation difference: {ex.Message}");
-                Debug.WriteLine($"Stack trace: {ex.StackTrace}");
-                return 0;
+                return 0.0;
             }
         }
 
         #region Helper Methods
 
         private (List<Core.Models.ModelLayout.Grid>, List<Core.Models.ModelLayout.Grid>) SeparateGridsByDirection(
-            List<Core.Models.ModelLayout.Grid> grids)
+            IEnumerable<Core.Models.ModelLayout.Grid> grids)
         {
-            Debug.WriteLine("--- Separating Model Grids by Direction ---");
-
             var horizontal = new List<Core.Models.ModelLayout.Grid>();
             var vertical = new List<Core.Models.ModelLayout.Grid>();
 
             foreach (var grid in grids)
             {
-                double deltaX = Math.Abs(grid.EndPoint.X - grid.StartPoint.X);
-                double deltaY = Math.Abs(grid.EndPoint.Y - grid.StartPoint.Y);
+                var vector = new CG.Point2D(
+                    grid.EndPoint.X - grid.StartPoint.X,
+                    grid.EndPoint.Y - grid.StartPoint.Y
+                );
 
-                Debug.WriteLine($"Grid '{grid.Name}': ΔX={deltaX:F2}, ΔY={deltaY:F2}");
-
-                if (deltaX > deltaY)
+                // If X component is larger, it's more horizontal
+                if (Math.Abs(vector.X) > Math.Abs(vector.Y))
                 {
                     horizontal.Add(grid);
-                    Debug.WriteLine($"  → Classified as HORIZONTAL");
                 }
                 else
                 {
                     vertical.Add(grid);
-                    Debug.WriteLine($"  → Classified as VERTICAL");
                 }
             }
 
-            Debug.WriteLine($"Result: {horizontal.Count} horizontal, {vertical.Count} vertical grids");
             return (horizontal, vertical);
-        }
-
-        private (List<Autodesk.Revit.DB.Grid>, List<Autodesk.Revit.DB.Grid>) SeparateRevitGridsByDirection(
-            List<Autodesk.Revit.DB.Grid> grids)
-        {
-            Debug.WriteLine("--- Separating Revit Grids by Direction ---");
-
-            var horizontal = new List<Autodesk.Revit.DB.Grid>();
-            var vertical = new List<Autodesk.Revit.DB.Grid>();
-
-            foreach (var grid in grids)
-            {
-                if (!(grid.Curve is Line line)) continue;
-
-                var start = line.GetEndPoint(0);
-                var end = line.GetEndPoint(1);
-
-                double deltaX = Math.Abs(end.X - start.X);
-                double deltaY = Math.Abs(end.Y - start.Y);
-
-                Debug.WriteLine($"Revit Grid '{grid.Name}': ΔX={deltaX:F2}, ΔY={deltaY:F2}");
-
-                if (deltaX > deltaY)
-                {
-                    horizontal.Add(grid);
-                    Debug.WriteLine($"  → Classified as HORIZONTAL");
-                }
-                else
-                {
-                    vertical.Add(grid);
-                    Debug.WriteLine($"  → Classified as VERTICAL");
-                }
-            }
-
-            Debug.WriteLine($"Result: {horizontal.Count} horizontal, {vertical.Count} vertical Revit grids");
-            return (horizontal, vertical);
-        }
-
-        private double GetRevitGridMinY(Autodesk.Revit.DB.Grid grid)
-        {
-            if (!(grid.Curve is Line line)) return 0;
-            var start = line.GetEndPoint(0);
-            var end = line.GetEndPoint(1);
-            return Math.Min(start.Y, end.Y);
-        }
-
-        private double GetRevitGridMinX(Autodesk.Revit.DB.Grid grid)
-        {
-            if (!(grid.Curve is Line line)) return 0;
-            var start = line.GetEndPoint(0);
-            var end = line.GetEndPoint(1);
-            return Math.Min(start.X, end.X);
-        }
-
-        private double CalculateGridAngle(Core.Models.ModelLayout.Grid grid)
-        {
-            double deltaX = grid.EndPoint.X - grid.StartPoint.X;
-            double deltaY = grid.EndPoint.Y - grid.StartPoint.Y;
-            return Math.Atan2(deltaY, deltaX) * 180.0 / Math.PI;
-        }
-
-        private double CalculateRevitGridAngle(Autodesk.Revit.DB.Grid grid)
-        {
-            if (!(grid.Curve is Line line)) return 0;
-            var start = line.GetEndPoint(0);
-            var end = line.GetEndPoint(1);
-            double deltaX = end.X - start.X;
-            double deltaY = end.Y - start.Y;
-            return Math.Atan2(deltaY, deltaX) * 180.0 / Math.PI;
         }
 
         private CG.Point2D CalculateLineIntersection(Core.Models.ModelLayout.Grid grid1, Core.Models.ModelLayout.Grid grid2)
         {
+            // Line 1: grid1.StartPoint to grid1.EndPoint
             double x1 = grid1.StartPoint.X, y1 = grid1.StartPoint.Y;
             double x2 = grid1.EndPoint.X, y2 = grid1.EndPoint.Y;
+
+            // Line 2: grid2.StartPoint to grid2.EndPoint
             double x3 = grid2.StartPoint.X, y3 = grid2.StartPoint.Y;
             double x4 = grid2.EndPoint.X, y4 = grid2.EndPoint.Y;
 
             double denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
-            if (Math.Abs(denom) < 1e-10) return null;
+            if (Math.Abs(denom) < 1e-10) return null; // Lines are parallel
 
             double t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom;
+
             return new CG.Point2D(x1 + t * (x2 - x1), y1 + t * (y2 - y1));
         }
 
@@ -486,11 +430,20 @@ namespace Revit.Import
 
         private struct GridIntersectionInfo
         {
-            public CG.Point2D Intersection;
-            public Core.Models.ModelLayout.Grid HorizontalGrid;
-            public Core.Models.ModelLayout.Grid VerticalGrid;
-            public Autodesk.Revit.DB.Grid HorizontalGridRevit;
-            public Autodesk.Revit.DB.Grid VerticalGridRevit;
+            public CG.Point2D Intersection { get; set; }
+            public Core.Models.ModelLayout.Grid HorizontalGrid { get; set; }
+            public Core.Models.ModelLayout.Grid VerticalGrid { get; set; }
+            public Autodesk.Revit.DB.Grid HorizontalGridRevit { get; set; }
+            public Autodesk.Revit.DB.Grid VerticalGridRevit { get; set; }
+
+            public GridIntersectionInfo(CG.Point2D intersection)
+            {
+                Intersection = intersection;
+                HorizontalGrid = null;
+                VerticalGrid = null;
+                HorizontalGridRevit = null;
+                VerticalGridRevit = null;
+            }
         }
 
         private class TransformationResult

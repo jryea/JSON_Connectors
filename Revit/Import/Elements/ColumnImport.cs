@@ -236,193 +236,98 @@ namespace Revit.Import.Elements
                         DB.XYZ columnPoint = Helpers.ConvertToRevitCoordinates(jsonColumn.StartPoint);
 
                         // Calculate top offset based on floor thickness at the top level
-                        double floorThickness = GetFloorThicknessForLevel(jsonColumn.TopLevelId, model);
-                        double topOffset = -floorThickness; // Negative to position below the floor
+                        // Use negative value so column stops at bottom of floor
+                        double topOffset = -GetFloorThicknessForLevel(jsonColumn.TopLevelId, model);
 
-                        Debug.WriteLine($"Column {jsonColumn.Id}: Floor thickness = {floorThickness}, Top offset = {topOffset}");
+                        // Add column to manager
+                        columnManager.AddColumn(
+                            jsonColumn.Id,
+                            columnPoint,
+                            baseLevel,
+                            topLevel,
+                            familySymbol,
+                            jsonColumn.IsLateral,
+                            frameProps,
+                            jsonColumn.Orientation,
+                            topOffset);
 
-                        // Add to column manager for creation
-                        columnManager.AddColumn(jsonColumn.Id, columnPoint, baseLevel, topLevel,
-                                              familySymbol, jsonColumn.IsLateral, frameProps,
-                                              jsonColumn.Orientation, topOffset);
-
-                        Debug.WriteLine($"Added column {jsonColumn.Id} to column manager for creation");
+                        Debug.WriteLine($"Added column {jsonColumn.Id} to manager for processing");
                     }
-                    catch (Exception colEx)
+                    catch (Exception ex)
                     {
-                        Debug.WriteLine($"Error processing column {jsonColumn.Id}: {colEx.Message}");
-                        Debug.WriteLine($"  Stack trace: {colEx.StackTrace}");
+                        Debug.WriteLine($"Error processing column {jsonColumn.Id}: {ex.Message}");
+                        Debug.WriteLine($"Stack trace: {ex.StackTrace}");
                     }
                 }
 
-                Debug.WriteLine("Finished processing individual columns, now creating them...");
-
-                // Create all columns
+                // Use the manager to create columns optimally
                 count = columnManager.CreateColumns();
 
-                Debug.WriteLine($"Column creation completed. Created {count} columns total.");
+                Debug.WriteLine($"ColumnImport completed: {count} columns created out of {columns.Count} attempted");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Critical error in column import: {ex.Message}");
+                Debug.WriteLine($"Error in ColumnImport.Import: {ex.Message}");
                 Debug.WriteLine($"Stack trace: {ex.StackTrace}");
+                throw;
             }
 
             return count;
         }
 
-        // Find appropriate column type based on JSON data and frame properties
-        private DB.FamilySymbol FindColumnType(CE.Column jsonColumn, FrameProperties frameProps)
+        // Find appropriate column type for the given column and properties
+        private DB.FamilySymbol FindColumnType(CE.Column column, FrameProperties frameProps)
         {
             try
             {
-                DB.FamilySymbol bestMatch = null;
+                string sectionName = null;
 
-                // First, try to find a column by frame properties if available
-                if (frameProps != null)
+                // Try to get section name from frame properties
+                if (frameProps != null && !string.IsNullOrEmpty(frameProps.Name))
                 {
-                    bestMatch = FindColumnByFrameProperties(frameProps);
-                    if (bestMatch != null)
+                    sectionName = frameProps.Name.ToUpper();
+                    Debug.WriteLine($"Column {column.Id}: Using frame properties section '{sectionName}'");
+                }
+
+                // Search for matching column type
+                if (!string.IsNullOrEmpty(sectionName))
+                {
+                    // Try exact match first
+                    if (_columnTypes.ContainsKey(sectionName))
                     {
-                        Debug.WriteLine($"Found column type by frame properties: {bestMatch.Name}");
-                        return bestMatch;
+                        Debug.WriteLine($"Column {column.Id}: Found exact match for '{sectionName}'");
+                        return _columnTypes[sectionName];
+                    }
+
+                    // Try partial match
+                    var partialMatch = _columnTypes.Where(kvp => kvp.Key.Contains(sectionName) || sectionName.Contains(kvp.Key)).FirstOrDefault();
+                    if (partialMatch.Value != null)
+                    {
+                        Debug.WriteLine($"Column {column.Id}: Found partial match '{partialMatch.Key}' for '{sectionName}'");
+                        return partialMatch.Value;
                     }
                 }
 
-                // Fallback to finding any concrete column
-                bestMatch = FindFallbackConcreteColumn();
-                if (bestMatch != null)
-                {
-                    Debug.WriteLine($"Using fallback concrete column: {bestMatch.Name}");
-                }
-
-                return bestMatch;
+                // Fallback to concrete column
+                Debug.WriteLine($"Column {column.Id}: No specific match found, using fallback concrete column");
+                return FindFallbackConcreteColumn();
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error finding column type: {ex.Message}");
-                return null;
+                Debug.WriteLine($"Error finding column type for {column.Id}: {ex.Message}");
+                return FindFallbackConcreteColumn();
             }
         }
 
-        // Find column type based on frame properties
-        private DB.FamilySymbol FindColumnByFrameProperties(FrameProperties frameProps)
+        // Log parameters for debugging
+        private void LogColumnParameters(DB.FamilyInstance column)
         {
             try
             {
-                if (frameProps == null) return null;
-
-                // Look for columns that match the material type
-                bool isConcrete = frameProps.Type == FrameMaterialType.Concrete ||
-                                frameProps.MaterialId?.ToUpper().Contains("CONCRETE") == true ||
-                                frameProps.MaterialId?.ToUpper().Contains("CONC") == true;
-
-                bool isSteel = frameProps.Type == FrameMaterialType.Steel ||
-                             frameProps.MaterialId?.ToUpper().Contains("STEEL") == true ||
-                             frameProps.MaterialId?.ToUpper().Contains("A992") == true;
-
-                string materialFilter = isConcrete ? "CONCRETE" : isSteel ? "STEEL" : "";
-
-                // Try to find exact match first
-                if (!string.IsNullOrEmpty(materialFilter))
+                Debug.WriteLine($"Column parameters for {column.Id}:");
+                foreach (DB.Parameter param in column.Parameters)
                 {
-                    var matchingColumns = _columnTypes.Where(kvp =>
-                        kvp.Key.Contains(materialFilter)).ToList();
-
-                    if (matchingColumns.Any())
-                    {
-                        var bestMatch = matchingColumns.First().Value;
-
-                        // Try to set dimensions if it's a concrete column with dimensions
-                        if (isConcrete && frameProps.ConcreteProps != null)
-                        {
-                            double width = frameProps.ConcreteProps.Width;
-                            double depth = frameProps.ConcreteProps.Depth;
-
-                            if (width > 0 && depth > 0)
-                            {
-                                SetColumnDimensions(bestMatch, width, depth);
-                            }
-                        }
-
-                        return bestMatch;
-                    }
-                }
-
-                return null;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error in FindColumnByFrameProperties: {ex.Message}");
-                return null;
-            }
-        }
-
-        // Set column dimensions for parametric families
-        private bool SetColumnDimensions(DB.FamilySymbol columnType, double widthInches, double depthInches)
-        {
-            bool success = false;
-
-            try
-            {
-                // Convert from inches to feet
-                double widthFeet = widthInches / 12.0;
-                double depthFeet = depthInches / 12.0;
-
-                // Common parameter names for column dimensions
-                string[] widthParamNames = { "Width", "b", "Column_Width", "Dimension_Width" };
-                string[] depthParamNames = { "Depth", "h", "Column_Depth" };
-
-                Debug.WriteLine($"Setting column dimensions: Width={widthFeet:F3}', Depth={depthFeet:F3}'");
-
-                // Try to set width parameter
-                foreach (string paramName in widthParamNames)
-                {
-                    var widthParam = columnType.LookupParameter(paramName);
-                    if (widthParam != null && !widthParam.IsReadOnly && widthParam.StorageType == DB.StorageType.Double)
-                    {
-                        widthParam.Set(widthFeet);
-                        Debug.WriteLine($"  Set width parameter '{paramName}' = {widthFeet:F3}'");
-                        success = true;
-                        break;
-                    }
-                }
-
-                // Try to set depth parameter
-                foreach (string paramName in depthParamNames)
-                {
-                    var depthParam = columnType.LookupParameter(paramName);
-                    if (depthParam != null && !depthParam.IsReadOnly && depthParam.StorageType == DB.StorageType.Double)
-                    {
-                        depthParam.Set(depthFeet);
-                        Debug.WriteLine($"  Set depth parameter '{paramName}' = {depthFeet:F3}'");
-                        success = true;
-                        break;
-                    }
-                }
-
-                if (!success)
-                {
-                    Debug.WriteLine("  Warning: Could not find suitable width/depth parameters");
-                    LogAvailableParameters(columnType);
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error setting column dimensions: {ex.Message}");
-            }
-
-            return success;
-        }
-
-        private void LogAvailableParameters(DB.FamilySymbol columnType)
-        {
-            try
-            {
-                Debug.WriteLine($"Available parameters for {columnType.Name}:");
-                foreach (DB.Parameter param in columnType.Parameters)
-                {
-                    if (param.StorageType == DB.StorageType.Double)
+                    if (param != null && param.Definition != null)
                     {
                         string readOnlyStatus = param.IsReadOnly ? " (ReadOnly)" : "";
                         Debug.WriteLine($"  - {param.Definition.Name}: {param.StorageType}{readOnlyStatus}");
@@ -493,7 +398,7 @@ namespace Revit.Import.Elements
                 TopLevelId = topLevel.Id,
                 FamilySymbol = familySymbol,
                 IsLateral = isLateral,
-                FrameProps = frameProps,
+                FrameProperties = frameProps,
                 Orientation = orientation,
                 TopOffset = topOffset
             });
@@ -501,52 +406,80 @@ namespace Revit.Import.Elements
 
         public int CreateColumns()
         {
-            int count = 0;
-
-            Debug.WriteLine($"CreateColumns called with {_columns.Count} columns to process");
-
             if (_columns.Count == 0)
-            {
-                Debug.WriteLine("No columns to create - returning 0");
                 return 0;
-            }
 
-            // Group columns by location to determine stacking strategy
-            var columnGroups = _columns.GroupBy(c => new {
-                X = Math.Round(c.Location.X, 3),
-                Y = Math.Round(c.Location.Y, 3)
-            }).ToList();
+            Debug.WriteLine($"ColumnImportManager: Creating {_columns.Count} columns");
 
-            Debug.WriteLine($"Creating columns in {columnGroups.Count} location groups");
+            // Group columns by location for potential stacking
+            var locationGroups = _columns.GroupBy(c => new { X = Math.Round(c.Location.X, 3), Y = Math.Round(c.Location.Y, 3) }).ToList();
 
-            foreach (var group in columnGroups)
+            int totalCreated = 0;
+
+            foreach (var locationGroup in locationGroups)
             {
-                var columnsAtLocation = group.OrderBy(c => c.BaseLevel.Elevation).ToList();
+                var columnsAtLocation = locationGroup.OrderBy(c => c.BaseLevel.Elevation).ToList();
 
-                Debug.WriteLine($"Processing location group with {columnsAtLocation.Count} columns");
-
-                if (ShouldStackColumns(columnsAtLocation))
+                if (CanStackColumns(columnsAtLocation))
                 {
-                    Debug.WriteLine("Creating stacked columns");
-                    count += CreateStackedColumns(columnsAtLocation);
+                    totalCreated += CreateStackedColumns(columnsAtLocation);
                 }
                 else
                 {
-                    Debug.WriteLine("Creating individual columns");
-                    count += CreateIndividualColumns(columnsAtLocation);
+                    totalCreated += CreateIndividualColumns(columnsAtLocation);
                 }
             }
 
-            Debug.WriteLine($"CreateColumns finished - created {count} columns total");
-            return count;
+            Debug.WriteLine($"ColumnImportManager: Created {totalCreated} columns total");
+            return totalCreated;
         }
 
-        // Determine if columns should be stacked
-        private bool ShouldStackColumns(List<ColumnData> columns)
+        // NEW METHOD: Ensures column position is preserved after parameter changes
+        private void EnsureColumnPosition(DB.FamilyInstance column, DB.XYZ intendedLocation, string columnId)
         {
-            if (columns.Count <= 1) return false;
+            try
+            {
+                // Get the current location point
+                DB.LocationPoint locationPoint = column.Location as DB.LocationPoint;
+                if (locationPoint != null)
+                {
+                    DB.XYZ currentLocation = locationPoint.Point;
 
-            // Check if columns form a continuous vertical stack
+                    // Check if the column has moved from intended position
+                    double tolerance = 0.01; // 0.01 feet tolerance
+                    double deltaX = Math.Abs(currentLocation.X - intendedLocation.X);
+                    double deltaY = Math.Abs(currentLocation.Y - intendedLocation.Y);
+
+                    if (deltaX > tolerance || deltaY > tolerance)
+                    {
+                        Debug.WriteLine($"Column {columnId} position drift detected:");
+                        Debug.WriteLine($"  Intended: ({intendedLocation.X:F3}, {intendedLocation.Y:F3})");
+                        Debug.WriteLine($"  Current:  ({currentLocation.X:F3}, {currentLocation.Y:F3})");
+                        Debug.WriteLine($"  Delta:    ({deltaX:F3}, {deltaY:F3})");
+
+                        // Move the column back to the intended position
+                        locationPoint.Point = intendedLocation;
+
+                        Debug.WriteLine($"Column {columnId} position corrected");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error ensuring column position for {columnId}: {ex.Message}");
+            }
+        }
+
+        // Check if columns can be stacked (must be continuous levels)
+        private bool CanStackColumns(List<ColumnData> columns)
+        {
+            if (columns.Count <= 1)
+                return false;
+
+            // Sort by base level elevation
+            columns = columns.OrderBy(c => c.BaseLevel.Elevation).ToList();
+
+            // Check for continuous levels
             for (int i = 0; i < columns.Count - 1; i++)
             {
                 var current = columns[i];
@@ -564,7 +497,7 @@ namespace Revit.Import.Elements
             return columns.All(c => c.FamilySymbol.Id == firstColumn.FamilySymbol.Id);
         }
 
-        // Create individual columns when stacking isn't appropriate
+        // UPDATED METHOD: Create individual columns with position preservation
         private int CreateIndividualColumns(List<ColumnData> columns)
         {
             int count = 0;
@@ -580,6 +513,9 @@ namespace Revit.Import.Elements
                     Debug.WriteLine($"  Top Level: {columnData.TopLevel.Name} (ID: {columnData.TopLevelId})");
                     Debug.WriteLine($"  Family Symbol: {columnData.FamilySymbol.Name}");
                     Debug.WriteLine($"  Top Offset: {columnData.TopOffset}");
+
+                    // Store the intended location for position verification
+                    DB.XYZ intendedLocation = new DB.XYZ(columnData.Location.X, columnData.Location.Y, columnData.Location.Z);
 
                     // Create column from base to top level
                     DB.FamilyInstance column = _doc.Create.NewFamilyInstance(
@@ -622,8 +558,14 @@ namespace Revit.Import.Elements
                             Debug.WriteLine($"  WARNING: Top offset parameter is null or read-only");
                         }
 
+                        // CRITICAL FIX: Ensure column position is preserved after parameter changes
+                        EnsureColumnPosition(column, intendedLocation, columnData.Id);
+
                         // Apply rotation if needed
                         ApplyColumnRotation(column, columnData);
+
+                        // Final position check after all modifications
+                        EnsureColumnPosition(column, intendedLocation, columnData.Id);
 
                         Debug.WriteLine($"Created individual column {columnData.Id} from {columnData.BaseLevel.Name} to {columnData.TopLevel.Name}");
                         _createdColumns[columnData.Id] = column;
@@ -669,6 +611,9 @@ namespace Revit.Import.Elements
                         var bottomColumn = stack.First();
                         var topColumn = stack.Last();
 
+                        // Store the intended location for position verification
+                        DB.XYZ intendedLocation = new DB.XYZ(bottomColumn.Location.X, bottomColumn.Location.Y, bottomColumn.Location.Z);
+
                         // Create the column
                         DB.FamilyInstance column = _doc.Create.NewFamilyInstance(
                             bottomColumn.Location,
@@ -696,21 +641,25 @@ namespace Revit.Import.Elements
                             if (topOffsetParam != null && !topOffsetParam.IsReadOnly)
                             {
                                 topOffsetParam.Set(topColumn.TopOffset);
-                                Debug.WriteLine($"Stacked column: Applied top offset of {topColumn.TopOffset} feet");
                             }
 
-                            // Apply rotation from bottom column
+                            // CRITICAL FIX: Ensure column position is preserved after parameter changes
+                            EnsureColumnPosition(column, intendedLocation, $"Stacked_{bottomColumn.Id}");
+
+                            // Apply rotation
                             ApplyColumnRotation(column, bottomColumn);
 
-                            Debug.WriteLine($"Created stacked column from {bottomColumn.BaseLevel.Name} to {topColumn.TopLevel.Name}");
+                            // Final position check after all modifications
+                            EnsureColumnPosition(column, intendedLocation, $"Stacked_{bottomColumn.Id}");
 
-                            // Store reference for all columns in the stack
+                            // Mark all columns in this stack as created
                             foreach (var stackColumn in stack)
                             {
                                 _createdColumns[stackColumn.Id] = column;
                             }
 
                             count++;
+                            Debug.WriteLine($"Created stacked column spanning {stack.Count} levels");
                         }
                         catch (Exception paramEx)
                         {
@@ -731,71 +680,68 @@ namespace Revit.Import.Elements
             return count;
         }
 
-        // Apply rotation to column if needed
+        // Find continuous column stacks
+        private List<List<ColumnData>> FindContinuousStacks(List<ColumnData> sortedColumns)
+        {
+            var stacks = new List<List<ColumnData>>();
+            var currentStack = new List<ColumnData>();
+
+            foreach (var column in sortedColumns)
+            {
+                if (currentStack.Count == 0 ||
+                    currentStack.Last().TopLevelId.IntegerValue == column.BaseLevelId.IntegerValue)
+                {
+                    currentStack.Add(column);
+                }
+                else
+                {
+                    if (currentStack.Count > 0)
+                        stacks.Add(new List<ColumnData>(currentStack));
+                    currentStack.Clear();
+                    currentStack.Add(column);
+                }
+            }
+
+            if (currentStack.Count > 0)
+                stacks.Add(currentStack);
+
+            return stacks;
+        }
+
+        // Apply rotation to column
         private void ApplyColumnRotation(DB.FamilyInstance column, ColumnData columnData)
         {
             try
             {
-                if (Math.Abs(columnData.Orientation) > 0.001) // Only rotate if orientation is not zero
+                if (Math.Abs(columnData.Orientation) > 0.01) // Only rotate if significant
                 {
-                    double rotationRadians = columnData.Orientation * Math.PI / 180.0; // Convert to radians
-                    DB.LocationPoint location = column.Location as DB.LocationPoint;
-                    if (location != null)
+                    DB.LocationPoint locationPoint = column.Location as DB.LocationPoint;
+                    if (locationPoint != null)
                     {
-                        DB.Line rotationAxis = DB.Line.CreateBound(
-                            location.Point,
-                            location.Point + DB.XYZ.BasisZ);
+                        // Convert degrees to radians
+                        double radians = columnData.Orientation * Math.PI / 180.0;
 
-                        location.Rotate(rotationAxis, rotationRadians);
-                        Debug.WriteLine($"Applied rotation of {columnData.Orientation} degrees to column");
+                        // Create vertical axis line through the column's center point
+                        DB.XYZ columnCenter = locationPoint.Point;
+                        DB.XYZ axisStart = columnCenter;
+                        DB.XYZ axisEnd = columnCenter + DB.XYZ.BasisZ; // Vertical axis
+                        DB.Line rotationAxis = DB.Line.CreateBound(axisStart, axisEnd);
+
+                        // Rotate around the vertical axis
+                        locationPoint.Rotate(rotationAxis, radians);
+
+                        Debug.WriteLine($"Applied {columnData.Orientation}° rotation to column {columnData.Id}");
                     }
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error applying column rotation: {ex.Message}");
+                Debug.WriteLine($"Error applying rotation to column {columnData.Id}: {ex.Message}");
             }
-        }
-
-        // Find continuous stacks of columns
-        private List<List<ColumnData>> FindContinuousStacks(List<ColumnData> sortedColumns)
-        {
-            var stacks = new List<List<ColumnData>>();
-            if (sortedColumns.Count == 0) return stacks;
-
-            var currentStack = new List<ColumnData> { sortedColumns[0] };
-
-            for (int i = 1; i < sortedColumns.Count; i++)
-            {
-                var prevColumn = sortedColumns[i - 1];
-                var currColumn = sortedColumns[i];
-
-                // Check if current column continues the stack (top of previous = base of current)
-                if (prevColumn.TopLevelId.IntegerValue == currColumn.BaseLevelId.IntegerValue)
-                {
-                    // Continue the stack
-                    currentStack.Add(currColumn);
-                }
-                else
-                {
-                    // End current stack and start a new one
-                    stacks.Add(new List<ColumnData>(currentStack));
-                    currentStack.Clear();
-                    currentStack.Add(currColumn);
-                }
-            }
-
-            // Add the final stack if it's not empty
-            if (currentStack.Count > 0)
-            {
-                stacks.Add(currentStack);
-            }
-
-            return stacks;
         }
     }
 
-    // Data structure to hold column information
+    // Data structure for column information
     public class ColumnData
     {
         public string Id { get; set; }
@@ -806,7 +752,7 @@ namespace Revit.Import.Elements
         public DB.ElementId TopLevelId { get; set; }
         public DB.FamilySymbol FamilySymbol { get; set; }
         public bool IsLateral { get; set; }
-        public FrameProperties FrameProps { get; set; }
+        public FrameProperties FrameProperties { get; set; }
         public double Orientation { get; set; }
         public double TopOffset { get; set; }
     }

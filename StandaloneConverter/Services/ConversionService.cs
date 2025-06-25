@@ -46,7 +46,7 @@ namespace StandaloneConverter.Services
                 if (!ramResult.Success)
                 {
                     logger.Log($"RAM to JSON conversion failed: {ramResult.Message}");
-                    throw new Exception($"RAM to JSON conversion failed: {ramResult.Message}");
+                    throw new Exception(ramResult.Message);
                 }
 
                 jsonContent = ramResult.JsonOutput;
@@ -156,7 +156,7 @@ namespace StandaloneConverter.Services
             if (!ramResult.Success)
             {
                 logger.Log($"JSON to RAM conversion failed: {ramResult.Message}");
-                throw new Exception($"JSON to RAM conversion failed: {ramResult.Message}");
+                throw new Exception(ramResult.Message);
             }
 
             logger.Log("JSON to RAM conversion successful");

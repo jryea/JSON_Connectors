@@ -204,7 +204,7 @@ namespace StandaloneConverter.ViewModels
                 {
                     _loggingService.Log($"Inner error: {ex.InnerException.Message}");
                 }
-                MessageBox.Show($"Conversion failed: {ex.Message}", "Error",
+                MessageBox.Show(ex.Message, "Error",
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }

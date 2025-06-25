@@ -86,7 +86,7 @@ namespace RAM.Export.Properties
         }
 
         private void ExtractFramePropertiesFromBeams(IStory story, HashSet<string> processedSections,
-                                                   List<FrameProperties> frameProperties)
+                                           List<FrameProperties> frameProperties)
         {
             // Get beams for this story
             IBeams storyBeams = story.GetBeams();
@@ -133,15 +133,35 @@ namespace RAM.Export.Properties
                         SectionName = sectionLabel
                     };
 
-                    // Try to parse the section type
+                    // Try to parse the section type with enhanced joist girder support
                     if (Enum.TryParse(shape, out SteelSectionType sectionType))
                     {
                         frameProp.SteelProps.SectionType = sectionType;
                     }
                     else
                     {
-                        // Default to W section
-                        frameProp.SteelProps.SectionType = SteelSectionType.W;
+                        // Enhanced fallback logic for unrecognized shapes
+                        if (sectionLabel.ToUpper().Contains("JOIST"))
+                        {
+                            // Check if it's a joist girder or bar joist
+                            if (IsJoistGirderPattern(sectionLabel))
+                            {
+                                frameProp.SteelProps.SectionType = SteelSectionType.JOIST_GIRDER;
+                            }
+                            else if (IsBarJoistPattern(sectionLabel))
+                            {
+                                frameProp.SteelProps.SectionType = SteelSectionType.BAR_JOIST;
+                            }
+                            else
+                            {
+                                frameProp.SteelProps.SectionType = SteelSectionType.W; // Default
+                            }
+                        }
+                        else
+                        {
+                            // Default to W section for unrecognized steel shapes
+                            frameProp.SteelProps.SectionType = SteelSectionType.W;
+                        }
                     }
                 }
                 else
@@ -153,8 +173,8 @@ namespace RAM.Export.Properties
                     };
 
                     // Add default dimensions
-                    frameProp.ConcreteProps.Dimensions["width"] = "12";
-                    frameProp.ConcreteProps.Dimensions["depth"] = "12";
+                    frameProp.ConcreteProps.Dimensions["width"] = "24";
+                    frameProp.ConcreteProps.Dimensions["depth"] = "24";
                 }
 
                 frameProperties.Add(frameProp);
@@ -314,10 +334,21 @@ namespace RAM.Export.Properties
                 }
             }
         }
-
         private string ExtractShapeFromSectionLabel(string sectionLabel)
         {
-            // Extract shape (first letters before numbers)
+            // Handle joist girders first (pattern: {number}G...)
+            if (System.Text.RegularExpressions.Regex.IsMatch(sectionLabel, @"^\d+G", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+            {
+                return "JOIST_GIRDER";
+            }
+
+            // Handle bar joists (pattern: {number}K... or {number}LH...)  
+            if (System.Text.RegularExpressions.Regex.IsMatch(sectionLabel, @"^\d+(K|LH)", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+            {
+                return "BAR_JOIST";
+            }
+
+            // Extract shape (first letters before numbers) for traditional sections
             string shape = "";
             int i = 0;
             while (i < sectionLabel.Length && !char.IsDigit(sectionLabel[i]))
@@ -327,6 +358,20 @@ namespace RAM.Export.Properties
             }
 
             return shape.Trim();
+        }
+
+        private bool IsJoistGirderPattern(string sectionLabel)
+        {
+            // Match pattern like "40G5N15K" - starts with number followed by G
+            return System.Text.RegularExpressions.Regex.IsMatch(sectionLabel, @"^\d+G",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        }
+
+        private bool IsBarJoistPattern(string sectionLabel)
+        {
+            // Match patterns like "22K4", "18LH03" - starts with number followed by K or LH
+            return System.Text.RegularExpressions.Regex.IsMatch(sectionLabel, @"^\d+(K|LH)",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
         }
 
         private FrameProperties CreateDefaultFrameProperties()

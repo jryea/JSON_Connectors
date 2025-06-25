@@ -71,7 +71,9 @@ namespace Core.Models
         WT,
         ST,
         MC,
-        HP
+        HP,
+        JOIST_GIRDER,
+        BAR_JOIST    
     }
 
     public enum ConcreteSectionType

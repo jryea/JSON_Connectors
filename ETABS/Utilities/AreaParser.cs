@@ -44,7 +44,7 @@ namespace ETABS.Utilities
 
             // Regular expression to match area connectivity lines
             // Format: AREA "F1" FLOOR 4 "1" "2" "3" "4" 0 0 0 0
-            var pattern = new Regex(@"^\s*AREA\s+""([^""]+)""\s+(FLOOR|PANEL)\s+(\d+)\s+((?:""[^""]+""(?:\s+|$))+)",
+            var pattern = new Regex(@"^\s*AREA\s+""([^""]+)""\s+(FLOOR|PANEL|AREA)\s+(\d+)\s+((?:""[^""]+""(?:\s+|$))+)",
                 RegexOptions.Multiline);
 
             var matches = pattern.Matches(areaConnectivitiesSection);

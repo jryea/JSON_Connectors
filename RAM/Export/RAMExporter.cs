@@ -136,6 +136,10 @@ namespace RAM
                         BraceExport braceExporter = new BraceExport(modelManager.Model, lengthUnit);
                         model.Elements.Braces = braceExporter.Export();
 
+                        // Extract openings
+                        OpeningExport openingExporter = new OpeningExport(modelManager.Model, lengthUnit);
+                        model.Elements.Openings = openingExporter.Export();
+
                         // Extract isolated footings
                         IsolatedFootingExport isolatedFootingExporter = new IsolatedFootingExport(
                             modelManager.Model,

@@ -77,6 +77,7 @@
     <Compile Include="Export\Elements\ColumnExport.cs" />
     <Compile Include="Export\Elements\FloorExport.cs" />
     <Compile Include="Export\Elements\IsolatedFootingExport.cs" />
+    <Compile Include="Export\Elements\OpeningExport.cs" />
     <Compile Include="Export\Elements\WallExport.cs" />
     <Compile Include="Export\ModelLayout\FloorTypeExport.cs" />
     <Compile Include="Export\ModelLayout\GridExport.cs" />
@@ -87,6 +88,7 @@
     <Compile Include="Import\Elements\BeamImport.cs" />
     <Compile Include="Import\Elements\BraceImport.cs" />
     <Compile Include="Import\Elements\ColumnImport.cs" />
+    <Compile Include="Import\Elements\OpeningImport.cs" />
     <Compile Include="Import\Properties\ConcreteSectionImport.cs" />
     <Compile Include="Import\Elements\FloorImport.cs" />
     <Compile Include="Import\Elements\IsolatedFootingImport.cs" />

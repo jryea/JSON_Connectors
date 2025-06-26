@@ -236,6 +236,7 @@ namespace RAM
                         int braceCount = 0;
                         int wallCount = 0;
                         int isolatedFootingCount = 0;
+                        int openingCount = 0;   
 
                         if (model.Elements != null)
                         {
@@ -332,6 +333,16 @@ namespace RAM
                                     detailedLevelToFloorTypeMap,
                                     floorPropertyMappings);
                                 Console.WriteLine($"Imported {floorCount} floors");
+                            }
+
+                            if (model.Elements.Openings != null && model.Elements.Openings.Count > 0)
+                            {
+                                var openingImporter = new OpeningImport(modelManager.Model, _materialProvider, lengthUnit);
+                                openingCount = openingImporter.Import(
+                                    model.Elements.Openings,
+                                    validLevels,
+                                    detailedLevelToFloorTypeMap);
+                                Console.WriteLine($"Imported {openingCount} openings");
                             }
 
                             // Import isolated footings

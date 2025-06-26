@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Core.Models.Elements;
 using Core.Models.Geometry;
 using Core.Utilities;
@@ -190,7 +191,7 @@ namespace RAM.Export.Elements
         }
 
         /// <summary>
-        /// Extract points using the original deck.GetPoints() method with debugging
+        /// Extract points using the original deck.GetPoints() method with debugging and duplicate removal
         /// </summary>
         private List<Point2D> TryExtractPointsFromDeck(IDeck deck, int deckIdx)
         {
@@ -271,6 +272,9 @@ namespace RAM.Export.Elements
                     int totalLost = nullPointCount + invalidCoordCount + exceptionCount;
                     Console.WriteLine($"*** MISMATCH: Expected {reportedPointCount}, got {floorPoints.Count} (lost {totalLost}) ***");
                 }
+
+                // Remove duplicate closing point if it exists
+                floorPoints = RemoveDuplicateClosingPoint(floorPoints);
             }
             catch (Exception ex)
             {
@@ -278,6 +282,46 @@ namespace RAM.Export.Elements
             }
 
             return floorPoints;
+        }
+
+        /// <summary>
+        /// Remove duplicate closing point if the last point is the same as the first point
+        /// </summary>
+        private List<Point2D> RemoveDuplicateClosingPoint(List<Point2D> points)
+        {
+            if (points == null || points.Count < 4)
+            {
+                Console.WriteLine($"RemoveDuplicateClosingPoint: Not enough points ({points?.Count ?? 0}) to check for duplicates");
+                return points ?? new List<Point2D>();
+            }
+
+            var firstPoint = points[0];
+            var lastPoint = points[points.Count - 1];
+
+            // Check if first and last points are the same (within tolerance)
+            const double tolerance = 1e-6;
+            double distance = Math.Sqrt(
+                Math.Pow(firstPoint.X - lastPoint.X, 2) +
+                Math.Pow(firstPoint.Y - lastPoint.Y, 2)
+            );
+
+            if (distance <= tolerance)
+            {
+                Console.WriteLine($"RemoveDuplicateClosingPoint: Found duplicate closing point. Distance: {distance:E3}");
+                Console.WriteLine($"  First point: ({firstPoint.X:F6}, {firstPoint.Y:F6})");
+                Console.WriteLine($"  Last point:  ({lastPoint.X:F6}, {lastPoint.Y:F6})");
+                Console.WriteLine($"  Removing last point. Points: {points.Count} -> {points.Count - 1}");
+
+                // Return new list without the last point
+                return points.Take(points.Count - 1).ToList();
+            }
+            else
+            {
+                Console.WriteLine($"RemoveDuplicateClosingPoint: No duplicate closing point found. Distance: {distance:F6}");
+                Console.WriteLine($"  First point: ({firstPoint.X:F6}, {firstPoint.Y:F6})");
+                Console.WriteLine($"  Last point:  ({lastPoint.X:F6}, {lastPoint.Y:F6})");
+                return points;
+            }
         }
 
         /// <summary>
@@ -417,41 +461,71 @@ namespace RAM.Export.Elements
                         Console.WriteLine($"  {prop.PropertyType.Name} {prop.Name} = ERROR: {ex.Message}");
                     }
                 }
-                Console.WriteLine($"=== END DETAILED ANALYSIS ===\n");
+                Console.WriteLine("=== END DETAILED ANALYSIS ===\n");
             }
 
-            // Try Method 1: Look for any method with "Coordinate" in the name
+            // Try Method 1: Look for coordinate-related methods that take ref SCoordinate
             try
             {
                 var coordinateMethods = edgeType.GetMethods()
-                    .Where(m => m.Name.ToLower().Contains("coordinate"))
+                    .Where(m => m.Name.ToLower().Contains("coordinate") ||
+                               m.Name.ToLower().Contains("start") ||
+                               m.Name.ToLower().Contains("end") ||
+                               m.Name.ToLower().Contains("point"))
+                    .Where(m => m.GetParameters().Length == 1 &&
+                               m.GetParameters()[0].ParameterType == typeof(SCoordinate).MakeByRefType())
                     .ToArray();
 
-                Console.WriteLine($"  Edge {edgeIndex}: Found {coordinateMethods.Length} coordinate methods:");
                 foreach (var method in coordinateMethods)
                 {
-                    var paramStr = string.Join(", ", method.GetParameters().Select(p => p.ParameterType.Name));
-                    Console.WriteLine($"    {method.ReturnType.Name} {method.Name}({paramStr})");
-
-                    // Try to call methods that look promising
-                    if (method.GetParameters().Length == 1 &&
-                        method.GetParameters()[0].ParameterType == typeof(SCoordinate).MakeByRefType())
+                    try
                     {
-                        try
+                        var coord = new SCoordinate();
+                        object[] parameters = { coord };
+                        method.Invoke(edge, parameters);
+                        coord = (SCoordinate)parameters[0];
+
+                        Console.WriteLine($"    -> {method.Name} returned: ({coord.dXLoc:F3}, {coord.dYLoc:F3}, {coord.dZLoc:F3})");
+
+                        // Look for the corresponding end method if this looks like a start method
+                        if (method.Name.ToLower().Contains("start"))
                         {
-                            var coord = new SCoordinate();
-                            object[] parameters = { coord };
-                            method.Invoke(edge, parameters);
-                            coord = (SCoordinate)parameters[0];
-
-                            Console.WriteLine($"    -> Successfully called {method.Name}: ({coord.dXLoc:F3}, {coord.dYLoc:F3}, {coord.dZLoc:F3})");
-
-                            // If this looks like a start/end method, collect both
-                            if (method.Name.ToLower().Contains("start"))
+                            var endMethodName = method.Name.ToLower().Replace("start", "end");
+                            var endMethod = edgeType.GetMethod(endMethodName, BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance);
+                            if (endMethod != null)
                             {
-                                // Look for corresponding end method
-                                var endMethodName = method.Name.Replace("Start", "End").Replace("start", "end");
-                                var endMethod = edgeType.GetMethod(endMethodName);
+                                var endCoord = new SCoordinate();
+                                object[] endParams = { endCoord };
+                                endMethod.Invoke(edge, endParams);
+                                endCoord = (SCoordinate)endParams[0];
+
+                                Console.WriteLine($"    -> Found pair: Start({coord.dXLoc:F3}, {coord.dYLoc:F3}) End({endCoord.dXLoc:F3}, {endCoord.dYLoc:F3})");
+                                return (coord, endCoord);
+                            }
+                        }
+                        else if (method.Name.ToLower().Contains("end"))
+                        {
+                            // If we found an end method, look for corresponding start
+                            var startMethodName = method.Name.ToLower().Replace("end", "start");
+                            var startMethod = edgeType.GetMethod(startMethodName, BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance);
+                            if (startMethod != null)
+                            {
+                                var startCoord = new SCoordinate();
+                                object[] startParams = { startCoord };
+                                startMethod.Invoke(edge, startParams);
+                                startCoord = (SCoordinate)startParams[0];
+
+                                Console.WriteLine($"    -> Found pair: Start({startCoord.dXLoc:F3}, {startCoord.dYLoc:F3}) End({coord.dXLoc:F3}, {coord.dYLoc:F3})");
+                                return (startCoord, coord);
+                            }
+                        }
+                        else
+                        {
+                            // Try to find a matching pair by replacing "start" with "end" or vice versa
+                            foreach (var suffix in new[] { "start", "end" })
+                            {
+                                var endMethodName = method.Name.ToLower().Replace(suffix == "start" ? "start" : "end", suffix == "start" ? "end" : "start");
+                                var endMethod = edgeType.GetMethod(endMethodName, BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance);
                                 if (endMethod != null)
                                 {
                                     var endCoord = new SCoordinate();
@@ -464,10 +538,10 @@ namespace RAM.Export.Elements
                                 }
                             }
                         }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"    -> Failed to call {method.Name}: {ex.Message}");
-                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"    -> Failed to call {method.Name}: {ex.Message}");
                     }
                 }
             }
@@ -495,21 +569,18 @@ namespace RAM.Export.Elements
                     try
                     {
                         var value = prop.GetValue(edge);
-                        Console.WriteLine($"    {prop.PropertyType.Name} {prop.Name} = {value}");
+                        Console.WriteLine($"    {prop.Name} = {value}");
 
-                        // Try to map to start/end coordinates
-                        if (prop.PropertyType == typeof(double))
+                        if (value is double doubleValue)
                         {
-                            double doubleValue = (double)value;
-                            string propName = prop.Name.ToLower();
-
-                            if (propName.Contains("x1") || (propName.Contains("start") && propName.Contains("x")))
+                            var propName = prop.Name.ToLower();
+                            if (propName.Contains("x1") || (propName.Contains("x") && propName.Contains("start")))
                                 x1 = doubleValue;
-                            else if (propName.Contains("y1") || (propName.Contains("start") && propName.Contains("y")))
+                            else if (propName.Contains("y1") || (propName.Contains("y") && propName.Contains("start")))
                                 y1 = doubleValue;
-                            else if (propName.Contains("x2") || (propName.Contains("end") && propName.Contains("x")))
+                            else if (propName.Contains("x2") || (propName.Contains("x") && propName.Contains("end")))
                                 x2 = doubleValue;
-                            else if (propName.Contains("y2") || (propName.Contains("end") && propName.Contains("y")))
+                            else if (propName.Contains("y2") || (propName.Contains("y") && propName.Contains("end")))
                                 y2 = doubleValue;
                         }
                     }
@@ -519,7 +590,7 @@ namespace RAM.Export.Elements
                     }
                 }
 
-                // If we found coordinates, construct the result
+                // If we found all four coordinates, construct the result
                 if (x1.HasValue && y1.HasValue && x2.HasValue && y2.HasValue)
                 {
                     var startCoord = new SCoordinate { dXLoc = x1.Value, dYLoc = y1.Value, dZLoc = 0 };

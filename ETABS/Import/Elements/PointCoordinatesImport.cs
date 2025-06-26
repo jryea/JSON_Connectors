@@ -182,6 +182,24 @@ namespace ETABS.Import.Elements
                 }
             }
 
+            // Process Openings  
+            if (elements.Openings != null)
+            {
+                Console.WriteLine($"Processing {elements.Openings.Count} openings");
+                foreach (var opening in elements.Openings)
+                {
+                    if (opening.Points != null)
+                    {
+                        Console.WriteLine($"Opening {opening.Id} has {opening.Points.Count} points");
+                        foreach (var point in opening.Points)
+                        {
+                            if (point != null)
+                                GetOrCreatePointId(point);
+                        }
+                    }
+                }
+            }
+
             // Process Beams
             if (elements.Beams != null)
             {

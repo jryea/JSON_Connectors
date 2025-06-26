@@ -206,6 +206,36 @@ namespace Core.Utilities
             return result;
         }
 
+        public static DeduplicationResult<Opening> RemoveDuplicateOpenings(IEnumerable<Opening> openings)
+        {
+            var result = new DeduplicationResult<Opening>();
+            if (openings == null) return result;
+
+            var uniqueOpenings = new List<Opening>();
+            var processedKeys = new Dictionary<string, Opening>();
+
+            foreach (var opening in openings)
+            {
+                if (opening == null || opening.Points == null || opening.Points.Count < 3)
+                    continue;
+
+                string openingKey = GetOpeningGeometricKey(opening);
+
+                if (!processedKeys.ContainsKey(openingKey))
+                {
+                    processedKeys[openingKey] = opening;
+                    uniqueOpenings.Add(opening);
+                }
+                else
+                {
+                    result.IdMapping[opening.Id] = processedKeys[openingKey].Id;
+                }
+            }
+
+            result.UniqueItems = uniqueOpenings;
+            return result;
+        }
+
         #endregion
 
         #region Property Duplicate Removal
@@ -527,6 +557,21 @@ namespace Core.Utilities
             return $"{Math.Round(footing.Point.X, 6)},{Math.Round(footing.Point.Y, 6)},{Math.Round(footing.Point.Z, 6)}_" +
                    $"{footing.LevelId ?? ""}";
         }
+
+        private static string GetOpeningGeometricKey(Opening opening)
+        {
+            var pointStrings = new List<string>();
+            foreach (var point in opening.Points)
+            {
+                pointStrings.Add($"{Math.Round(point.X, 6)},{Math.Round(point.Y, 6)}");
+            }
+
+            pointStrings.Sort();
+
+            return string.Join("_", pointStrings) +
+                   $"_{opening.FloorId ?? ""}";
+        }
+
         #endregion
 
         // Determines if two points are equal within tolerance
@@ -571,6 +616,10 @@ namespace Core.Utilities
                 var diaphragmResult = RemoveDuplicateDiaphragms(model.Properties.Diaphragms);
                 model.Properties.Diaphragms = diaphragmResult.UniqueItems;
                 AddMappings(idMappings, diaphragmResult.IdMapping);
+
+                var openingResult = RemoveDuplicateOpenings(model.Elements.Openings);
+                model.Elements.Openings = openingResult.UniqueItems;
+                AddMappings(idMappings, openingResult.IdMapping);
             }
 
             // Process elements

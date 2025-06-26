@@ -45,6 +45,8 @@ namespace Core.Utilities
                 model.Elements.DrilledPiers = model.Elements.DrilledPiers?.Where(e => predicate((T)(object)e)).ToList();
             else if (elementType == typeof(Joint))
                 model.Elements.Joints = model.Elements.Joints?.Where(e => predicate((T)(object)e)).ToList();
+            else if (elementType == typeof(Opening))
+                model.Elements.Openings = model.Elements.Openings?.Where(e => predicate((T)(object)e)).ToList();
         }
 
         /// <summary>

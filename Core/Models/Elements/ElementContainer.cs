@@ -67,5 +67,10 @@ namespace Core.Models.Elements
         /// Collection of drilled pier elements
         /// </summary>
         public List<DrilledPier> DrilledPiers { get; set; } = new List<DrilledPier>();
+
+        /// <summary>
+        /// Collection of opening elements
+        /// </summary>
+        public List<Opening> Openings { get; set; } = new List<Opening>();
     }
 }

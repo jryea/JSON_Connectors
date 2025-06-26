@@ -20,6 +20,7 @@ namespace Core.Utilities
             public const string PIER = "PR";
             public const string DRILLED_PIER = "DP";
             public const string JOINT = "JT";
+            public const string OPENING = "OP";
         }
 
         // Property type prefixes

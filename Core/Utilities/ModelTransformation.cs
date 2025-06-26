@@ -72,6 +72,7 @@ namespace Core.Utilities
                 TransformCollection(model.Elements.Piers, transform);
                 TransformCollection(model.Elements.DrilledPiers, transform);
                 TransformCollection(model.Elements.Joints, transform);
+                TransformCollection(model.Elements.Openings, transform);
             }
         }
 

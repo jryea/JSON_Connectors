@@ -221,14 +221,13 @@ namespace ETABS.Export
                 _elementsExporter.ParseE2KSections(e2kSections);
                 _elementsExporter.SetupReferences(
                     model.ModelLayout.Levels,
-                    model.Elements.Floors,
                     model.Elements.Openings,
                     model.Properties.FrameProperties,
                     model.Properties.FloorProperties,
                     model.Properties.WallProperties,
                     model.Properties.Diaphragms);
 
-                // Import elements
+                // Export elements
                 model.Elements = _elementsExporter.ExportElements();
 
                 return model;

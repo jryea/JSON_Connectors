@@ -14,6 +14,7 @@ namespace ETABS.Export.Elements
         private readonly PointsCollector _pointsCollector;
         private readonly AreaParser _areaParser;
         private readonly Dictionary<string, Level> _levelsByName = new Dictionary<string, Level>();
+        private readonly Dictionary<string, Floor> _floorsByLevelId = new Dictionary<string, Floor>();    
 
         // Initializes a new instance of OpeningExport
         public OpeningExport(PointsCollector pointsCollector, AreaParser areaParser)
@@ -42,6 +43,17 @@ namespace ETABS.Export.Elements
                 if (normalizedName.Equals("Base", StringComparison.OrdinalIgnoreCase))
                 {
                     _levelsByName["0"] = level;
+                }
+            }
+        }
+        public void SetFloors(IEnumerable<Floor> floors)
+        {
+            _floorsByLevelId.Clear();
+            foreach (var floor in floors)
+            {
+                if (!string.IsNullOrEmpty(floor.LevelId))
+                {
+                    _floorsByLevelId[floor.LevelId] = floor;
                 }
             }
         }
@@ -80,13 +92,19 @@ namespace ETABS.Export.Elements
                         // Get level from story name
                         if (_levelsByName.TryGetValue(assignment.Story, out var level))
                         {
+                            // Find floor on this level
+                            string floorId = null;
+                            if (_floorsByLevelId.TryGetValue(level.Id, out var floorOnLevel))
+                            {
+                                floorId = floorOnLevel.Id;
+                            }
+
                             // Create opening object
                             var opening = new Opening
                             {
                                 Id = IdGenerator.Generate(IdGenerator.Elements.OPENING),
-                                Points = new List<Point2D>(points), // Create a new list to avoid shared references
-                                // FloorId will need to be resolved separately by finding floor at this level
-                                // that contains these points, or we can leave it null for now
+                                Points = new List<Point2D>(points),
+                                FloorId = floorId
                             };
 
                             openings.Add(opening);

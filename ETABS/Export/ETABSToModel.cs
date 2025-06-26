@@ -47,7 +47,7 @@ namespace ETABS.Export
             _gridsExporter = new GridExport(_pointsCollector);
         }
 
-        public BaseModel ImportFromE2K(Dictionary<string, string> e2kSections)
+        public BaseModel Export(Dictionary<string, string> e2kSections)
         {
             try
             {
@@ -221,6 +221,8 @@ namespace ETABS.Export
                 _elementsExporter.ParseE2KSections(e2kSections);
                 _elementsExporter.SetupReferences(
                     model.ModelLayout.Levels,
+                    model.Elements.Floors,
+                    model.Elements.Openings,
                     model.Properties.FrameProperties,
                     model.Properties.FloorProperties,
                     model.Properties.WallProperties,

@@ -79,6 +79,8 @@ namespace ETABS.Export.Elements
 
         public void SetupReferences(
             IEnumerable<Level> levels,
+            IEnumerable<Floor> floors,
+            IEnumerable<Opening> openings,
             IEnumerable<FrameProperties> frameProperties,
             IEnumerable<FloorProperties> floorProperties,
             IEnumerable<WallProperties> wallProperties,
@@ -91,6 +93,9 @@ namespace ETABS.Export.Elements
             _floorExport.SetLevels(levels);
             _wallExport.SetLevels(levels);
             _openingExport.SetLevels(levels);
+
+            // Set floors for openings
+            _openingExport.SetFloors(floors);
 
             // Set frame properties in relevant importers
             _beamExport.SetFrameProperties(frameProperties);

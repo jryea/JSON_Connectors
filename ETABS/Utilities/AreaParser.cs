@@ -85,6 +85,11 @@ namespace ETABS.Utilities
                     {
                         Walls[areaId] = areaConnectivity;
                     }
+                    else if (areaType.Equals("AREA", StringComparison.OrdinalIgnoreCase))
+                    {
+                        Openings[areaId] = areaConnectivity;
+                    }
+                 
                 }
             }
         }

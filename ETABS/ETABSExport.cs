@@ -19,8 +19,8 @@ namespace ETABS
                 Dictionary<string, string> e2kSections = e2kParser.ParseE2K(e2kContent);
 
                 // Convert E2K sections to BaseModel
-                var e2kImport = new ETABSToModel();
-                BaseModel model = e2kImport.ImportFromE2K(e2kSections);
+                var e2kExport = new ETABSToModel();
+                BaseModel model = e2kExport.Export(e2kSections);
 
                 // Serialize to JSON
                 string jsonContent = JsonConverter.Serialize(model);

@@ -14,7 +14,6 @@ namespace ETABS.Export.Elements
         private readonly PointsCollector _pointsCollector;
         private readonly AreaParser _areaParser;
         private readonly Dictionary<string, Level> _levelsByName = new Dictionary<string, Level>();
-        private readonly Dictionary<string, Floor> _floorsByLevelId = new Dictionary<string, Floor>();    
 
         // Initializes a new instance of OpeningExport
         public OpeningExport(PointsCollector pointsCollector, AreaParser areaParser)
@@ -46,25 +45,11 @@ namespace ETABS.Export.Elements
                 }
             }
         }
-        public void SetFloors(IEnumerable<Floor> floors)
-        {
-            _floorsByLevelId.Clear();
-            foreach (var floor in floors)
-            {
-                if (!string.IsNullOrEmpty(floor.LevelId))
-                {
-                    _floorsByLevelId[floor.LevelId] = floor;
-                }
-            }
-        }
 
         // Imports openings from E2K data to model
         public List<Opening> Export()
         {
             var openings = new List<Opening>();
-
-            Console.WriteLine($"Processing {_areaParser.Openings.Count} openings from area parser");
-            Console.WriteLine($"Floor lookup has {_floorsByLevelId.Count} floors");
 
             // Process each opening in the area parser (areas marked as openings)
             foreach (var openingEntry in _areaParser.Openings)
@@ -92,32 +77,16 @@ namespace ETABS.Export.Elements
                 {
                     foreach (var assignment in assignments)
                     {
-                        Console.WriteLine($"Processing opening {openingId} on story {assignment.Story}");
-
                         // Get level from story name
                         if (_levelsByName.TryGetValue(assignment.Story, out var level))
                         {
-                            Console.WriteLine($"Found level {level.Id} for story {assignment.Story}");
-
-                            // Find floor on this level
-                            string floorId = null;
-                            if (_floorsByLevelId.TryGetValue(level.Id, out var floorOnLevel))
+                            // Create opening object with direct level assignment
+                            var opening = new Opening
                             {
-                                floorId = floorOnLevel.Id;
-                                Console.WriteLine($"Found floor {floorId} for level {level.Id}");
-                            }
-                            else
-                            {
-                                Console.WriteLine($"No floor found for level {level.Id}");
-                            }
-
-                                // Create opening object
-                                var opening = new Opening
-                                {
-                                    Id = IdGenerator.Generate(IdGenerator.Elements.OPENING),
-                                    Points = new List<Point2D>(points),
-                                    FloorId = floorId
-                                };
+                                Id = IdGenerator.Generate(IdGenerator.Elements.OPENING),
+                                Points = new List<Point2D>(points), // Create a new list to avoid shared references
+                                LevelId = level.Id  // Direct level assignment
+                            };
 
                             openings.Add(opening);
                         }
@@ -130,6 +99,7 @@ namespace ETABS.Export.Elements
                     {
                         Id = IdGenerator.Generate(IdGenerator.Elements.OPENING),
                         Points = new List<Point2D>(points)
+                        // LevelId will be null - could be resolved later or left as orphaned opening
                     };
 
                     openings.Add(opening);

@@ -117,7 +117,6 @@ namespace ETABS.Export.Elements
 
             // Export floors
             container.Floors = _floorExport.Export();
-            _openingExport.SetFloors(container.Floors);
 
             // Export beams
             container.Beams = _beamExport.Export();
@@ -127,7 +126,6 @@ namespace ETABS.Export.Elements
 
             // Export braces
             container.Braces = _braceExport.Export();
-
 
             // Export walls
             container.Walls = _wallExport.Export();

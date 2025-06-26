@@ -569,7 +569,7 @@ namespace Core.Utilities
             pointStrings.Sort();
 
             return string.Join("_", pointStrings) +
-                   $"_{opening.FloorId ?? ""}";
+                   $"_{opening.LevelId ?? ""}";
         }
 
         #endregion

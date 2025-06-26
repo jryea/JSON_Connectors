@@ -11,7 +11,6 @@ namespace ETABS.Import.Elements.AreaAssignment
     {
         private List<Opening> _openings;
         private IEnumerable<Level> _levels;
-        private IEnumerable<Floor> _floors;
         private readonly HashSet<string> _validStoryNames;
 
         // Constructor to initialize with valid story names
@@ -23,12 +22,10 @@ namespace ETABS.Import.Elements.AreaAssignment
         // Sets the data needed for converting opening assignments
         public void SetData(
             List<Opening> openings,
-            IEnumerable<Level> levels,
-            IEnumerable<Floor> floors)
+            IEnumerable<Level> levels)
         {
             _openings = openings;
             _levels = levels;
-            _floors = floors;
         }
 
         // Converts opening assignments to E2K format
@@ -45,8 +42,8 @@ namespace ETABS.Import.Elements.AreaAssignment
                 if (!idMapping.TryGetValue(opening.Id, out string areaId))
                     continue;
 
-                // Find the story by looking up the floor's level
-                string story = FindStoryFromFloorId(opening.FloorId);
+                // Find the story by looking up the level directly
+                string story = FindStoryFromLevelId(opening.LevelId);
                 if (string.IsNullOrEmpty(story))
                     continue;
 
@@ -57,19 +54,14 @@ namespace ETABS.Import.Elements.AreaAssignment
             return sb.ToString();
         }
 
-        // Finds the story name from a floor ID
-        private string FindStoryFromFloorId(string floorId)
+        // Finds the story name from a level ID
+        private string FindStoryFromLevelId(string levelId)
         {
-            if (string.IsNullOrEmpty(floorId) || _floors == null || _levels == null)
-                return null;
-
-            // Find the floor
-            var floor = _floors.FirstOrDefault(f => f.Id == floorId);
-            if (floor == null)
+            if (string.IsNullOrEmpty(levelId) || _levels == null)
                 return null;
 
             // Find the level
-            var level = _levels.FirstOrDefault(l => l.Id == floor.LevelId);
+            var level = _levels.FirstOrDefault(l => l.Id == levelId);
             if (level == null)
                 return null;
 

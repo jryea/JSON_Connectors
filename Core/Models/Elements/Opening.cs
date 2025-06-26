@@ -15,9 +15,9 @@ namespace Core.Models.Elements
         public string Id { get; set; }
 
         /// <summary>
-        /// ID of the floor this opening belongs to
+        /// ID of the level this opening belongs to
         /// </summary>
-        public string FloorId { get; set; }
+        public string LevelId { get; set; }
 
         /// <summary>
         /// Collection of points defining the opening boundary
@@ -36,9 +36,9 @@ namespace Core.Models.Elements
         /// <summary>
         /// Creates a new Opening with specified properties
         /// </summary>
-        public Opening(string floorId, List<Point2D> points) : this()
+        public Opening(string levelId, List<Point2D> points) : this()
         {
-            FloorId = floorId;
+            LevelId = levelId;
             Points = points ?? new List<Point2D>();
         }
 

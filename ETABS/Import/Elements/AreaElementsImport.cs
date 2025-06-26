@@ -52,7 +52,7 @@ namespace ETABS.Import.Elements
             // Set data for assignment converters
             _wallAssignmentToETABS.SetData(elements.Walls, layout.Levels, properties.WallProperties);
             _floorAssignmentToETABS.SetData(elements.Floors, layout.Levels, properties.FloorProperties);
-            _openingAssignmentToETABS.SetData(elements.Openings, layout.Levels, elements.Floors);
+            _openingAssignmentToETABS.SetData(elements.Openings, layout.Levels);
 
             // Process all area connectivities
             sb.AppendLine("$ AREA CONNECTIVITIES");

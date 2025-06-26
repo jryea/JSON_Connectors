@@ -63,6 +63,9 @@ namespace ETABS.Export.Elements
         {
             var openings = new List<Opening>();
 
+            Console.WriteLine($"Processing {_areaParser.Openings.Count} openings from area parser");
+            Console.WriteLine($"Floor lookup has {_floorsByLevelId.Count} floors");
+
             // Process each opening in the area parser (areas marked as openings)
             foreach (var openingEntry in _areaParser.Openings)
             {
@@ -89,23 +92,32 @@ namespace ETABS.Export.Elements
                 {
                     foreach (var assignment in assignments)
                     {
+                        Console.WriteLine($"Processing opening {openingId} on story {assignment.Story}");
+
                         // Get level from story name
                         if (_levelsByName.TryGetValue(assignment.Story, out var level))
                         {
+                            Console.WriteLine($"Found level {level.Id} for story {assignment.Story}");
+
                             // Find floor on this level
                             string floorId = null;
                             if (_floorsByLevelId.TryGetValue(level.Id, out var floorOnLevel))
                             {
                                 floorId = floorOnLevel.Id;
+                                Console.WriteLine($"Found floor {floorId} for level {level.Id}");
+                            }
+                            else
+                            {
+                                Console.WriteLine($"No floor found for level {level.Id}");
                             }
 
-                            // Create opening object
-                            var opening = new Opening
-                            {
-                                Id = IdGenerator.Generate(IdGenerator.Elements.OPENING),
-                                Points = new List<Point2D>(points),
-                                FloorId = floorId
-                            };
+                                // Create opening object
+                                var opening = new Opening
+                                {
+                                    Id = IdGenerator.Generate(IdGenerator.Elements.OPENING),
+                                    Points = new List<Point2D>(points),
+                                    FloorId = floorId
+                                };
 
                             openings.Add(opening);
                         }

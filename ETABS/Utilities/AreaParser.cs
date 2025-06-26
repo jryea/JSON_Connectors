@@ -5,7 +5,7 @@ using System.Linq;
 
 namespace ETABS.Utilities
 {
-    // Utility class to parse area elements (floors, walls) from E2K files
+    // Utility class to parse area elements (floors, walls, openings) from E2K files
     public class AreaParser
     {
         // Dictionaries to store the parsed area elements by their ID
@@ -20,7 +20,7 @@ namespace ETABS.Utilities
         public class AreaConnectivity
         {
             public string AreaId { get; set; }
-            public string Type { get; set; } // FLOOR or PANEL (for walls)
+            public string Type { get; set; } // FLOOR, PANEL (for walls), or AREA (for openings)
             public List<string> PointIds { get; set; } = new List<string>();
         }
 
@@ -89,7 +89,6 @@ namespace ETABS.Utilities
                     {
                         Openings[areaId] = areaConnectivity;
                     }
-                 
                 }
             }
         }
@@ -114,6 +113,10 @@ namespace ETABS.Utilities
 
             // Pattern for load assignments
             var loadPattern = new Regex(@"^\s*AREALOAD\s+""([^""]+)""\s+""([^""]+)""\s+TYPE\s+""UNIFLOADSET""\s+""([^""]+)""",
+                RegexOptions.Multiline);
+
+            // Pattern for opening assignments
+            var openingPattern = new Regex(@"^\s*AREAASSIGN\s+""([^""]+)""\s+""([^""]+)""\s+OPENING\s+""Yes""",
                 RegexOptions.Multiline);
 
             // Pattern for mesh type
@@ -258,6 +261,28 @@ namespace ETABS.Utilities
                     }
                 }
             }
+
+            // Process opening assignments
+            var openingMatches = openingPattern.Matches(areaAssignsSection);
+            foreach (Match match in openingMatches)
+            {
+                if (match.Groups.Count >= 3)
+                {
+                    string areaId = match.Groups[1].Value;
+                    string story = match.Groups[2].Value;
+
+                    if (!AreaAssignments.ContainsKey(areaId))
+                    {
+                        AreaAssignments[areaId] = new List<AreaAssignment>();
+                    }
+
+                    AreaAssignments[areaId].Add(new AreaAssignment
+                    {
+                        AreaId = areaId,
+                        Story = story
+                    });
+                }
+            }
         }
 
         // Gets the section name for a specific area ID and story
@@ -289,7 +314,6 @@ namespace ETABS.Utilities
         }
 
         // Gets the load set ID for a specific area ID and story
-     
         public string GetLoadSetId(string areaId, string story)
         {
             if (AreaAssignments.TryGetValue(areaId, out var assignments))
@@ -304,7 +328,6 @@ namespace ETABS.Utilities
         }
 
         // Gets all area assignments for a specific area ID
-
         public List<AreaAssignment> GetAreaAssignments(string areaId)
         {
             if (AreaAssignments.TryGetValue(areaId, out var assignments))

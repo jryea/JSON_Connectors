@@ -11,6 +11,7 @@ namespace ETABS.Utilities
         // Dictionaries to store the parsed area elements by their ID
         public Dictionary<string, AreaConnectivity> Floors { get; private set; } = new Dictionary<string, AreaConnectivity>();
         public Dictionary<string, AreaConnectivity> Walls { get; private set; } = new Dictionary<string, AreaConnectivity>();
+        public Dictionary<string, AreaConnectivity> Openings { get; private set; } = new Dictionary<string, AreaConnectivity>();
 
         // Dictionary to store area assignments
         public Dictionary<string, List<AreaAssignment>> AreaAssignments { get; private set; } = new Dictionary<string, List<AreaAssignment>>();

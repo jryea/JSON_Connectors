@@ -14,9 +14,11 @@ namespace ETABS.Import.Elements
     {
         private readonly WallConnectivityImport _wallConnectivityToETABS;
         private readonly FloorConnectivityImport _floorConnectivityToETABS;
+        private readonly OpeningConnectivityImport _openingConnectivityToETABS;
 
         private readonly WallAssignmentImport _wallAssignmentToETABS;
         private readonly FloorAssignmentImport _floorAssignmentToETABS;
+        private readonly OpeningAssignmentImport _openingAssignmentToETABS; 
 
         // Constructor that takes a PointCoordinatesToETABS instance
         public AreaElementsImport(PointCoordinatesImport pointCoordinates, List<string> validStoryNames)
@@ -27,9 +29,11 @@ namespace ETABS.Import.Elements
             // Initialize specialized converters with the point coordinates instance
             _wallConnectivityToETABS = new WallConnectivityImport(pointCoordinates);
             _floorConnectivityToETABS = new FloorConnectivityImport(pointCoordinates);
+            _openingConnectivityToETABS = new OpeningConnectivityImport(pointCoordinates);
 
             _wallAssignmentToETABS = new WallAssignmentImport(validStoryNames);
             _floorAssignmentToETABS = new FloorAssignmentImport(validStoryNames);
+            _openingAssignmentToETABS = new OpeningAssignmentImport(validStoryNames);   
         }
 
         // Converts area elements to E2K format
@@ -43,10 +47,12 @@ namespace ETABS.Import.Elements
             // Set data for connectivity converters
             _wallConnectivityToETABS.SetWalls(elements.Walls);
             _floorConnectivityToETABS.SetFloors(elements.Floors);
+            _openingConnectivityToETABS.SetOpenings(elements.Openings);
 
             // Set data for assignment converters
             _wallAssignmentToETABS.SetData(elements.Walls, layout.Levels, properties.WallProperties);
             _floorAssignmentToETABS.SetData(elements.Floors, layout.Levels, properties.FloorProperties);
+            _openingAssignmentToETABS.SetData(elements.Openings, layout.Levels, elements.Floors);
 
             // Process all area connectivities
             sb.AppendLine("$ AREA CONNECTIVITIES");
@@ -59,6 +65,10 @@ namespace ETABS.Import.Elements
             string floorConnectivities = _floorConnectivityToETABS.ExportConnectivities();
             sb.AppendLine(floorConnectivities);
 
+            // Process opening connectivities
+            string openingConnectivities = _openingConnectivityToETABS.ExportConnectivities();
+            sb.AppendLine(openingConnectivities);
+
             sb.AppendLine();
 
             // Process all area assignments
@@ -67,6 +77,7 @@ namespace ETABS.Import.Elements
             // Get ID mappings from connectivity converters
             var wallIdMapping = _wallConnectivityToETABS.GetIdMapping();
             var floorIdMapping = _floorConnectivityToETABS.GetIdMapping();
+            var openingIdMapping = _openingConnectivityToETABS.GetIdMapping();
 
             // Process wall assignments
             string wallAssignments = _wallAssignmentToETABS.ExportAssignments(wallIdMapping);
@@ -75,6 +86,10 @@ namespace ETABS.Import.Elements
             // Process floor assignments
             string floorAssignments = _floorAssignmentToETABS.ExportAssignments(floorIdMapping);
             sb.AppendLine(floorAssignments);
+
+            // Process opening assignments  
+            string openingAssignments = _openingAssignmentToETABS.ExportAssignments(openingIdMapping);
+            sb.AppendLine(openingAssignments);
 
             return sb.ToString();
         }

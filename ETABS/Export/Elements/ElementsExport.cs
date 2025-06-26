@@ -14,11 +14,13 @@ namespace ETABS.Export.Elements
         private readonly BraceExport _braceExport;
         private readonly FloorExport _floorExport;
         private readonly WallExport _wallExport;
+        private readonly OpeningExport _openingExport;
 
         private readonly PointsCollector _pointsCollector;
         private readonly LineConnectivityParser _lineConnectivityParser;
         private readonly LineAssignmentParser _lineAssignmentParser;
         private readonly AreaParser _areaParser;
+
 
         // Initializes a new instance of ElementsExport
         public ElementsExport()
@@ -35,6 +37,7 @@ namespace ETABS.Export.Elements
             _braceExport = new BraceExport(_pointsCollector, _lineConnectivityParser, _lineAssignmentParser);
             _floorExport = new FloorExport(_pointsCollector, _areaParser);
             _wallExport = new WallExport(_pointsCollector, _areaParser);
+            _openingExport = new OpeningExport(_pointsCollector, _areaParser);
         }
 
         // Parses E2K sections for element data
@@ -87,6 +90,7 @@ namespace ETABS.Export.Elements
             _braceExport.SetLevels(levels);
             _floorExport.SetLevels(levels);
             _wallExport.SetLevels(levels);
+            _openingExport.SetLevels(levels);
 
             // Set frame properties in relevant importers
             _beamExport.SetFrameProperties(frameProperties);
@@ -124,6 +128,9 @@ namespace ETABS.Export.Elements
 
             // Export walls
             container.Walls = _wallExport.Export();
+
+            // Export openings
+            container.Openings = _openingExport.Export();   
 
             return container;
         }

@@ -249,6 +249,14 @@ namespace Revit.Export
                 Debug.WriteLine($"Built {floorCount} floors");
             }
 
+            // Build openings (follows floor export)
+            if (_context.ShouldExportElement("Floors"))
+            {
+                var openingExport = new Elements.OpeningExport(_context.RevitDoc);
+                int openingCount = openingExport.Export(_model.Elements.Openings, _model);
+                Debug.WriteLine($"Built {openingCount} openings");
+            }
+
             // Build columns
             if (_context.ShouldExportElement("Columns"))
             {

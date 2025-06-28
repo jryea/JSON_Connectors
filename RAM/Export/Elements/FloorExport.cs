@@ -102,10 +102,12 @@ namespace RAM.Export.Elements
                                 continue;
                             }
 
-                            Console.WriteLine($"Processing deck with property ID: {deck.lUID}");
+                            int deckPropertyId = deck.lPropID; // This should be the property ID, not the instance ID
+                            Console.WriteLine($"Processing deck instance {deck.lUID} with property ID: {deckPropertyId}");
 
                             // Use ModelMappingUtility to get FloorProperties ID from deck property UID
-                            string floorPropertiesId = ModelMappingUtility.GetFloorPropertiesIdForUid(deck.lUID.ToString());
+                            string floorPropertiesId = ModelMappingUtility.GetFloorPropertiesIdForUid(deckPropertyId.ToString());
+
                             if (string.IsNullOrEmpty(floorPropertiesId))
                             {
                                 Console.WriteLine($"ERROR: No FloorProperties mapping found for deck property UID {deck.lUID}");

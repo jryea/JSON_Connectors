@@ -1,0 +1,151 @@
+{
+  "structuralDecks": [
+    {
+      "deckType": "ASC 2WH",
+      "ribDepth": 2.125,
+      "ribWidthTop": 6.0,
+      "ribSpacing": 12.0,
+      "manufacturer": "ASC"
+    },
+    {
+      "deckType": "ASC 3WxH",
+      "ribDepth": 3.0,
+      "ribWidthTop": 6.0,
+      "ribSpacing": 12.0,
+      "manufacturer": "ASC"
+    },
+    {
+      "deckType": "ASC BH",
+      "ribDepth": 1.5,
+      "ribWidthTop": 2.141,
+      "ribSpacing": 6.0,
+      "manufacturer": "ASC"
+    },
+    {
+      "deckType": "ASC NH",
+      "ribDepth": 3.0,
+      "ribWidthTop": 3.125,
+      "ribSpacing": 8.0,
+      "manufacturer": "ASC"
+    },
+    {
+      "deckType": "NewMillennium 3.0CD",
+      "ribDepth": 3.0,
+      "ribWidthTop": 6.0,
+      "ribSpacing": 12.0,
+      "manufacturer": "NewMillennium"
+    },
+    {
+      "deckType": "NewMillennium 2.0CD",
+      "ribDepth": 2.0,
+      "ribWidthTop": 6.0,
+      "ribSpacing": 12.0,
+      "manufacturer": "NewMillennium"
+    },
+    {
+      "deckType": "NewMillennium 1.5CD",
+      "ribDepth": 1.5,
+      "ribWidthTop": 2.063,
+      "ribSpacing": 6.0,
+      "manufacturer": "NewMillennium"
+    },
+    {
+      "deckType": "VERCO W3 Formlok",
+      "ribDepth": 3.0,
+      "ribWidthTop": 6.0,
+      "ribSpacing": 12.0,
+      "manufacturer": "VERCO"
+    },
+    {
+      "deckType": "VERCO W2 Formlok",
+      "ribDepth": 2.0625,
+      "ribWidthTop": 6.0,
+      "ribSpacing": 12.0,
+      "manufacturer": "VERCO"
+    },
+    {
+      "deckType": "VERCO B Formlok",
+      "ribDepth": 1.5,
+      "ribWidthTop": 2.125,
+      "ribSpacing": 6.0,
+      "manufacturer": "VERCO"
+    },
+    {
+      "deckType": "VERCO BR Formlok",
+      "ribDepth": 1.5,
+      "ribWidthTop": 3.875,
+      "ribSpacing": 6.0,
+      "manufacturer": "VERCO"
+    },
+    {
+      "deckType": "VERCO N3 Formlok",
+      "ribDepth": 3.0,
+      "ribWidthTop": 3.125,
+      "ribSpacing": 8.0,
+      "manufacturer": "VERCO"
+    },
+    {
+      "deckType": "VULCRAFT 3VL",
+      "ribDepth": 3.0,
+      "ribWidthTop": 6.0,
+      "ribSpacing": 12.0,
+      "manufacturer": "VULCRAFT"
+    },
+    {
+      "deckType": "VULCRAFT 2VL",
+      "ribDepth": 2.0,
+      "ribWidthTop": 6.0,
+      "ribSpacing": 12.0,
+      "manufacturer": "VULCRAFT"
+    },
+    {
+      "deckType": "VULCRAFT 1.5VL",
+      "ribDepth": 1.5,
+      "ribWidthTop": 2.125,
+      "ribSpacing": 6.0,
+      "manufacturer": "VULCRAFT"
+    },
+    {
+      "deckType": "VULCRAFT 1.5VLR",
+      "ribDepth": 1.5,
+      "ribWidthTop": 3.875,
+      "ribSpacing": 6.0,
+      "manufacturer": "VULCRAFT"
+    },
+    {
+      "deckType": "USD 3.0 LokFloor",
+      "ribDepth": 3.0,
+      "ribWidthTop": 6.0,
+      "ribSpacing": 12.0,
+      "manufacturer": "USD"
+    },
+    {
+      "deckType": "USD 2.0 LokFloor",
+      "ribDepth": 2.0,
+      "ribWidthTop": 6.0,
+      "ribSpacing": 12.0,
+      "manufacturer": "USD"
+    },
+    {
+      "deckType": "USD 1.5 LokFloor",
+      "ribDepth": 1.5,
+      "ribWidthTop": 6.0,
+      "ribSpacing": 12.0,
+      "manufacturer": "USD"
+    },
+    {
+      "deckType": "USD 1.5 B-Lok",
+      "ribDepth": 1.5,
+      "ribWidthTop": 2.25,
+      "ribSpacing": 6.0,
+      "manufacturer": "USD"
+    },
+    {
+      "deckType": "Flat Slab",
+      "ribDepth": 0.0001,
+      "ribWidthTop": 1.0,
+      "ribSpacing": 0.0001,
+      "manufacturer": "Generic"
+    }
+  ]
+}

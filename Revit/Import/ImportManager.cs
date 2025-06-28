@@ -209,6 +209,20 @@ namespace Revit.Import
                         Debug.WriteLine($"Skipping floor import - enabled: {context.ShouldImportElement("Floors")}, floor count: {model.Elements?.Floors?.Count ?? 0}");
                     }
 
+                    // Import openings (follows floor filter)
+                    if (context.ShouldImportElement("Floors") && model.Elements?.Openings != null)
+                    {
+                        Debug.WriteLine($"Importing {model.Elements.Openings.Count} openings");
+                        var openingImport = new Elements.OpeningImport(_doc);
+                        int openingCount = openingImport.Import(model.Elements.Openings, levelIdMap, model);
+                        totalImported += openingCount;
+                        Debug.WriteLine($"Opening import completed: {openingCount} shafts imported");
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"Skipping opening import - floors enabled: {context.ShouldImportElement("Floors")}, opening count: {model.Elements?.Openings?.Count ?? 0}");
+                    }
+
                     // Import footings
                     if (context.ShouldImportElement("Footings") && model.Elements?.IsolatedFootings != null)
                     {

@@ -163,6 +163,7 @@
     <Compile Include="Export\Elements\ColumnExport.cs" />
     <Compile Include="Export\Elements\FloorExport.cs" />
     <Compile Include="Export\Elements\IsolatedFootingExport.cs" />
+    <Compile Include="Export\Elements\OpeningExport.cs" />
     <Compile Include="Export\Elements\WallExport.cs" />
     <Compile Include="Export\ExportContext.cs" />
     <Compile Include="Export\GrasshopperExporter.cs" />
@@ -182,6 +183,7 @@
     <Compile Include="Import\Elements\ColumnImport.cs" />
     <Compile Include="Import\Elements\FloorImport.cs" />
     <Compile Include="Import\Elements\IsolatedFootingImport.cs" />
+    <Compile Include="Import\Elements\OpeningImport.cs" />
     <Compile Include="Import\Elements\WallImport.cs" />
     <Compile Include="Import\ImportContext.cs" />
     <Compile Include="Import\ImportManager.cs" />
@@ -206,6 +208,7 @@
     <Compile Include="Utilities\ButtonDataClass.cs" />
     <Compile Include="Utilities\CommandAvailability.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Utilities\FloorTypeNameGenerator.cs" />
     <Compile Include="Utilities\Helpers.cs" />
     <Compile Include="Utilities\Utils.cs" />
     <Compile Include="ViewModels\Converters.cs" />

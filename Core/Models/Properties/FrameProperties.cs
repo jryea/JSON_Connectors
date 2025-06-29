@@ -21,7 +21,7 @@ namespace Core.Models.Properties
         public SteelFrameProperties SteelProps { get; set; }
 
         // ETABS-specific properties
-        public ETABSFrameModifiers ETABSModifiers { get; set; } = new ETABSFrameModifiers();
+        public FrameModifiers FrameModifiers { get; set; } = new FrameModifiers();
 
         public FrameProperties()
         {

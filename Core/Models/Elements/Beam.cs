@@ -30,7 +30,7 @@ namespace Core.Models.Elements
         public bool IsJoist { get; set; }
 
         // ETABS-specific properties
-        public ETABSFrameModifiers ETABSModifiers { get; set; } = new ETABSFrameModifiers();
+        public FrameModifiers FrameModifiers { get; set; } = new FrameModifiers();
 
         // Creates a new Beam with a generated ID
         public Beam()

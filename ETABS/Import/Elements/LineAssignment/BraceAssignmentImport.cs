@@ -79,25 +79,25 @@ namespace ETABS.Import.Elements.LineAssignment
             StringBuilder sb = new StringBuilder($"  LINEASSIGN  \"{lineId}\"  \"{story}\"  SECTION \"{section}\"  RELEASE \"{release}\"");
 
             // Add modifiers if they deviate from default value of 1.0
-            if (brace?.ETABSModifiers != null)
+            if (brace?.FrameModifiers != null)
             {
                 // Using Math.Abs to compare floating point values with a small tolerance
-                if (Math.Abs(brace.ETABSModifiers.Area - 1.0) > 0.0001)
-                    sb.Append($" PROPMODA {brace.ETABSModifiers.Area:0.####}");
-                if (Math.Abs(brace.ETABSModifiers.A22 - 1.0) > 0.0001)
-                    sb.Append($" PROPMODA2 {brace.ETABSModifiers.A22:0.####}");
-                if (Math.Abs(brace.ETABSModifiers.A33 - 1.0) > 0.0001)
-                    sb.Append($" PROPMODA3 {brace.ETABSModifiers.A33:0.####}");
-                if (Math.Abs(brace.ETABSModifiers.Torsion - 1.0) > 0.0001)
-                    sb.Append($" PROPMODT {brace.ETABSModifiers.Torsion:0.####}");
-                if (Math.Abs(brace.ETABSModifiers.I22 - 1.0) > 0.0001)
-                    sb.Append($" PROPMODI22 {brace.ETABSModifiers.I22:0.####}");
-                if (Math.Abs(brace.ETABSModifiers.I33 - 1.0) > 0.0001)
-                    sb.Append($" PROPMODI33 {brace.ETABSModifiers.I33:0.####}");
-                if (Math.Abs(brace.ETABSModifiers.Mass - 1.0) > 0.0001)
-                    sb.Append($" PROPMODM {brace.ETABSModifiers.Mass:0.####}");
-                if (Math.Abs(brace.ETABSModifiers.Weight - 1.0) > 0.0001)
-                    sb.Append($" PROPMODW {brace.ETABSModifiers.Weight:0.####}");
+                if (Math.Abs(brace.FrameModifiers.Area - 1.0) > 0.0001)
+                    sb.Append($" PROPMODA {brace.FrameModifiers.Area:0.####}");
+                if (Math.Abs(brace.FrameModifiers.A22 - 1.0) > 0.0001)
+                    sb.Append($" PROPMODA2 {brace.FrameModifiers.A22:0.####}");
+                if (Math.Abs(brace.FrameModifiers.A33 - 1.0) > 0.0001)
+                    sb.Append($" PROPMODA3 {brace.FrameModifiers.A33:0.####}");
+                if (Math.Abs(brace.FrameModifiers.Torsion - 1.0) > 0.0001)
+                    sb.Append($" PROPMODT {brace.FrameModifiers.Torsion:0.####}");
+                if (Math.Abs(brace.FrameModifiers.I22 - 1.0) > 0.0001)
+                    sb.Append($" PROPMODI22 {brace.FrameModifiers.I22:0.####}");
+                if (Math.Abs(brace.FrameModifiers.I33 - 1.0) > 0.0001)
+                    sb.Append($" PROPMODI33 {brace.FrameModifiers.I33:0.####}");
+                if (Math.Abs(brace.FrameModifiers.Mass - 1.0) > 0.0001)
+                    sb.Append($" PROPMODM {brace.FrameModifiers.Mass:0.####}");
+                if (Math.Abs(brace.FrameModifiers.Weight - 1.0) > 0.0001)
+                    sb.Append($" PROPMODW {brace.FrameModifiers.Weight:0.####}");
             }
 
             sb.Append($" MAXSTASPC {maxStaSpc} AUTOMESH \"{autoMesh}\"  MESHATINTERSECTIONS \"{meshAtIntersections}\"");

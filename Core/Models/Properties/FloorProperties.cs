@@ -26,9 +26,10 @@ namespace Core.Models.Properties
 
         public double Thickness { get; set; }
 
-        public DeckProperties DeckProperties { get; set; } = new DeckProperties();
-        public ShearStudProperties ShearStudProperties { get; set; } = new ShearStudProperties();
-        public ShellModifiers ETABSModifiers { get; set; } = new ShellModifiers();
+        // Changed: No default initialization - will be null unless explicitly set
+        public DeckProperties DeckProperties { get; set; }
+        public ShearStudProperties ShearStudProperties { get; set; }
+        public ShellModifiers ShellModifiers { get; set; } = new ShellModifiers();
 
         public FloorProperties()
         {
@@ -50,7 +51,7 @@ namespace Core.Models.Properties
         public double ShearStudHeight { get; set; }
         public double ShearStudTensileStrength { get; set; }
 
-        public ShearStudProperties() 
+        public ShearStudProperties()
         {
             ShearStudDiameter = 0.75; // Default diameter in inches
             ShearStudHeight = 6.0; // Default height in inches      
@@ -60,14 +61,14 @@ namespace Core.Models.Properties
 
     public class DeckProperties
     {
-        public string DeckType { get; set; } = "VULCRAFT 2VL"; 
+        public string DeckType { get; set; } = "VULCRAFT 2VL";
 
         // Deck Material ID for ETABS
-        public string MaterialID { get; set; }  
+        public string MaterialID { get; set; }
 
         public double RibDepth { get; set; }
 
-        public double RibWidthTop { get; set; }  
+        public double RibWidthTop { get; set; }
         public double RibWidthBottom { get; set; }
         public double RibSpacing { get; set; }
         public double DeckShearThickness { get; set; }

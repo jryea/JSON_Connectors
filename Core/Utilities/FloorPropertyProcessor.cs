@@ -1,5 +1,4 @@
-﻿// Core/Processors/FloorPropertyProcessor.cs
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Core.Models.Properties;
@@ -7,10 +6,11 @@ using Core.Data;
 using Core.Utilities;
 using Core.Models;
 
-namespace Core.Processors
+namespace Core.Utilities
 {
     /// <summary>
     /// Processes floor data from various sources into standardized FloorProperties
+    /// Now uses StructuralDeckData for company standard deck information
     /// </summary>
     public static class FloorPropertyProcessor
     {
@@ -70,7 +70,69 @@ namespace Core.Processors
         }
 
         /// <summary>
-        /// Finds the best matching deck from a list based on deck properties
+        /// Find deck by name using company standards
+        /// </summary>
+        public static StructuralDeck FindDeckByType(string deckType)
+        {
+            return StructuralDeck.FindByType(deckType);
+        }
+
+        /// <summary>
+        /// Create FloorProperties from deck type name and parameters
+        /// Convenience method for exporters - finds deck automatically
+        /// </summary>
+        public static FloorProperties ProcessFromDeckType(
+            string deckType,
+            double concreteThickness,
+            string concreteMaterialId,
+            StructuralFloorType floorType,
+            string name = null)
+        {
+            var deck = StructuralDeck.FindByType(deckType);
+
+            if (deck == null)
+            {
+                // Fallback - try to find by properties if exact name doesn't match
+                Console.WriteLine($"Warning: Deck type '{deckType}' not found, using default 2\" deck");
+                deck = StructuralDeck.GetPreferredDeck(2.0); // Default to 2" deck
+            }
+
+            return ProcessFromStructuralDeck(deck, concreteThickness, concreteMaterialId, floorType, name);
+        }
+
+        /// <summary>
+        /// Get company preferred deck for a given depth
+        /// </summary>
+        public static StructuralDeck GetPreferredDeck(double ribDepth)
+        {
+            return StructuralDeck.GetPreferredDeck(ribDepth);
+        }
+
+        /// <summary>
+        /// Get all available company standard decks
+        /// </summary>
+        public static List<StructuralDeck> GetAvailableDecks()
+        {
+            return new List<StructuralDeck>(StructuralDeck.StandardDecks);
+        }
+
+        /// <summary>
+        /// Finds the best matching deck from company standards based on deck properties
+        /// Used for ETABS export where we have properties but need a deck name
+        /// </summary>
+        public static StructuralDeck FindBestMatchingDeck(DeckProperties deckProps)
+        {
+            if (deckProps == null)
+                return null;
+
+            return StructuralDeck.FindBestMatch(
+                deckProps.RibDepth,
+                deckProps.RibSpacing,
+                deckProps.RibWidthTop);
+        }
+
+        /// <summary>
+        /// Finds the best matching deck from a specific list based on deck properties
         /// Used for ETABS export where we have properties but need a deck name
         /// </summary>
         public static StructuralDeck FindBestMatchingDeck(
@@ -84,7 +146,7 @@ namespace Core.Processors
                 .Select(deck => new
                 {
                     Deck = deck,
-                    Score = CalculateDeckMatchScore(deck, deckProps)
+                    Score = deck.CalculateMatchScore(deckProps.RibDepth, deckProps.RibSpacing, deckProps.RibWidthTop)
                 })
                 .OrderBy(x => x.Score)
                 .ToList();
@@ -120,40 +182,28 @@ namespace Core.Processors
         }
 
         /// <summary>
-        /// Calculates a match score between a structural deck and deck properties
-        /// Lower score = better match
+        /// Find deck by approximate rib depth (within tolerance)
+        /// Useful when only thickness is known
         /// </summary>
-        private static double CalculateDeckMatchScore(
-            StructuralDeck deck,
-            DeckProperties props)
+        public static StructuralDeck FindDeckByDepth(double ribDepth, double tolerance = 0.25)
         {
-            double score = 0;
+            return StructuralDeck.FindByDepth(ribDepth, tolerance);
+        }
 
-            // Primary criterion: Rib depth (most important)
-            if (props.RibDepth > 0)
-            {
-                score += Math.Abs(deck.RibDepth - props.RibDepth) * 10.0;
-            }
+        /// <summary>
+        /// Get available manufacturers for UI/selection purposes
+        /// </summary>
+        public static List<string> GetAvailableManufacturers()
+        {
+            return StructuralDeck.GetManufacturers();
+        }
 
-            // Secondary criterion: Rib spacing
-            if (props.RibSpacing > 0)
-            {
-                score += Math.Abs(deck.RibSpacing - props.RibSpacing) * 5.0;
-            }
-
-            // Tertiary criterion: Rib width top
-            if (props.RibWidthTop > 0)
-            {
-                score += Math.Abs(deck.RibWidthTop - props.RibWidthTop) * 3.0;
-            }
-
-            // Check rib width bottom if available
-            if (props.RibWidthBottom > 0)
-            {
-                score += Math.Abs(deck.RibWidthBottom - props.RibWidthBottom) * 2.0;
-            }
-
-            return score;
+        /// <summary>
+        /// Get decks by manufacturer for UI/selection purposes
+        /// </summary>
+        public static List<StructuralDeck> GetDecksByManufacturer(string manufacturer)
+        {
+            return StructuralDeck.GetByManufacturer(manufacturer);
         }
     }
 }

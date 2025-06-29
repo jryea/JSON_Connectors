@@ -382,10 +382,10 @@ namespace Grasshopper.Utilities
             return $"Props: {Value.Materials.Count} materials, {Value.FrameProperties.Count} frames, {Value.FloorProperties.Count} floors, {Value.WallProperties.Count} walls, {Value.Diaphragms.Count} diaphragms";
         }
     }
-    public class GH_ETABSFrameModifiers : GH_ModelGoo<ETABSFrameModifiers>
+    public class GH_ETABSFrameModifiers : GH_ModelGoo<FrameModifiers>
     {
         public GH_ETABSFrameModifiers() { }
-        public GH_ETABSFrameModifiers(ETABSFrameModifiers modifiers) : base(modifiers) { }
+        public GH_ETABSFrameModifiers(FrameModifiers modifiers) : base(modifiers) { }
 
         public override IGH_Goo Duplicate() => new GH_ETABSFrameModifiers(Value);
 

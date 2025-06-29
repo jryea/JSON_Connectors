@@ -9,7 +9,6 @@ using Core.Utilities;
 using Core.Data;
 using RAM.Utilities;
 using RAMDATAACCESSLib;
-using Core.Processors;
 
 namespace RAM.Export.Properties
 {
@@ -19,7 +18,6 @@ namespace RAM.Export.Properties
         private readonly string _lengthUnit;
         private readonly MaterialProvider _materialProvider;
         private readonly Dictionary<string, string> _floorPropMappings = new Dictionary<string, string>();
-        private List<StructuralDeck> _availableDecks;
 
         public FloorPropertiesExport(
             IModel model,
@@ -29,7 +27,6 @@ namespace RAM.Export.Properties
             _model = model;
             _materialProvider = materialProvider;
             _lengthUnit = lengthUnit;
-            LoadDeckData();
         }
 
         public List<FloorProperties> Export()
@@ -68,59 +65,6 @@ namespace RAM.Export.Properties
                 }
 
                 return floorProperties;
-            }
-        }
-
-        private void LoadDeckData()
-        {
-            try
-            {
-                // Try multiple possible paths
-                string[] possiblePaths = new string[]
-                {
-            Path.Combine("Data", "Tables", "MetalDecks.json"),
-            Path.Combine("..", "..", "..", "Data", "Tables", "MetalDecks.json"),
-            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "Tables", "MetalDecks.json"),
-            Path.Combine(Directory.GetCurrentDirectory(), "Data", "Tables", "MetalDecks.json"),
-            Path.Combine(Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location), "Data", "Tables", "MetalDecks.json")
-                };
-
-                string jsonPath = null;
-                foreach (var path in possiblePaths)
-                {
-                    if (File.Exists(path))
-                    {
-                        jsonPath = path;
-                        break;
-                    }
-                }
-
-                if (jsonPath != null)
-                {
-                    string jsonContent = File.ReadAllText(jsonPath);
-
-                    var options = new JsonSerializerOptions
-                    {
-                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                        PropertyNameCaseInsensitive = true
-                    };
-
-                    var deckData = JsonSerializer.Deserialize<DeckDataFile>(jsonContent, options);
-                    _availableDecks = deckData?.StructuralDecks ?? new List<StructuralDeck>();
-                }
-                else
-                {
-                    Console.WriteLine($"MetalDecks.json not found. Searched in:");
-                    foreach (var path in possiblePaths)
-                    {
-                        Console.WriteLine($"  - {Path.GetFullPath(path)}");
-                    }
-                    _availableDecks = new List<StructuralDeck>();
-                }
-            }
-            catch
-            {
-                _availableDecks = new List<StructuralDeck>();
             }
         }
 
@@ -188,16 +132,15 @@ namespace RAM.Export.Properties
                     if (deckProp == null)
                         continue;
 
-                    // Try to find matching deck in MetalDecks.json
-                    var structuralDeck = _availableDecks.FirstOrDefault(d =>
-                        d.DeckType.Equals(deckProp.strDeckType, StringComparison.OrdinalIgnoreCase));
+                    // Use StructuralDeck to find deck by type
+                    var structuralDeck = StructuralDeck.FindByType(deckProp.strDeckType);
 
                     FloorProperties floorProp;
 
-                    Console.WriteLine($"  Found deck: {structuralDeck.DeckType}, RibWidthTop={structuralDeck.RibWidthTop}");
-
                     if (structuralDeck != null)
                     {
+                        Console.WriteLine($"  Found deck: {structuralDeck.DeckType}, RibWidthTop={structuralDeck.RibWidthTop}");
+
                         // Use FloorPropertyProcessor with found deck
                         double concreteThickness = UnitConversionUtils.ConvertFromInches(
                             deckProp.dThickAboveFlutes, _lengthUnit);
@@ -212,33 +155,17 @@ namespace RAM.Export.Properties
                     }
                     else
                     {
-                        // Fallback to existing logic
-                        string deckType = deckProp.strDeckType ?? "VULCRAFT 2VL";
-                        double deckDepth = 1.5; // default
-                        if (deckType.Contains("1.5VL"))
-                            deckDepth = 1.5;
-                        else if (deckType.Contains("2VL"))
-                            deckDepth = 2.0;
-                        else if (deckType.Contains("3VL"))
-                            deckDepth = 3.0;
+                        // Fallback - use ProcessFromDeckType which handles missing decks gracefully
+                        double concreteThickness = UnitConversionUtils.ConvertFromInches(
+                            deckProp.dThickAboveFlutes, _lengthUnit);
 
-                        double toppingThickness = UnitConversionUtils.ConvertFromInches(deckProp.dThickAboveFlutes, _lengthUnit);
-                        double totalThickness = toppingThickness + deckDepth;
-
-                        floorProp = new FloorProperties
-                        {
-                            Id = IdGenerator.Generate(IdGenerator.Properties.FLOOR_PROPERTIES),
-                            Name = deckProp.strLabel ?? $"Composite Deck {totalThickness:F1}\"",
-                            Type = StructuralFloorType.FilledDeck,
-                            Thickness = totalThickness,
-                            MaterialId = materialId,
-                            ModelingType = ModelingType.Membrane,
-                            SlabType = SlabType.Slab
-                        };
-
-                        floorProp.DeckProperties.DeckType = deckProp.strDeckType ?? "VULCRAFT 2VL";
-                        floorProp.DeckProperties.RibDepth = deckDepth;
-                        floorProp.DeckProperties.DeckUnitWeight = deckProp.dSelfWtDeck;
+                        floorProp = FloorPropertyProcessor.ProcessFromDeckType(
+                            deckProp.strDeckType ?? "VULCRAFT 2VL", // Default fallback
+                            concreteThickness,
+                            materialId,
+                            StructuralFloorType.FilledDeck,
+                            deckProp.strLabel
+                        );
                     }
 
                     deckProperties.Add(floorProp);
@@ -278,10 +205,8 @@ namespace RAM.Export.Properties
                     double effectiveThickness = UnitConversionUtils.ConvertFromInches(
                         deckProp.dEffectiveThickness, _lengthUnit);
 
-                    // Try to match deck by thickness
-                    var structuralDeck = _availableDecks
-                        .Where(d => Math.Abs(d.RibDepth - effectiveThickness) < 0.1)
-                        .FirstOrDefault();
+                    // Use StructuralDeck to find preferred deck by depth
+                    var structuralDeck = StructuralDeck.GetPreferredDeck(effectiveThickness);
 
                     FloorProperties floorProp;
 
@@ -299,7 +224,7 @@ namespace RAM.Export.Properties
                     }
                     else
                     {
-                        // Fallback to existing logic
+                        // Fallback - this should rarely happen with the new approach
                         floorProp = new FloorProperties
                         {
                             Id = IdGenerator.Generate(IdGenerator.Properties.FLOOR_PROPERTIES),
@@ -310,8 +235,12 @@ namespace RAM.Export.Properties
                             ModelingType = ModelingType.Membrane
                         };
 
-                        floorProp.DeckProperties.DeckType = "VULCRAFT 1.5VL";
-                        floorProp.DeckProperties.DeckUnitWeight = deckProp.dSelfWeight;
+                        floorProp.DeckProperties = new DeckProperties
+                        {
+                            DeckType = "VULCRAFT 1.5VL", // Default fallback
+                            RibDepth = effectiveThickness,
+                            DeckUnitWeight = deckProp.dSelfWeight
+                        };
                     }
 
                     deckProperties.Add(floorProp);
@@ -336,12 +265,6 @@ namespace RAM.Export.Properties
                 _materialProvider.GetConcreteMaterialId(),
                 "Default Concrete Slab"
             );
-        }
-
-        // Add helper class for JSON deserialization
-        private class DeckDataFile
-        {
-            public List<StructuralDeck> StructuralDecks { get; set; }
         }
     }
 }

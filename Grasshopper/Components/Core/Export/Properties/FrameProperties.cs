@@ -89,10 +89,10 @@ namespace Grasshopper.Components.Core.Export.Properties
                 FrameProperties frameProperty = new FrameProperties(name, material.Id, materialType);
 
                 // Extract ETABS modifiers if provided
-                ETABSFrameModifiers etabsModifiers = ExtractObject<ETABSFrameModifiers>(etabsModObj, "ETABSFrameModifiers");
-                if (etabsModifiers != null)
+                FrameModifiers rameModifiers = ExtractObject<FrameModifiers>(etabsModObj, "ETABSFrameModifiers");
+                if (rameModifiers != null)
                 {
-                    frameProperty.ETABSModifiers = etabsModifiers;
+                    frameProperty.FrameModifiers = rameModifiers;
                 }
 
                 // Set section properties based on material type and provided inputs

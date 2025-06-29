@@ -33,7 +33,7 @@ namespace Core.Models.Elements
         public bool IsLateral { get; set; } = false;
 
         // ETABS-specific properties
-        public ETABSFrameModifiers ETABSModifiers { get; set; } = new ETABSFrameModifiers();
+        public FrameModifiers FrameModifiers { get; set; } = new FrameModifiers();
 
         // Creates a new Column with a generated ID
         public Column()

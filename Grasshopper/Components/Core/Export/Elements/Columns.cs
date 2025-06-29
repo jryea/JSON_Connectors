@@ -146,10 +146,10 @@ namespace Grasshopper.Components.Core.Export.Elements
                 RG.Line line = lines[i];
 
                 // Extract ETABS modifiers if provided
-                ETABSFrameModifiers etabsModifiers = null;
+                FrameModifiers etabsModifiers = null;
                 if (etabsModObjs.Count > i && etabsModObjs[i] != null)
                 {
-                    etabsModifiers = ExtractObject<ETABSFrameModifiers>(etabsModObjs[i], "ETABSFrameModifiers");
+                    etabsModifiers = ExtractObject<FrameModifiers>(etabsModObjs[i], "ETABSFrameModifiers");
                 }
 
                 if (baseLevel == null || topLevel == null || frameProps == null || line == null)
@@ -173,7 +173,7 @@ namespace Grasshopper.Components.Core.Export.Elements
                 // Apply ETABS modifiers if provided
                 if (etabsModifiers != null)
                 {
-                    column.ETABSModifiers = etabsModifiers;
+                    column.FrameModifiers = etabsModifiers;
                 }
 
                 columns.Add(new GH_Column(column));

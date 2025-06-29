@@ -111,26 +111,26 @@ namespace ETABS.Import.Elements.LineAssignment
                 sb.Append($" ANG {column.Orientation}");
 
             // Add modifiers if they deviate from default value of 1.0
-            if (column?.ETABSModifiers != null)
+            if (column?.FrameModifiers != null)
             {
                 // Using Math.Abs to compare floating point values with a small tolerance
                 // Format with appropriate decimal places for cleaner output
-                if (Math.Abs(column.ETABSModifiers.Area - 1.0) > 0.0001)
-                    sb.Append($" PROPMODA {column.ETABSModifiers.Area:0.####}");
-                if (Math.Abs(column.ETABSModifiers.A22 - 1.0) > 0.0001)
-                    sb.Append($" PROPMODA2 {column.ETABSModifiers.A22:0.####}");
-                if (Math.Abs(column.ETABSModifiers.A33 - 1.0) > 0.0001)
-                    sb.Append($" PROPMODA3 {column.ETABSModifiers.A33:0.####}");
-                if (Math.Abs(column.ETABSModifiers.Torsion - 1.0) > 0.0001)
-                    sb.Append($" PROPMODT {column.ETABSModifiers.Torsion:0.####}");
-                if (Math.Abs(column.ETABSModifiers.I22 - 1.0) > 0.0001)
-                    sb.Append($" PROPMODI22 {column.ETABSModifiers.I22:0.####}");
-                if (Math.Abs(column.ETABSModifiers.I33 - 1.0) > 0.0001)
-                    sb.Append($" PROPMODI33 {column.ETABSModifiers.I33:0.####}");
-                if (Math.Abs(column.ETABSModifiers.Mass - 1.0) > 0.0001)
-                    sb.Append($" PROPMODM {column.ETABSModifiers.Mass:0.####}");
-                if (Math.Abs(column.ETABSModifiers.Weight - 1.0) > 0.0001)
-                    sb.Append($" PROPMODW {column.ETABSModifiers.Weight:0.####}");
+                if (Math.Abs(column.FrameModifiers.Area - 1.0) > 0.0001)
+                    sb.Append($" PROPMODA {column.FrameModifiers.Area:0.####}");
+                if (Math.Abs(column.FrameModifiers.A22 - 1.0) > 0.0001)
+                    sb.Append($" PROPMODA2 {column.FrameModifiers.A22:0.####}");
+                if (Math.Abs(column.FrameModifiers.A33 - 1.0) > 0.0001)
+                    sb.Append($" PROPMODA3 {column.FrameModifiers.A33:0.####}");
+                if (Math.Abs(column.FrameModifiers.Torsion - 1.0) > 0.0001)
+                    sb.Append($" PROPMODT {column.FrameModifiers.Torsion:0.####}");
+                if (Math.Abs(column.FrameModifiers.I22 - 1.0) > 0.0001)
+                    sb.Append($" PROPMODI22 {column.FrameModifiers.I22:0.####}");
+                if (Math.Abs(column.FrameModifiers.I33 - 1.0) > 0.0001)
+                    sb.Append($" PROPMODI33 {column.FrameModifiers.I33:0.####}");
+                if (Math.Abs(column.FrameModifiers.Mass - 1.0) > 0.0001)
+                    sb.Append($" PROPMODM {column.FrameModifiers.Mass:0.####}");
+                if (Math.Abs(column.FrameModifiers.Weight - 1.0) > 0.0001)
+                    sb.Append($" PROPMODW {column.FrameModifiers.Weight:0.####}");
             }
 
             sb.Append($" MINNUMSTA {minNumSta} AUTOMESH \"{autoMesh}\" MESHATINTERSECTIONS \"{meshAtIntersections}\"");

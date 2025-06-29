@@ -139,10 +139,10 @@ namespace ETABS.Import.Properties
 
         private string FormatFrameModifiers(FrameProperties frameProp)
         {
-            if (frameProp.ETABSModifiers == null)
+            if (frameProp.FrameModifiers == null)
                 return string.Empty;
 
-            var modifiers = frameProp.ETABSModifiers;
+            var modifiers = frameProp.FrameModifiers;
             var modifierParts = new List<string>();
 
             // Check each modifier and add to list if not 1.0

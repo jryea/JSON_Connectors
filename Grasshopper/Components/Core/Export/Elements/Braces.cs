@@ -77,10 +77,10 @@ namespace Grasshopper.Components.Core.Export.Elements
                 FrameProperties frameProps = ExtractObject<FrameProperties>(framePropObjs[i], "FrameProperties");
 
                 // Extract ETABS modifiers if provided
-                ETABSFrameModifiers etabsModifiers = null;
+                FrameModifiers etabsModifiers = null;
                 if (etabsModObjs.Count > i && etabsModObjs[i] != null)
                 {
-                    etabsModifiers = ExtractObject<ETABSFrameModifiers>(etabsModObjs[i], "ETABSFrameModifiers");
+                    etabsModifiers = ExtractObject<FrameModifiers>(etabsModObjs[i], "ETABSFrameModifiers");
                 }
 
                 if (baseLevel == null || topLevel == null || frameProps == null)
@@ -101,7 +101,7 @@ namespace Grasshopper.Components.Core.Export.Elements
                 // Apply ETABS modifiers if provided
                 if (etabsModifiers != null)
                 {
-                    brace.ETABSModifiers = etabsModifiers;
+                    brace.FrameModifiers = etabsModifiers;
                 }
 
                 braces.Add(new GH_Brace(brace));

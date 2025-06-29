@@ -85,24 +85,24 @@ namespace ETABS.Import.Elements.LineAssignment
                 StringBuilder sb = new StringBuilder($"  LINEASSIGN  \"{lineId}\"  \"{story}\"  SECTION \"{section}\"  CARDINALPT {cardinalPoint}");
 
                 // Add modifiers if they deviate from default value of 1.0
-                if (beam?.ETABSModifiers != null)
+                if (beam?.FrameModifiers != null)
                 {
-                    if (Math.Abs(beam.ETABSModifiers.Area - 1.0) > 0.0001)
-                        sb.Append($" PROPMODA {beam.ETABSModifiers.Area}");
-                    if (Math.Abs(beam.ETABSModifiers.A22 - 1.0) > 0.0001)
-                        sb.Append($" PROPMODA2 {beam.ETABSModifiers.A22}");
-                    if (Math.Abs(beam.ETABSModifiers.A33 - 1.0) > 0.0001)
-                        sb.Append($" PROPMODA3 {beam.ETABSModifiers.A33}");
-                    if (Math.Abs(beam.ETABSModifiers.Torsion - 1.0) > 0.0001)
-                        sb.Append($" PROPMODT {beam.ETABSModifiers.Torsion}");
-                    if (Math.Abs(beam.ETABSModifiers.I22 - 1.0) > 0.0001)
-                        sb.Append($" PROPMODI22 {beam.ETABSModifiers.I22}");
-                    if (Math.Abs(beam.ETABSModifiers.I33 - 1.0) > 0.0001)
-                        sb.Append($" PROPMODI33 {beam.ETABSModifiers.I33}");
-                    if (Math.Abs(beam.ETABSModifiers.Mass - 1.0) > 0.0001)
-                        sb.Append($" PROPMODM {beam.ETABSModifiers.Mass}");
-                    if (Math.Abs(beam.ETABSModifiers.Weight - 1.0) > 0.0001)
-                        sb.Append($" PROPMODW {beam.ETABSModifiers.Weight}");
+                    if (Math.Abs(beam.FrameModifiers.Area - 1.0) > 0.0001)
+                        sb.Append($" PROPMODA {beam.FrameModifiers.Area}");
+                    if (Math.Abs(beam.FrameModifiers.A22 - 1.0) > 0.0001)
+                        sb.Append($" PROPMODA2 {beam.FrameModifiers.A22}");
+                    if (Math.Abs(beam.FrameModifiers.A33 - 1.0) > 0.0001)
+                        sb.Append($" PROPMODA3 {beam.FrameModifiers.A33}");
+                    if (Math.Abs(beam.FrameModifiers.Torsion - 1.0) > 0.0001)
+                        sb.Append($" PROPMODT {beam.FrameModifiers.Torsion}");
+                    if (Math.Abs(beam.FrameModifiers.I22 - 1.0) > 0.0001)
+                        sb.Append($" PROPMODI22 {beam.FrameModifiers.I22}");
+                    if (Math.Abs(beam.FrameModifiers.I33 - 1.0) > 0.0001)
+                        sb.Append($" PROPMODI33 {beam.FrameModifiers.I33}");
+                    if (Math.Abs(beam.FrameModifiers.Mass - 1.0) > 0.0001)
+                        sb.Append($" PROPMODM {beam.FrameModifiers.Mass}");
+                    if (Math.Abs(beam.FrameModifiers.Weight - 1.0) > 0.0001)
+                        sb.Append($" PROPMODW {beam.FrameModifiers.Weight}");
                 }
 
                 sb.Append($"  MAXSTASPC {maxStaSpc} AUTOMESH \"{autoMesh}\"  MESHATINTERSECTIONS \"{meshAtIntersections}\"");
@@ -123,24 +123,24 @@ namespace ETABS.Import.Elements.LineAssignment
                 StringBuilder sb = new StringBuilder($"  LINEASSIGN  \"{lineId}\"  \"{story}\"  SECTION \"{section}\"  RELEASE \"TI M2I M2J M3I M3J\" CARDINALPT {cardinalPoint}");
 
                 // Add modifiers if they deviate from default value of 1.0
-                if (beam?.ETABSModifiers != null)
+                if (beam?.FrameModifiers != null)
                 {
-                    if (Math.Abs(beam.ETABSModifiers.Area - 1.0) > 0.0001)
-                        sb.Append($" PROPMODA {beam.ETABSModifiers.Area}");
-                    if (Math.Abs(beam.ETABSModifiers.A22 - 1.0) > 0.0001)
-                        sb.Append($" PROPMODA2 {beam.ETABSModifiers.A22}");
-                    if (Math.Abs(beam.ETABSModifiers.A33 - 1.0) > 0.0001)
-                        sb.Append($" PROPMODA3 {beam.ETABSModifiers.A33}");
-                    if (Math.Abs(beam.ETABSModifiers.Torsion - 1.0) > 0.0001)
-                        sb.Append($" PROPMODT {beam.ETABSModifiers.Torsion}");
-                    if (Math.Abs(beam.ETABSModifiers.I22 - 1.0) > 0.0001)
-                        sb.Append($" PROPMODI22 {beam.ETABSModifiers.I22}");
-                    if (Math.Abs(beam.ETABSModifiers.I33 - 1.0) > 0.0001)
-                        sb.Append($" PROPMODI33 {beam.ETABSModifiers.I33}");
-                    if (Math.Abs(beam.ETABSModifiers.Mass - 1.0) > 0.0001)
-                        sb.Append($" PROPMODM {beam.ETABSModifiers.Mass}");
-                    if (Math.Abs(beam.ETABSModifiers.Weight - 1.0) > 0.0001)
-                        sb.Append($" PROPMODW {beam.ETABSModifiers.Weight}");
+                    if (Math.Abs(beam.FrameModifiers.Area - 1.0) > 0.0001)
+                        sb.Append($" PROPMODA {beam.FrameModifiers.Area}");
+                    if (Math.Abs(beam.FrameModifiers.A22 - 1.0) > 0.0001)
+                        sb.Append($" PROPMODA2 {beam.FrameModifiers.A22}");
+                    if (Math.Abs(beam.FrameModifiers.A33 - 1.0) > 0.0001)
+                        sb.Append($" PROPMODA3 {beam.FrameModifiers.A33}");
+                    if (Math.Abs(beam.FrameModifiers.Torsion - 1.0) > 0.0001)
+                        sb.Append($" PROPMODT {beam.FrameModifiers.Torsion}");
+                    if (Math.Abs(beam.FrameModifiers.I22 - 1.0) > 0.0001)
+                        sb.Append($" PROPMODI22 {beam.FrameModifiers.I22}");
+                    if (Math.Abs(beam.FrameModifiers.I33 - 1.0) > 0.0001)
+                        sb.Append($" PROPMODI33 {beam.FrameModifiers.I33}");
+                    if (Math.Abs(beam.FrameModifiers.Mass - 1.0) > 0.0001)
+                        sb.Append($" PROPMODM {beam.FrameModifiers.Mass}");
+                    if (Math.Abs(beam.FrameModifiers.Weight - 1.0) > 0.0001)
+                        sb.Append($" PROPMODW {beam.FrameModifiers.Weight}");
                 }
 
                 sb.Append($"  MAXSTASPC {maxStaSpc} AUTOMESH \"{autoMesh}\"  MESHATINTERSECTIONS \"{meshAtIntersections}\"");

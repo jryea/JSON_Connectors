@@ -59,7 +59,7 @@ namespace Grasshopper.Components.Core.Export.ETABS
             DA.GetData(7, ref weight);
 
             // Create modifiers
-            ETABSFrameModifiers modifiers = new ETABSFrameModifiers
+            FrameModifiers modifiers = new FrameModifiers
             {
                 Area = area,
                 A22 = a22,

@@ -393,9 +393,9 @@ namespace Core.Utilities
             }
 
             // Add ETABS modifiers if they differ from defaults
-            if (property.ETABSModifiers != null)
+            if (property.FrameModifiers != null)
             {
-                var mods = property.ETABSModifiers;
+                var mods = property.FrameModifiers;
                 if (mods.Area != 1.0 || mods.A22 != 1.0 || mods.A33 != 1.0 ||
                     mods.I22 != 1.0 || mods.I33 != 1.0 || mods.Torsion != 1.0 ||
                     mods.Mass != 1.0 || mods.Weight != 1.0)

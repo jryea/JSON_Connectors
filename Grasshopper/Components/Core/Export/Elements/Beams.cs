@@ -123,11 +123,11 @@ namespace Grasshopper.Components.Core.Export.Elements
                 Level level = ExtractObject<Level>(levelObjs[i], "Level");
                 FrameProperties frameProps = ExtractObject<FrameProperties>(propObjs[i], "FrameProperties");
 
-                // Extract ETABS modifiers if provided
-                ETABSFrameModifiers etabsModifiers = null;
+                // Extract frame modifiers if provided
+                FrameModifiers etabsModifiers = null;
                 if (etabsModObjs.Count > i && etabsModObjs[i] != null)
                 {
-                    etabsModifiers = ExtractObject<ETABSFrameModifiers>(etabsModObjs[i], "ETABSFrameModifiers");
+                    etabsModifiers = ExtractObject<FrameModifiers>(etabsModObjs[i], "ETABSFrameModifiers");
                 }
 
                 if (level == null || frameProps == null)
@@ -149,7 +149,7 @@ namespace Grasshopper.Components.Core.Export.Elements
                 // Apply ETABS modifiers if provided
                 if (etabsModifiers != null)
                 {
-                    beam.ETABSModifiers = etabsModifiers;
+                    beam.FrameModifiers = etabsModifiers;
                 }
 
                 beams.Add(new GH_Beam(beam));

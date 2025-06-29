@@ -30,7 +30,7 @@ namespace Core.Models.Elements
         public Point2D EndPoint { get; set; }
 
         // ETABS-specific properties
-        public ETABSFrameModifiers ETABSModifiers { get; set; } = new ETABSFrameModifiers();
+        public FrameModifiers FrameModifiers { get; set; } = new FrameModifiers();
 
         // Creates a new Brace with a generated ID
         public Brace()

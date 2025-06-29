@@ -58,12 +58,6 @@ namespace RAM.Export.Properties
             {
                 Console.WriteLine($"Error exporting floor properties from RAM: {ex.Message}");
 
-                // Create at least one default property if export fails
-                if (floorProperties.Count == 0)
-                {
-                    floorProperties.Add(CreateDefaultSlabProperty());
-                }
-
                 return floorProperties;
             }
         }
@@ -75,12 +69,6 @@ namespace RAM.Export.Properties
             try
             {
                 IConcSlabProps concSlabProps = _model.GetConcreteSlabProps();
-                if (concSlabProps == null || concSlabProps.GetCount() == 0)
-                {
-                    var defaultSlab = CreateDefaultSlabProperty();
-                    slabProperties.Add(defaultSlab);
-                    return slabProperties;
-                }
 
                 for (int i = 0; i < concSlabProps.GetCount(); i++)
                 {
@@ -107,8 +95,6 @@ namespace RAM.Export.Properties
             catch (Exception ex)
             {
                 Console.WriteLine($"Error exporting concrete slab properties: {ex.Message}");
-                var defaultSlab = CreateDefaultSlabProperty();
-                slabProperties.Add(defaultSlab);
             }
 
             return slabProperties;
@@ -256,15 +242,6 @@ namespace RAM.Export.Properties
             }
 
             return deckProperties;
-        }
-
-        private FloorProperties CreateDefaultSlabProperty()
-        {
-            return FloorPropertyProcessor.ProcessConcreteSlabProperties(
-                6.0, // 6 inch default
-                _materialProvider.GetConcreteMaterialId(),
-                "Default Concrete Slab"
-            );
         }
     }
 }

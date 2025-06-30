@@ -206,20 +206,6 @@ namespace Revit.Import.Elements
                     commentsParam.Set(jsonFloor.Id);
                 }
 
-                // Set thickness if available and different from type
-                if (floorProps != null && floorProps.Thickness > 0)
-                {
-                    var thicknessParam = floor.get_Parameter(DB.BuiltInParameter.FLOOR_ATTR_THICKNESS_PARAM);
-                    if (thicknessParam != null && !thicknessParam.IsReadOnly)
-                    {
-                        double currentThickness = thicknessParam.AsDouble();
-                        if (Math.Abs(currentThickness - floorProps.Thickness) > 0.01)
-                        {
-                            thicknessParam.Set(floorProps.Thickness);
-                        }
-                    }
-                }
-
                 Debug.WriteLine($"    Parameters set for floor {jsonFloor.Id}");
             }
             catch (Exception ex)

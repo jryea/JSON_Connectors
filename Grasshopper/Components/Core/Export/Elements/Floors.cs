@@ -182,7 +182,7 @@ namespace Grasshopper.Components.Core.Export.Elements
                 // Apply ETABS modifiers if provided
                 if (etabsModifiers != null)
                 {
-                    floor.ETABSModifiers = etabsModifiers;
+                    floor.ShellModifiers = etabsModifiers;
                 }
 
                 floors.Add(new GH_Floor(floor));

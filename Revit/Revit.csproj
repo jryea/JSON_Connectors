@@ -193,6 +193,7 @@
     <Compile Include="Import\ModelLayout\LevelImport.cs" />
     <Compile Include="Import\ModelTransformer.cs" />
     <Compile Include="Import\ProcessIsolatedRAM.cs" />
+    <Compile Include="Import\Properties\FloorPropertiesImport.cs" />
     <Compile Include="Import\StructuralModelImporter.cs" />
     <Compile Include="Import\StructuralModelLoader.cs" />
     <Compile Include="Models\FloorTypeModel.cs" />

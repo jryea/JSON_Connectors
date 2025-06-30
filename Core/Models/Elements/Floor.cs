@@ -28,7 +28,7 @@ namespace Core.Models.Elements
 
         public double SpanDirection { get; set; } = 0.0; // Span direction in degrees   
 
-        public ShellModifiers ETABSModifiers { get; set; } = new ShellModifiers();
+        public ShellModifiers ShellModifiers { get; set; } = new ShellModifiers();
 
         // Creates a new Floor with a generated ID
         public Floor()

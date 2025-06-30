@@ -4,10 +4,12 @@ using System.Text.RegularExpressions;
 using Core.Models;
 using Core.Models.Properties;
 using Core.Utilities;
+using Core.Data;
 
 namespace ETABS.Export.Properties
 {
     // Imports floor property definitions from ETABS E2K file
+    // Updated to use Core project's FloorPropertyProcessor and StructuralDeckData
     public class FloorPropertiesExport
     {
         // Dictionary to map material names to IDs
@@ -69,17 +71,15 @@ namespace ETABS.Export.Properties
                         materialId = id;
                     }
 
-                    // Create floor properties
-                    var floorProp = new FloorProperties
-                    {
-                        Id = IdGenerator.Generate(IdGenerator.Properties.FLOOR_PROPERTIES),
-                        Name = name,
-                        Type = StructuralFloorType.Slab,
-                        Thickness = thickness,
-                        MaterialId = materialId,
-                        ModelingType = ParseModelingType(modelingTypeStr),
-                        SlabType = ParseSlabType(slabTypeStr)
-                    };
+                    // Use FloorPropertyProcessor to create standardized concrete slab properties
+                    var floorProp = FloorPropertyProcessor.ProcessConcreteSlabProperties(
+                        thickness,
+                        materialId,
+                        name); // Name taken straight from ETABS
+
+                    // Set additional properties from ETABS parsing
+                    floorProp.ModelingType = ParseModelingType(modelingTypeStr);
+                    floorProp.SlabType = ParseSlabType(slabTypeStr);
 
                     floorProperties[name] = floorProp;
                 }
@@ -96,137 +96,237 @@ namespace ETABS.Export.Properties
             var deckPattern = new Regex(@"^\s*SHELLPROP\s+""([^""]+)""\s+PROPTYPE\s+""Deck""\s+DECKTYPE\s+""([^""]+)""\s+CONCMATERIAL\s+""([^""]+)""\s+DECKMATERIAL\s+""([^""]+)""\s+DECKSLABDEPTH\s+([\d\.]+)",
                 RegexOptions.Multiline);
 
-            var deckMatches = deckPattern.Matches(deckPropertiesSection);
-            foreach (Match match in deckMatches)
+            var lines = deckPropertiesSection.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+
+            foreach (var line in lines)
             {
-                if (match.Groups.Count >= 6)
+                var match = deckPattern.Match(line);
+                if (match.Success && match.Groups.Count >= 6)
                 {
                     string name = match.Groups[1].Value;
-                    string deckType = match.Groups[2].Value;
-                    string concMaterialName = match.Groups[3].Value;
+                    string deckTypeStr = match.Groups[2].Value;
+                    string concreteMaterialName = match.Groups[3].Value;
                     string deckMaterialName = match.Groups[4].Value;
                     double slabDepth = Convert.ToDouble(match.Groups[5].Value);
 
-                    // Look up material ID (use concrete material as primary)
-                    string materialId = null;
-                    if (_materialIdsByName.TryGetValue(concMaterialName, out string id))
+                    // Look up concrete material ID
+                    string concreteMaterialId = null;
+                    if (_materialIdsByName.TryGetValue(concreteMaterialName, out string id))
                     {
-                        materialId = id;
+                        concreteMaterialId = id;
                     }
 
-                    // Determine floor type based on deck type
-                    StructuralFloorType floorType = deckType.ToLower() == "filled" ?
-                        StructuralFloorType.FilledDeck : StructuralFloorType.UnfilledDeck;
+                    // Parse additional deck properties from the line
+                    var parsedDeckProps = ParseDeckPropertiesFromLine(line);
 
-                    // Create floor properties
-                    var floorProp = new FloorProperties
+                    // Try to find matching deck from company standards using parsed properties
+                    StructuralDeck foundDeck = null;
+                    if (parsedDeckProps != null)
                     {
-                        Id = IdGenerator.Generate(IdGenerator.Properties.FLOOR_PROPERTIES),
-                        Name = name,
-                        Type = floorType,
-                        Thickness = slabDepth, // Use slab depth as total thickness
-                        MaterialId = materialId,
-                        // Default to membrane modeling type for deck
-                        ModelingType = ModelingType.Membrane,
-                        // Default to slab for slabType
-                        SlabType = SlabType.Slab
-                    };
-
-                    // Initialize DeckProperties
-                    floorProp.DeckProperties = new DeckProperties
-                    {
-                        DeckType = deckType
-                    };
-
-                    // Extract additional deck properties if available in the match line
-                    string fullLine = match.Value;
-
-                    // Rib depth
-                    var ribDepthMatch = Regex.Match(fullLine, @"DECKRIBDEPTH\s+([\d\.]+)");
-                    if (ribDepthMatch.Success)
-                    {
-                        floorProp.DeckProperties.RibDepth = Convert.ToDouble(ribDepthMatch.Groups[1].Value);
+                        foundDeck = FloorPropertyProcessor.FindBestMatchingDeck(parsedDeckProps);
                     }
 
-                    // Other properties like RibWidthTop, RibWidthBottom, RibSpacing
-                    var ribWidthTopMatch = Regex.Match(fullLine, @"DECKRIBWIDTHTOP\s+([\d\.]+)");
-                    if (ribWidthTopMatch.Success)
+                    // If no match found, try by deck type name
+                    if (foundDeck == null)
                     {
-                        floorProp.DeckProperties.RibWidthTop = Convert.ToDouble(ribWidthTopMatch.Groups[1].Value);
+                        foundDeck = FloorPropertyProcessor.FindDeckByType(deckTypeStr);
                     }
 
-                    var ribWidthBottomMatch = Regex.Match(fullLine, @"DECKRIBWIDTHBOTTOM\s+([\d\.]+)");
-                    if (ribWidthBottomMatch.Success)
+                    // If still no match, try by rib depth from parsed properties
+                    if (foundDeck == null && parsedDeckProps?.RibDepth > 0)
                     {
-                        floorProp.DeckProperties.RibWidthBottom = Convert.ToDouble(ribWidthBottomMatch.Groups[1].Value);
+                        foundDeck = FloorPropertyProcessor.FindDeckByDepth(parsedDeckProps.RibDepth);
                     }
 
-                    var ribSpacingMatch = Regex.Match(fullLine, @"DECKRIBSPACING\s+([\d\.]+)");
-                    if (ribSpacingMatch.Success)
+                    // Determine floor type based on ETABS deck type
+                    StructuralFloorType floorType = DetermineFloorTypeFromETABSDeckType(deckTypeStr);
+
+                    FloorProperties floorProp;
+
+                    // Only use deck properties for FilledDeck and UnfilledDeck types
+                    if ((floorType == StructuralFloorType.FilledDeck || floorType == StructuralFloorType.UnfilledDeck) && foundDeck != null)
                     {
-                        floorProp.DeckProperties.RibSpacing = Convert.ToDouble(ribSpacingMatch.Groups[1].Value);
+                        // Use FloorPropertyProcessor with company standard deck
+                        // Name taken straight from ETABS
+                        floorProp = FloorPropertyProcessor.ProcessFromStructuralDeck(
+                            foundDeck,
+                            slabDepth,
+                            concreteMaterialId,
+                            floorType,
+                            name);
+                    }
+                    else
+                    {
+                        // Create basic properties - DeckProperties will be null for Slab/SolidSlabDeck types
+                        // or when no company standard deck is found for FilledDeck/UnfilledDeck
+                        floorProp = new FloorProperties
+                        {
+                            Id = IdGenerator.Generate(IdGenerator.Properties.FLOOR_PROPERTIES),
+                            Name = name, // Name taken straight from ETABS
+                            Type = floorType,
+                            MaterialId = concreteMaterialId,
+                            ModelingType = ModelingType.Membrane,
+                            SlabType = SlabType.Slab,
+                            Thickness = floorType == StructuralFloorType.Slab ? slabDepth :
+                                       (parsedDeckProps?.RibDepth > 0 ? slabDepth + parsedDeckProps.RibDepth : slabDepth),
+                            DeckProperties = null // Null for Slab/SolidSlabDeck or when no company standard found
+                        };
                     }
 
-                    // Deck thickness
-                    var deckThicknessMatch = Regex.Match(fullLine, @"DECKSHEARTHICKNESS\s+([\d\.]+)");
-                    if (deckThicknessMatch.Success)
+                    // Apply shear stud properties only if found in ETABS data
+                    var shearStudProps = ParseShearStudProperties(line);
+                    if (shearStudProps != null)
                     {
-                        floorProp.DeckProperties.DeckShearThickness = Convert.ToDouble(deckThicknessMatch.Groups[1].Value);
+                        floorProp.ShearStudProperties = shearStudProps;
                     }
-
-                    // Unit weight
-                    var unitWeightMatch = Regex.Match(fullLine, @"DECKUNITWEIGHT\s+([\d\.]+)");
-                    if (unitWeightMatch.Success)
-                    {
-                        floorProp.DeckProperties.DeckUnitWeight = Convert.ToDouble(unitWeightMatch.Groups[1].Value);
-                    }
-
-                    // Shear stud properties
-                    var shearStudDiamMatch = Regex.Match(fullLine, @"SHEARSTUDDIAM\s+([\d\.]+)");
-                    var shearStudHeightMatch = Regex.Match(fullLine, @"SHEARSTUDHEIGHT\s+([\d\.]+)");
-                    var shearStudFuMatch = Regex.Match(fullLine, @"SHEARSTUDFU\s+([\d\.]+)");
-
-                    if (shearStudDiamMatch.Success || shearStudHeightMatch.Success || shearStudFuMatch.Success)
-                    {
-                        floorProp.ShearStudProperties = new ShearStudProperties();
-
-                        if (shearStudDiamMatch.Success)
-                            floorProp.ShearStudProperties.ShearStudDiameter = Convert.ToDouble(shearStudDiamMatch.Groups[1].Value);
-
-                        if (shearStudHeightMatch.Success)
-                            floorProp.ShearStudProperties.ShearStudHeight = Convert.ToDouble(shearStudHeightMatch.Groups[1].Value);
-
-                        if (shearStudFuMatch.Success)
-                            floorProp.ShearStudProperties.ShearStudTensileStrength = Convert.ToDouble(shearStudFuMatch.Groups[1].Value);
-                    }
+                    // Otherwise leave as null
 
                     floorProperties[name] = floorProp;
                 }
             }
         }
 
-        // Parse string modeling type to enum ModelingType
-        private ModelingType ParseModelingType(string modelingTypeStr)
+        // Parse deck properties from ETABS E2K line
+        private DeckProperties ParseDeckPropertiesFromLine(string line)
         {
-            switch (modelingTypeStr.ToLower())
+            var deckProps = new DeckProperties();
+            bool hasProperties = false;
+
+            // Parse rib depth
+            var ribDepthMatch = Regex.Match(line, @"DECKRIBDEPTH\s+([\d\.]+)");
+            if (ribDepthMatch.Success)
             {
-                case "shellthick":
-                    return ModelingType.ShellThick;
-                case "membrane":
-                    return ModelingType.Membrane;
-                case "layered":
-                    return ModelingType.Layered;
-                case "shellthin":
+                deckProps.RibDepth = Convert.ToDouble(ribDepthMatch.Groups[1].Value);
+                hasProperties = true;
+            }
+
+            // Parse rib width top
+            var ribWidthTopMatch = Regex.Match(line, @"DECKRIBWIDTHTOP\s+([\d\.]+)");
+            if (ribWidthTopMatch.Success)
+            {
+                deckProps.RibWidthTop = Convert.ToDouble(ribWidthTopMatch.Groups[1].Value);
+                hasProperties = true;
+            }
+
+            // Parse rib width bottom
+            var ribWidthBottomMatch = Regex.Match(line, @"DECKRIBWIDTHBOTTOM\s+([\d\.]+)");
+            if (ribWidthBottomMatch.Success)
+            {
+                deckProps.RibWidthBottom = Convert.ToDouble(ribWidthBottomMatch.Groups[1].Value);
+                hasProperties = true;
+            }
+
+            // Parse rib spacing
+            var ribSpacingMatch = Regex.Match(line, @"DECKRIBSPACING\s+([\d\.]+)");
+            if (ribSpacingMatch.Success)
+            {
+                deckProps.RibSpacing = Convert.ToDouble(ribSpacingMatch.Groups[1].Value);
+                hasProperties = true;
+            }
+
+            // Parse deck thickness
+            var deckThicknessMatch = Regex.Match(line, @"DECKSHEARTHICKNESS\s+([\d\.]+)");
+            if (deckThicknessMatch.Success)
+            {
+                deckProps.DeckShearThickness = Convert.ToDouble(deckThicknessMatch.Groups[1].Value);
+                hasProperties = true;
+            }
+
+            // Parse unit weight
+            var unitWeightMatch = Regex.Match(line, @"DECKUNITWEIGHT\s+([\d\.]+)");
+            if (unitWeightMatch.Success)
+            {
+                deckProps.DeckUnitWeight = Convert.ToDouble(unitWeightMatch.Groups[1].Value);
+                hasProperties = true;
+            }
+
+            return hasProperties ? deckProps : null;
+        }
+
+        // Parse and return shear stud properties if found, otherwise return null
+        private ShearStudProperties ParseShearStudProperties(string line)
+        {
+            var shearStudDiamMatch = Regex.Match(line, @"SHEARSTUDDIAM\s+([\d\.]+)");
+            var shearStudHeightMatch = Regex.Match(line, @"SHEARSTUDHEIGHT\s+([\d\.]+)");
+            var shearStudFuMatch = Regex.Match(line, @"SHEARSTUDFU\s+([\d\.]+)");
+
+            if (shearStudDiamMatch.Success || shearStudHeightMatch.Success || shearStudFuMatch.Success)
+            {
+                var shearStudProps = new ShearStudProperties();
+
+                if (shearStudDiamMatch.Success)
+                {
+                    shearStudProps.ShearStudDiameter = Convert.ToDouble(shearStudDiamMatch.Groups[1].Value);
+                }
+
+                if (shearStudHeightMatch.Success)
+                {
+                    shearStudProps.ShearStudHeight = Convert.ToDouble(shearStudHeightMatch.Groups[1].Value);
+                }
+
+                if (shearStudFuMatch.Success)
+                {
+                    shearStudProps.ShearStudTensileStrength = Convert.ToDouble(shearStudFuMatch.Groups[1].Value);
+                }
+
+                return shearStudProps;
+            }
+
+            return null; // No shear stud properties found
+        }
+
+        // Determine StructuralFloorType from ETABS deck type string
+        private StructuralFloorType DetermineFloorTypeFromETABSDeckType(string deckType)
+        {
+            if (string.IsNullOrEmpty(deckType))
+                return StructuralFloorType.FilledDeck;
+
+            switch (deckType.ToLowerInvariant())
+            {
+                case "filled":
+                    return StructuralFloorType.FilledDeck;
+                case "unfilled":
+                    return StructuralFloorType.UnfilledDeck;
+                case "solid slab":
+                    return StructuralFloorType.Slab;
                 default:
-                    return ModelingType.ShellThin;
+                    return StructuralFloorType.FilledDeck; // Default assumption
             }
         }
 
-        // Parse string slab type to enum SlabType
+
+
+        // Helper method to parse modeling type (preserved from original)
+        private ModelingType ParseModelingType(string modelingTypeStr)
+        {
+            if (string.IsNullOrEmpty(modelingTypeStr))
+                return ModelingType.Membrane;
+
+            switch (modelingTypeStr.ToLowerInvariant())
+            {
+                case "membrane":
+                    return ModelingType.Membrane;
+                case "shellthin":
+                    return ModelingType.ShellThin;
+                case "shellthick":
+                    return ModelingType.ShellThick;
+                case "layered":
+                    return ModelingType.Layered;
+                default:
+                    return ModelingType.Membrane;
+            }
+        }
+
+        // Helper method to parse slab type (preserved from original)
         private SlabType ParseSlabType(string slabTypeStr)
         {
-            switch (slabTypeStr.ToLower())
+            if (string.IsNullOrEmpty(slabTypeStr))
+                return SlabType.Slab;
+
+            switch (slabTypeStr.ToLowerInvariant())
             {
+                case "slab":
+                    return SlabType.Slab;
                 case "drop":
                     return SlabType.Drop;
                 case "stiff":
@@ -235,11 +335,8 @@ namespace ETABS.Export.Properties
                     return SlabType.Ribbed;
                 case "waffle":
                     return SlabType.Waffle;
-                case "mat":
-                    return SlabType.Mat;
                 case "footing":
                     return SlabType.Footing;
-                case "slab":
                 default:
                     return SlabType.Slab;
             }

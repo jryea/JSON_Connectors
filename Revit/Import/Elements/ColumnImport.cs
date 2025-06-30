@@ -308,7 +308,29 @@ namespace Revit.Import.Elements
                     }
                 }
 
-                // Fallback to concrete column
+                // ADDED: Steel-specific fallback logic before falling back to concrete
+                if (frameProps != null && frameProps.Type == FrameMaterialType.Steel)
+                {
+                    Debug.WriteLine($"Column {column.Id}: No exact/partial match found, trying steel fallback logic");
+
+                    // Step 2: Look for specific steel section type (HSS in this case)
+                    var steelFallback = FindSteelColumnBySectionType(frameProps.SteelProps.SectionType);
+                    if (steelFallback != null)
+                    {
+                        Debug.WriteLine($"Column {column.Id}: Found steel section type fallback: {steelFallback.Name}");
+                        return steelFallback;
+                    }
+
+                    // Step 3: Look for any steel column
+                    var anySteelColumn = FindAnySteelColumn();
+                    if (anySteelColumn != null)
+                    {
+                        Debug.WriteLine($"Column {column.Id}: Found generic steel column fallback: {anySteelColumn.Name}");
+                        return anySteelColumn;
+                    }
+                }
+
+                // Step 4: Fallback to concrete column (original behavior)
                 Debug.WriteLine($"Column {column.Id}: No specific match found, using fallback concrete column");
                 return FindFallbackConcreteColumn();
             }
@@ -316,6 +338,136 @@ namespace Revit.Import.Elements
             {
                 Debug.WriteLine($"Error finding column type for {column.Id}: {ex.Message}");
                 return FindFallbackConcreteColumn();
+            }
+        }
+
+        private DB.FamilySymbol FindSteelColumnBySectionType(Core.Models.SteelSectionType sectionType)
+        {
+            try
+            {
+                switch (sectionType)
+                {
+                    case Core.Models.SteelSectionType.W:
+                        // Find Wide Flange columns
+                        var wSections = _columnTypes.Where(kvp =>
+                            kvp.Key.StartsWith("W") ||
+                            kvp.Key.Contains("WIDE") ||
+                            kvp.Key.Contains("FLANGE"))
+                            .ToList();
+
+                        if (wSections.Any())
+                        {
+                            Debug.WriteLine($"Found W section fallback: {wSections.First().Key}");
+                            return wSections.First().Value;
+                        }
+                        break;
+
+                    case Core.Models.SteelSectionType.HSS:
+                        // Find HSS columns
+                        var hssSections = _columnTypes.Where(kvp =>
+                            kvp.Key.Contains("HSS") ||
+                            kvp.Key.Contains("TUBE"))
+                            .ToList();
+
+                        if (hssSections.Any())
+                        {
+                            Debug.WriteLine($"Found HSS section fallback: {hssSections.First().Key}");
+                            return hssSections.First().Value;
+                        }
+                        break;
+
+                    case Core.Models.SteelSectionType.PIPE:
+                        // Find Pipe columns
+                        var pipeSections = _columnTypes.Where(kvp =>
+                            kvp.Key.Contains("PIPE"))
+                            .ToList();
+
+                        if (pipeSections.Any())
+                        {
+                            Debug.WriteLine($"Found PIPE section fallback: {pipeSections.First().Key}");
+                            return pipeSections.First().Value;
+                        }
+                        break;
+
+                    case Core.Models.SteelSectionType.C:
+                        // Find Channel columns
+                        var cSections = _columnTypes.Where(kvp =>
+                            kvp.Key.StartsWith("C") ||
+                            kvp.Key.Contains("CHANNEL"))
+                            .ToList();
+
+                        if (cSections.Any())
+                        {
+                            Debug.WriteLine($"Found C section fallback: {cSections.First().Key}");
+                            return cSections.First().Value;
+                        }
+                        break;
+
+                    case Core.Models.SteelSectionType.L:
+                        // Find Angle columns
+                        var lSections = _columnTypes.Where(kvp =>
+                            kvp.Key.StartsWith("L") ||
+                            kvp.Key.Contains("ANGLE"))
+                            .ToList();
+
+                        if (lSections.Any())
+                        {
+                            Debug.WriteLine($"Found L section fallback: {lSections.First().Key}");
+                            return lSections.First().Value;
+                        }
+                        break;
+
+                    default:
+                        // For other section types, try to find family by section type name
+                        var typeSections = _columnTypes.Where(kvp =>
+                            kvp.Key.Contains(sectionType.ToString()))
+                            .ToList();
+
+                        if (typeSections.Any())
+                        {
+                            Debug.WriteLine($"Found generic section type fallback: {typeSections.First().Key}");
+                            return typeSections.First().Value;
+                        }
+                        break;
+                }
+
+                Debug.WriteLine($"No section-specific steel column found for type: {sectionType}");
+                return null;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error in FindSteelColumnBySectionType: {ex.Message}");
+                return null;
+            }
+        }
+
+        private DB.FamilySymbol FindAnySteelColumn()
+        {
+            try
+            {
+                // Try to find any steel column
+                var steelColumns = _columnTypes.Where(kvp =>
+                    kvp.Key.Contains("STEEL") ||
+                    kvp.Key.Contains("METAL") ||
+                    kvp.Key.StartsWith("W") ||
+                    kvp.Key.Contains("HSS") ||
+                    kvp.Key.Contains("PIPE") ||
+                    kvp.Key.Contains("TUBE"))
+                    .ToList();
+
+                if (steelColumns.Any())
+                {
+                    Debug.WriteLine($"Found generic steel column: {steelColumns.First().Key}");
+                    return steelColumns.First().Value;
+                }
+
+                Debug.WriteLine("No steel columns found in available types");
+                return null;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error in FindAnySteelColumn: {ex.Message}");
+                return null;
             }
         }
 

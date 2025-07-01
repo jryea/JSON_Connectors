@@ -45,11 +45,7 @@ namespace ETABS.Export.Elements
             {
                 // Store both with and without "Story" prefix
                 string normalizedName = level.Name;
-                if (normalizedName.StartsWith("Story", StringComparison.OrdinalIgnoreCase))
-                {
-                    normalizedName = normalizedName.Substring(5);
-                }
-
+              
                 _levelsByName[$"Story{normalizedName}"] = level;
                 _levelsByName[normalizedName] = level;
 

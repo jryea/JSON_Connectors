@@ -54,7 +54,7 @@ namespace ETABS.Import.Elements.LineAssignment
                     if (level != null)
                     {
                         // Format story name (add "Story" prefix except for "Base")
-                        storyName = level.Name.ToLower() == "base" ? "Base" : $"Story{level.Name}";
+                        storyName = level.Name.ToLower() == "base" ? "Base" : level.Name;
                     }
 
                     // Create line assignment based on beam type (regular or joist)

@@ -70,7 +70,7 @@ namespace ETABS.Import.Elements.LineAssignment
                         continue;
 
                     // Create an assignment for this level
-                    string storyName = GetStoryName(level);
+                    string storyName = level.Name;
 
                     // Format the column assignment, including orientation if not 0
                     sb.AppendLine(FormatColumnAssign(
@@ -85,13 +85,6 @@ namespace ETABS.Import.Elements.LineAssignment
             }
 
             return sb.ToString();
-        }
-
-        // Gets a formatted story name from a level
-        private string GetStoryName(Level level)
-        {
-            // Format story name
-            return level.Name.ToLower() == "base" ? "Base" : $"Story{level.Name}";
         }
 
         // Formats a column assignment line for E2K format

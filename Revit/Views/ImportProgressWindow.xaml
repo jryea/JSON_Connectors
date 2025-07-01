@@ -1,0 +1,229 @@
+﻿<Window x:Class="Revit.Views.ImportProgressWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:Revit.ViewModels"
+        Title="Import Progress" 
+        Height="400" 
+        Width="600"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        WindowStyle="ToolWindow"
+        ShowInTaskbar="False">
+
+    <Window.Resources>
+        <!-- Primary Colors -->
+        <SolidColorBrush x:Key="PrimaryBlue" Color="#005687"/>
+        <SolidColorBrush x:Key="AccentGreen" Color="#8BC34A"/>
+        <SolidColorBrush x:Key="LightGray" Color="#F5F5F5"/>
+
+        <!-- Title Style -->
+        <Style x:Key="IMEG_Title" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <!-- Progress Bar Style -->
+        <Style x:Key="ModernProgressBar" TargetType="ProgressBar">
+            <Setter Property="Height" Value="20"/>
+            <Setter Property="Foreground" Value="{StaticResource AccentGreen}"/>
+            <Setter Property="Background" Value="{StaticResource LightGray}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#CCCCCC"/>
+        </Style>
+
+        <!-- Step Item Style -->
+        <Style x:Key="StepItem" TargetType="Grid">
+            <Setter Property="Margin" Value="0,5"/>
+        </Style>
+
+        <!-- Step Status Icon Style -->
+        <Style x:Key="StatusIcon" TargetType="TextBlock">
+            <Setter Property="Width" Value="20"/>
+            <Setter Property="Height" Value="20"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="60"/>
+            <!-- Title Bar -->
+            <RowDefinition Height="30"/>
+            <!-- Green Bar -->
+            <RowDefinition Height="*"/>
+            <!-- Content -->
+            <RowDefinition Height="60"/>
+            <!-- Button Area -->
+        </Grid.RowDefinitions>
+
+        <!-- Blue Title Bar -->
+        <Grid Background="{StaticResource PrimaryBlue}" Grid.Row="0">
+            <TextBlock Style="{StaticResource IMEG_Title}" Text="Importing Structural Model" />
+        </Grid>
+
+        <!-- Green Bar -->
+        <StackPanel Height="30" Grid.Row="1" FlowDirection="RightToLeft">
+            <StackPanel.Background>
+                <LinearGradientBrush StartPoint="-2,0" EndPoint="1,1">
+                    <GradientStop Color="White" Offset="0.7" />
+                    <GradientStop Color="{Binding Source={StaticResource AccentGreen}, Path=Color}" Offset="1.0" />
+                </LinearGradientBrush>
+            </StackPanel.Background>
+        </StackPanel>
+
+        <!-- Main Content -->
+        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Margin="20">
+            <StackPanel>
+                <!-- Overall Progress -->
+                <GroupBox Header="Overall Progress" Margin="0,0,0,20">
+                    <StackPanel Margin="10">
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="{Binding CurrentStepDescription}" FontWeight="Bold"/>
+                            <TextBlock Grid.Column="1" Text="{Binding ProgressText}" FontWeight="Bold"/>
+                        </Grid>
+                        <ProgressBar Style="{StaticResource ModernProgressBar}" 
+                                   Value="{Binding OverallProgress}" 
+                                   Maximum="100"/>
+                        <TextBlock Text="{Binding ElapsedTimeText}" 
+                                 HorizontalAlignment="Right" 
+                                 Margin="0,5,0,0" 
+                                 FontSize="10" 
+                                 Foreground="Gray"/>
+                    </StackPanel>
+                </GroupBox>
+
+                <!-- Detailed Steps -->
+                <GroupBox Header="Import Steps">
+                    <StackPanel Margin="10">
+                        <!-- File Conversion Step -->
+                        <Grid Style="{StaticResource StepItem}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="30"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="100"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" 
+                                  Width="20" Height="20" 
+                                  CornerRadius="10"
+                                  Background="{Binding ConversionStatusColor}">
+                                <TextBlock Style="{StaticResource StatusIcon}" 
+                                         Text="{Binding ConversionStatusIcon}" 
+                                         Foreground="White"/>
+                            </Border>
+                            <TextBlock Grid.Column="1" 
+                                     Text="Converting RAM file to JSON" 
+                                     VerticalAlignment="Center" 
+                                     Margin="10,0"/>
+                            <TextBlock Grid.Column="2" 
+                                     Text="{Binding ConversionStatusText}" 
+                                     VerticalAlignment="Center" 
+                                     HorizontalAlignment="Right"
+                                     FontSize="10"/>
+                        </Grid>
+
+                        <!-- Model Loading Step -->
+                        <Grid Style="{StaticResource StepItem}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="30"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="100"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" 
+                                  Width="20" Height="20" 
+                                  CornerRadius="10"
+                                  Background="{Binding LoadingStatusColor}">
+                                <TextBlock Style="{StaticResource StatusIcon}" 
+                                         Text="{Binding LoadingStatusIcon}" 
+                                         Foreground="White"/>
+                            </Border>
+                            <TextBlock Grid.Column="1" 
+                                     Text="Loading and parsing model data" 
+                                     VerticalAlignment="Center" 
+                                     Margin="10,0"/>
+                            <TextBlock Grid.Column="2" 
+                                     Text="{Binding LoadingStatusText}" 
+                                     VerticalAlignment="Center" 
+                                     HorizontalAlignment="Right"
+                                     FontSize="10"/>
+                        </Grid>
+
+                        <!-- Element Import Steps -->
+                        <ItemsControl ItemsSource="{Binding ElementImportSteps}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Style="{StaticResource StepItem}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="30"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="100"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Border Grid.Column="0" 
+                                              Width="20" Height="20" 
+                                              CornerRadius="10"
+                                              Background="{Binding StatusColor}">
+                                            <TextBlock Style="{StaticResource StatusIcon}" 
+                                                     Text="{Binding StatusIcon}" 
+                                                     Foreground="White"/>
+                                        </Border>
+                                        <TextBlock Grid.Column="1" 
+                                                 Text="{Binding Description}" 
+                                                 VerticalAlignment="Center" 
+                                                 Margin="10,0"/>
+                                        <TextBlock Grid.Column="2" 
+                                                 Text="{Binding StatusText}" 
+                                                 VerticalAlignment="Center" 
+                                                 HorizontalAlignment="Right"
+                                                 FontSize="10"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </GroupBox>
+
+                <!-- Log Output (Optional) -->
+                <GroupBox Header="Details" Margin="0,20,0,0" 
+                        Visibility="{Binding ShowDetails, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <ScrollViewer Height="100" VerticalScrollBarVisibility="Auto">
+                        <TextBox Text="{Binding LogOutput, Mode=OneWay}" 
+                               IsReadOnly="True" 
+                               Background="Black" 
+                               Foreground="LightGreen" 
+                               FontFamily="Consolas" 
+                               FontSize="10"
+                               TextWrapping="Wrap"/>
+                    </ScrollViewer>
+                </GroupBox>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Button Area -->
+        <Grid Grid.Row="3" Background="{StaticResource LightGray}">
+            <StackPanel Orientation="Horizontal" 
+                      HorizontalAlignment="Right" 
+                      VerticalAlignment="Center" 
+                      Margin="20,10">
+                <Button Content="Show Details" 
+                      Command="{Binding ToggleDetailsCommand}"
+                      Width="100" 
+                      Height="30" 
+                      Margin="0,0,10,0"
+                      Visibility="{Binding CanToggleDetails, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                <Button Content="{Binding CancelButtonText}" 
+                      Command="{Binding CancelCommand}"
+                      Width="80" 
+                      Height="30"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

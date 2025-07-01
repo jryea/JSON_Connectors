@@ -42,7 +42,7 @@ namespace ETABS.Export.ModelLayout
                     var floorType = new FloorType
                     {
                         Id = IdGenerator.Generate(IdGenerator.Layout.FLOOR_TYPE),
-                        Name = NormalizeStoryName(storyName),
+                        Name = storyName,
                     };
 
                     floorTypes.Add(floorType);

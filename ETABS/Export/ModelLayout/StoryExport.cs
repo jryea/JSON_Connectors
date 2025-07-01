@@ -156,7 +156,7 @@ namespace ETABS.Export.ModelLayout
                     var level = new Level
                     {
                         Id = IdGenerator.Generate(IdGenerator.Layout.LEVEL),
-                        Name = NormalizeStoryName(storyName),
+                        Name = storyName,
                         Elevation = currentElevation
                     };
 

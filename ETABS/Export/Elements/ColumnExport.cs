@@ -42,11 +42,10 @@ namespace ETABS.Export.Elements
             foreach (var level in levels)
             {
                 // Store both with and without "Story" prefix
-                string normalizedName = level.Name;
-                _levelsByName[normalizedName] = level;
+                _levelsByName[level.Name] = level;
 
                 // Special case for "Base" level
-                if (normalizedName.Equals("Base", StringComparison.OrdinalIgnoreCase))
+                if (level.Name.Equals("Base", StringComparison.OrdinalIgnoreCase))
                 {
                     _levelsByName["0"] = level;
                 }

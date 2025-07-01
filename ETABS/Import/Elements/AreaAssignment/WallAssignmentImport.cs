@@ -13,13 +13,6 @@ namespace ETABS.Import.Elements.AreaAssignment
         private List<Wall> _walls;
         private IEnumerable<Level> _levels;
         private IEnumerable<WallProperties> _wallProperties;
-        private readonly HashSet<string> _validStoryNames;
-
-        // Constructor to initialize with valid story names
-        public WallAssignmentImport(IEnumerable<string> validStoryNames)
-        {
-            _validStoryNames = new HashSet<string>(validStoryNames);
-        }
 
         // Sets the data needed for converting wall assignments
         public void SetData(
@@ -48,11 +41,9 @@ namespace ETABS.Import.Elements.AreaAssignment
 
                 // Find only the top level (ETABS wall assignments only need top level)
                 var topLevel = _levels.FirstOrDefault(l => l.Id == wall.TopLevelId);
-                if (topLevel == null || !_validStoryNames.Any(validName => validName.Contains(topLevel.Name)))
-                    continue;
 
                 // Use the valid story name that contains the level name
-                string topStory = _validStoryNames.First(validName => validName.Contains(topLevel.Name));
+                string topStory = topLevel.Name;
 
                 // Find wall properties
                 string propertyName = "Default";

@@ -130,9 +130,6 @@ namespace RAM.Export.ModelLayout
             }
         }
 
-
-
-
         private double ConvertFromInches(double inches)
         {
             switch (_lengthUnit.ToLower())

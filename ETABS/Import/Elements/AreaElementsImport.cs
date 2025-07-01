@@ -21,7 +21,7 @@ namespace ETABS.Import.Elements
         private readonly OpeningAssignmentImport _openingAssignmentToETABS; 
 
         // Constructor that takes a PointCoordinatesToETABS instance
-        public AreaElementsImport(PointCoordinatesImport pointCoordinates, List<string> validStoryNames)
+        public AreaElementsImport(PointCoordinatesImport pointCoordinates)
         {
             if (pointCoordinates == null)
                 throw new ArgumentNullException(nameof(pointCoordinates));
@@ -31,9 +31,9 @@ namespace ETABS.Import.Elements
             _floorConnectivityToETABS = new FloorConnectivityImport(pointCoordinates);
             _openingConnectivityToETABS = new OpeningConnectivityImport(pointCoordinates);
 
-            _wallAssignmentToETABS = new WallAssignmentImport(validStoryNames);
-            _floorAssignmentToETABS = new FloorAssignmentImport(validStoryNames);
-            _openingAssignmentToETABS = new OpeningAssignmentImport(validStoryNames);   
+            _wallAssignmentToETABS = new WallAssignmentImport();
+            _floorAssignmentToETABS = new FloorAssignmentImport();
+            _openingAssignmentToETABS = new OpeningAssignmentImport();   
         }
 
         // Converts area elements to E2K format

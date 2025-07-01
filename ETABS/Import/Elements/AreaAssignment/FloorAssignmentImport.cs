@@ -14,13 +14,6 @@ namespace ETABS.Import.Elements.AreaAssignment
         private List<Floor> _floors;
         private IEnumerable<Level> _levels;
         private IEnumerable<FloorProperties> _floorProperties;
-        private readonly HashSet<string> _validStoryNames;
-
-        // Constructor to initialize with valid story names
-        public FloorAssignmentImport(IEnumerable<string> validStoryNames)
-        {
-            _validStoryNames = new HashSet<string>(validStoryNames);
-        }
 
         // Sets the data needed for converting floor assignments
         public void SetData(
@@ -49,11 +42,9 @@ namespace ETABS.Import.Elements.AreaAssignment
 
                 // Find the level
                 var level = _levels?.FirstOrDefault(l => l.Id == floor.LevelId);
-                if (level == null || !_validStoryNames.Any(validName => validName.Contains(level.Name)))
-                    continue;
 
                 // Use the valid story name that contains the level name
-                string story = _validStoryNames.First(validName => validName.Contains(level.Name));
+                string story = level.Name;
 
                 // Find floor properties
                 string propertyName = "Default";

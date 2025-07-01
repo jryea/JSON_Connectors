@@ -160,7 +160,7 @@ namespace ETABS.Import
                 sb.AppendLine();
 
                 // Create the area elements converter with the point coordinates instance
-                var areaElementsToETABS = new AreaElementsImport(_pointCoordinatesToETABS, validStoryNames);
+                var areaElementsToETABS = new AreaElementsImport(_pointCoordinatesToETABS);
 
                 // Convert area elements (both connectivities and assignments)
                 string areaElementsSection = areaElementsToETABS.ConvertToE2K(

@@ -11,13 +11,7 @@ namespace ETABS.Import.Elements.AreaAssignment
     {
         private List<Opening> _openings;
         private IEnumerable<Level> _levels;
-        private readonly HashSet<string> _validStoryNames;
 
-        // Constructor to initialize with valid story names
-        public OpeningAssignmentImport(IEnumerable<string> validStoryNames)
-        {
-            _validStoryNames = new HashSet<string>(validStoryNames);
-        }
 
         // Sets the data needed for converting opening assignments
         public void SetData(
@@ -65,10 +59,7 @@ namespace ETABS.Import.Elements.AreaAssignment
             if (level == null)
                 return null;
 
-            // Check if we have a valid story name that contains the level name
-            var validStory = _validStoryNames.FirstOrDefault(validName => validName.Contains(level.Name));
-
-            return validStory;
+            return level.Name;
         }
 
         // Formats an opening assignment line for E2K format

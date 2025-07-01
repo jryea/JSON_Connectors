@@ -96,8 +96,9 @@ namespace Revit.Import.Elements
                     case SteelSectionType.W:
                         var wSections = _braceTypes.Where(kvp =>
                             kvp.Key.StartsWith("W") ||
-                            kvp.Key.Contains("WIDE") ||
-                            kvp.Key.Contains("FLANGE"))
+                            kvp.Value.Family.Name.ToUpper().Contains("W") ||
+                            kvp.Value.Family.Name.ToUpper().Contains("WIDE") ||
+                            kvp.Value.Family.Name.ToUpper().Contains("FLANGE"))
                             .FirstOrDefault();
 
                         if (wSections.Value != null)
@@ -110,8 +111,8 @@ namespace Revit.Import.Elements
                     case SteelSectionType.HSS:
                         var hssSections = _braceTypes.Where(kvp =>
                             kvp.Key.Contains("HSS") ||
-                            kvp.Key.Contains("TUBE") ||
-                            kvp.Key.Contains("HOLLOW"))
+                            kvp.Value.Family.Name.ToUpper().Contains("HSS") ||
+                            kvp.Value.Family.Name.ToUpper().Contains("HOLLOW"))
                             .FirstOrDefault();
 
                         if (hssSections.Value != null)
@@ -124,7 +125,7 @@ namespace Revit.Import.Elements
                     case SteelSectionType.L:
                         var angleSections = _braceTypes.Where(kvp =>
                             kvp.Key.StartsWith("L") ||
-                            kvp.Key.Contains("ANGLE"))
+                            kvp.Value.Family.Name.ToUpper().Contains("ANGLE"))
                             .FirstOrDefault();
 
                         if (angleSections.Value != null)
@@ -137,7 +138,7 @@ namespace Revit.Import.Elements
                     case SteelSectionType.C:
                         var channelSections = _braceTypes.Where(kvp =>
                             kvp.Key.StartsWith("C") ||
-                            kvp.Key.Contains("CHANNEL"))
+                            kvp.Value.Family.Name.ToUpper().Contains("CHANNEL"))
                             .FirstOrDefault();
 
                         if (channelSections.Value != null)
@@ -149,45 +150,65 @@ namespace Revit.Import.Elements
                 }
             }
 
-            // 3. Check if any steel framing family exists
+            // 3. Check if any steel framing family exists (using StructuralMaterialType)
             if (frameProps != null && frameProps.Type == FrameMaterialType.Steel)
             {
-                // Look for any steel-named family first
-                var steelFamily = _braceTypes.Where(kvp =>
-                    kvp.Value.get_Parameter(DB.BuiltInParameter.STRUCTURAL_MATERIAL_PARAM)?.AsElementId() != DB.ElementId.InvalidElementId)
-                    .FirstOrDefault();
+                var steelFamilies = _braceTypes.Where(kvp =>
+                    kvp.Value.StructuralMaterialType == DB.Structure.StructuralMaterialType.Steel)
+                    .ToList();
 
-                if (steelFamily.Value != null)
+                if (steelFamilies.Any())
                 {
-                    try
-                    {
-                        DB.Parameter materialParam = steelFamily.Value.get_Parameter(DB.BuiltInParameter.STRUCTURAL_MATERIAL_PARAM);
-                        if (materialParam != null && materialParam.HasValue)
-                        {
-                            DB.ElementId materialId = materialParam.AsElementId();
-                            if (materialId != DB.ElementId.InvalidElementId)
-                            {
-                                DB.Material material = _doc.GetElement(materialId) as DB.Material;
-                                if (material != null && material.Name.ToUpper().Contains("STEEL"))
-                                {
-                                    Debug.WriteLine($"Found steel material family: {steelFamily.Value.Name}");
-                                    return steelFamily.Value;
-                                }
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"Error checking material: {ex.Message}");
-                    }
+                    Debug.WriteLine($"Found {steelFamilies.Count} steel families, using first one: {steelFamilies.First().Value.Name}");
+                    return steelFamilies.First().Value;
                 }
             }
 
-            // 4. Fallback to first family found
+            // 4. Smart material fallback - prioritize steel families even when frameProps is missing/incomplete
+            Debug.WriteLine("No frame properties or steel type specified, looking for steel families by material type");
+
+            // Get all steel families
+            var allSteelFamilies = _braceTypes.Where(kvp =>
+                kvp.Value.StructuralMaterialType == DB.Structure.StructuralMaterialType.Steel)
+                .ToList();
+
+            if (allSteelFamilies.Any())
+            {
+                // First try HSS (common for braces)
+                var hssFamily = allSteelFamilies.Where(kvp =>
+                    kvp.Value.Family.Name.ToUpper().Contains("HSS") ||
+                    kvp.Value.Family.Name.ToUpper().Contains("HOLLOW"))
+                    .FirstOrDefault();
+
+                if (hssFamily.Value != null)
+                {
+                    Debug.WriteLine($"Found HSS steel family: {hssFamily.Value.Name}");
+                    return hssFamily.Value;
+                }
+
+                // Then try W sections
+                var wFamily = allSteelFamilies.Where(kvp =>
+                    kvp.Value.Family.Name.ToUpper().Contains("W") ||
+                    kvp.Value.Family.Name.ToUpper().Contains("WIDE") ||
+                    kvp.Value.Family.Name.ToUpper().Contains("FLANGE"))
+                    .FirstOrDefault();
+
+                if (wFamily.Value != null)
+                {
+                    Debug.WriteLine($"Found Wide Flange steel family: {wFamily.Value.Name}");
+                    return wFamily.Value;
+                }
+
+                // Any other steel family
+                Debug.WriteLine($"Found other steel family: {allSteelFamilies.First().Value.Name}");
+                return allSteelFamilies.First().Value;
+            }
+
+            // 5. Final fallback to first family found (could be wood if no steel exists)
             if (_braceTypes.Count > 0)
             {
                 var fallback = _braceTypes.Values.First();
-                Debug.WriteLine($"Using fallback (first available): {fallback.Name}");
+                Debug.WriteLine($"Using final fallback (first available - could be wood): {fallback.Name}");
                 return fallback;
             }
 

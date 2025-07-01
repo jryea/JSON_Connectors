@@ -61,7 +61,7 @@ namespace RAM.Export.ModelLayout
                     Level level = new Level
                     {
                         Id = IdGenerator.Generate(IdGenerator.Layout.LEVEL),
-                        Name = CleanStoryName(ramStory.strLabel),
+                        Name = ramStory.strLabel,
                         FloorTypeId = floorTypeId,
                         Elevation = ConvertFromInches(elevation)
                     };
@@ -132,19 +132,6 @@ namespace RAM.Export.ModelLayout
 
 
 
-        // Removes "Story" prefix if present to normalize names
-        private string CleanStoryName(string storyName)
-        {
-            if (storyName.StartsWith("Story ", StringComparison.OrdinalIgnoreCase))
-            {
-                return storyName.Substring(6).Trim();
-            }
-            else if (storyName.StartsWith("Story", StringComparison.OrdinalIgnoreCase))
-            {
-                return storyName.Substring(5).Trim();
-            }
-            return storyName;
-        }
 
         private double ConvertFromInches(double inches)
         {

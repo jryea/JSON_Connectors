@@ -27,7 +27,7 @@ namespace Revit.Import.Elements
         {
             _braceTypes = new Dictionary<string, DB.FamilySymbol>();
 
-            // Get all structural framing family symbols that could be braces
+            // Get all structural framing family symbols
             DB.FilteredElementCollector collector = new DB.FilteredElementCollector(_doc);
             collector.OfClass(typeof(DB.FamilySymbol));
             collector.OfCategory(DB.BuiltInCategory.OST_StructuralFraming);
@@ -41,102 +41,157 @@ namespace Revit.Import.Elements
                 }
 
                 string key = symbol.Name.ToUpper();
+                string familyName = symbol.Family.Name.ToUpper();
 
-                // Try to identify brace types
-                bool isBrace = symbol.Family.Name.ToUpper().Contains("BRACE") ||
-                               key.Contains("BRACE");
-
-                if (isBrace)
+                if (!_braceTypes.ContainsKey(key))
                 {
-                    if (!_braceTypes.ContainsKey(key))
-                    {
-                        _braceTypes[key] = symbol;
-                    }
+                    _braceTypes[key] = symbol;
                 }
 
                 // Also add by family name + symbol name for more specific matching
                 string combinedKey = $"{symbol.Family.Name}_{symbol.Name}".ToUpper();
-                if (isBrace)
+                if (!_braceTypes.ContainsKey(combinedKey))
                 {
-                    if (!_braceTypes.ContainsKey(combinedKey))
-                    {
-                        _braceTypes[combinedKey] = symbol;
-                    }
+                    _braceTypes[combinedKey] = symbol;
                 }
             }
 
-            Debug.WriteLine($"Loaded {_braceTypes.Count} brace family types");
-
-            // If no brace types were found specifically, use beam types as fallback
-            if (_braceTypes.Count == 0)
-            {
-                // Get all structural framing types for fallback
-                collector = new DB.FilteredElementCollector(_doc);
-                collector.OfClass(typeof(DB.FamilySymbol));
-                collector.OfCategory(DB.BuiltInCategory.OST_StructuralFraming);
-
-                foreach (DB.FamilySymbol symbol in collector)
-                {
-                    if (!symbol.IsActive)
-                    {
-                        try { symbol.Activate(); }
-                        catch { continue; }
-                    }
-
-                    string key = symbol.Name.ToUpper();
-                    if (!_braceTypes.ContainsKey(key))
-                    {
-                        _braceTypes[key] = symbol;
-                    }
-                }
-
-                Debug.WriteLine($"Using fallback: Loaded {_braceTypes.Count} structural framing types for braces");
-            }
+            Debug.WriteLine($"Loaded {_braceTypes.Count} structural framing types for braces");
         }
 
         // Find appropriate brace type based on frame properties
         private DB.FamilySymbol FindBraceType(FrameProperties frameProps)
         {
-            if (frameProps == null || string.IsNullOrEmpty(frameProps.Name))
+            // 1. Check if specified size exists
+            if (frameProps != null && !string.IsNullOrEmpty(frameProps.Name))
             {
-                // Return a default if available
-                if (_braceTypes.Count > 0)
+                string searchName = frameProps.Name.ToUpper();
+
+                // First try exact match
+                if (_braceTypes.ContainsKey(searchName))
                 {
-                    var defaultSymbol = _braceTypes.Values.First();
-                    Debug.WriteLine($"Using default brace type: {defaultSymbol.Name}");
-                    return defaultSymbol;
+                    Debug.WriteLine($"Found exact size match for brace: {frameProps.Name}");
+                    return _braceTypes[searchName];
                 }
-                return null;
-            }
 
-            string searchName = frameProps.Name.ToUpper();
-
-            // First try exact match
-            if (_braceTypes.ContainsKey(searchName))
-            {
-                Debug.WriteLine($"Found exact match for brace type: {frameProps.Name}");
-                return _braceTypes[searchName];
-            }
-
-            // Try partial matches
-            foreach (var kvp in _braceTypes)
-            {
-                if (kvp.Key.Contains(searchName) || searchName.Contains(kvp.Key))
+                // Try partial matches
+                foreach (var kvp in _braceTypes)
                 {
-                    Debug.WriteLine($"Found partial match for brace type: {frameProps.Name} -> {kvp.Value.Name}");
-                    return kvp.Value;
+                    if (kvp.Key.Contains(searchName) || searchName.Contains(kvp.Key))
+                    {
+                        Debug.WriteLine($"Found partial size match for brace: {frameProps.Name} -> {kvp.Value.Name}");
+                        return kvp.Value;
+                    }
                 }
             }
 
-            // Return first available as fallback
+            // 2. Check if SectionType match exists
+            if (frameProps != null && frameProps.Type == FrameMaterialType.Steel && frameProps.SteelProps != null)
+            {
+                var sectionType = frameProps.SteelProps.SectionType;
+                Debug.WriteLine($"Looking for section type match: {sectionType}");
+
+                switch (sectionType)
+                {
+                    case SteelSectionType.W:
+                        var wSections = _braceTypes.Where(kvp =>
+                            kvp.Key.StartsWith("W") ||
+                            kvp.Key.Contains("WIDE") ||
+                            kvp.Key.Contains("FLANGE"))
+                            .FirstOrDefault();
+
+                        if (wSections.Value != null)
+                        {
+                            Debug.WriteLine($"Found Wide Flange section type match: {wSections.Value.Name}");
+                            return wSections.Value;
+                        }
+                        break;
+
+                    case SteelSectionType.HSS:
+                        var hssSections = _braceTypes.Where(kvp =>
+                            kvp.Key.Contains("HSS") ||
+                            kvp.Key.Contains("TUBE") ||
+                            kvp.Key.Contains("HOLLOW"))
+                            .FirstOrDefault();
+
+                        if (hssSections.Value != null)
+                        {
+                            Debug.WriteLine($"Found HSS section type match: {hssSections.Value.Name}");
+                            return hssSections.Value;
+                        }
+                        break;
+
+                    case SteelSectionType.L:
+                        var angleSections = _braceTypes.Where(kvp =>
+                            kvp.Key.StartsWith("L") ||
+                            kvp.Key.Contains("ANGLE"))
+                            .FirstOrDefault();
+
+                        if (angleSections.Value != null)
+                        {
+                            Debug.WriteLine($"Found angle section type match: {angleSections.Value.Name}");
+                            return angleSections.Value;
+                        }
+                        break;
+
+                    case SteelSectionType.C:
+                        var channelSections = _braceTypes.Where(kvp =>
+                            kvp.Key.StartsWith("C") ||
+                            kvp.Key.Contains("CHANNEL"))
+                            .FirstOrDefault();
+
+                        if (channelSections.Value != null)
+                        {
+                            Debug.WriteLine($"Found channel section type match: {channelSections.Value.Name}");
+                            return channelSections.Value;
+                        }
+                        break;
+                }
+            }
+
+            // 3. Check if any steel framing family exists
+            if (frameProps != null && frameProps.Type == FrameMaterialType.Steel)
+            {
+                // Look for any steel-named family first
+                var steelFamily = _braceTypes.Where(kvp =>
+                    kvp.Value.get_Parameter(DB.BuiltInParameter.STRUCTURAL_MATERIAL_PARAM)?.AsElementId() != DB.ElementId.InvalidElementId)
+                    .FirstOrDefault();
+
+                if (steelFamily.Value != null)
+                {
+                    try
+                    {
+                        DB.Parameter materialParam = steelFamily.Value.get_Parameter(DB.BuiltInParameter.STRUCTURAL_MATERIAL_PARAM);
+                        if (materialParam != null && materialParam.HasValue)
+                        {
+                            DB.ElementId materialId = materialParam.AsElementId();
+                            if (materialId != DB.ElementId.InvalidElementId)
+                            {
+                                DB.Material material = _doc.GetElement(materialId) as DB.Material;
+                                if (material != null && material.Name.ToUpper().Contains("STEEL"))
+                                {
+                                    Debug.WriteLine($"Found steel material family: {steelFamily.Value.Name}");
+                                    return steelFamily.Value;
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Error checking material: {ex.Message}");
+                    }
+                }
+            }
+
+            // 4. Fallback to first family found
             if (_braceTypes.Count > 0)
             {
-                var fallbackSymbol = _braceTypes.Values.First();
-                Debug.WriteLine($"No match found for brace type {frameProps.Name}, using fallback: {fallbackSymbol.Name}");
-                return fallbackSymbol;
+                var fallback = _braceTypes.Values.First();
+                Debug.WriteLine($"Using fallback (first available): {fallback.Name}");
+                return fallback;
             }
 
-            Debug.WriteLine($"No brace types available for: {frameProps.Name}");
+            Debug.WriteLine("No structural framing families available for braces");
             return null;
         }
 

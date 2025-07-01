@@ -46,7 +46,7 @@ namespace ETABS.Import.ModelLayout
                 double height = current.Elevation - below.Elevation;
 
                 // Format: STORY "Story3" HEIGHT 120
-                sb.AppendLine($"\tSTORY \"Story{current.Name}\" HEIGHT {height}");
+                sb.AppendLine($"\tSTORY \"{current.Name}\" HEIGHT {height}");
             }
 
             // Add base level with elevation

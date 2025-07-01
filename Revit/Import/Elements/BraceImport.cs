@@ -88,163 +88,102 @@ namespace Revit.Import.Elements
                     {
                         _braceTypes[key] = symbol;
                     }
-
-                    // Also add by family name + symbol name for more specific matching
-                    string combinedKey = $"{symbol.Family.Name}_{symbol.Name}".ToUpper();
-                    if (!_braceTypes.ContainsKey(combinedKey))
-                    {
-                        _braceTypes[combinedKey] = symbol;
-                    }
                 }
 
-                Debug.WriteLine($"No dedicated brace types found, using {_braceTypes.Count} generic structural framing types as fallback");
+                Debug.WriteLine($"Using fallback: Loaded {_braceTypes.Count} structural framing types for braces");
             }
         }
 
         // Find appropriate brace type based on frame properties
-        private DB.FamilySymbol FindBraceType(Core.Models.Properties.FrameProperties frameProps)
+        private DB.FamilySymbol FindBraceType(FrameProperties frameProps)
         {
-            // Try to find an HSS type to use as default since HSS is common for braces
-            DB.FamilySymbol hssType = _braceTypes
-                .Where(kvp => kvp.Key.Contains("HSS"))
-                .Select(kvp => kvp.Value)
-                .FirstOrDefault();
-
-            // If no HSS type found, use the first type available
-            DB.FamilySymbol defaultType = hssType ?? _braceTypes.Values.FirstOrDefault();
-
-            if (frameProps == null)
+            if (frameProps == null || string.IsNullOrEmpty(frameProps.Name))
             {
-                return defaultType;
-            }
-
-            // Try to match by name
-            if (!string.IsNullOrEmpty(frameProps.Name))
-            {
-                string typeName = frameProps.Name.ToUpper();
-                if (_braceTypes.TryGetValue(typeName, out DB.FamilySymbol typeByName))
+                // Return a default if available
+                if (_braceTypes.Count > 0)
                 {
-                    return typeByName;
+                    var defaultSymbol = _braceTypes.Values.First();
+                    Debug.WriteLine($"Using default brace type: {defaultSymbol.Name}");
+                    return defaultSymbol;
                 }
-            }
-
-            // Enhanced section type matching based on SteelProps.SectionType
-            if (frameProps.Type == FrameMaterialType.Steel && frameProps.SteelProps != null)
-            {
-                var sectionType = frameProps.SteelProps.SectionType;
-
-                // Attempt to match family by section type
-                switch (sectionType)
-                {
-                    case SteelSectionType.W:
-                        // Find Wide Flange sections
-                        var wSections = _braceTypes.Where(kvp =>
-                            kvp.Key.StartsWith("W") ||
-                            kvp.Key.Contains("WIDE") ||
-                            kvp.Key.Contains("FLANGE"))
-                            .ToList();
-
-                        if (wSections.Any())
-                            return wSections.First().Value;
-                        break;
-
-                    case SteelSectionType.HSS:
-                        // Find HSS sections - very common for braces
-                        var hssSections = _braceTypes.Where(kvp =>
-                            kvp.Key.Contains("HSS") ||
-                            kvp.Key.Contains("TUBE"))
-                            .ToList();
-
-                        if (hssSections.Any())
-                            return hssSections.First().Value;
-                        break;
-
-                    case SteelSectionType.PIPE:
-                        // Find Pipe sections
-                        var pipeSections = _braceTypes.Where(kvp =>
-                            kvp.Key.Contains("PIPE"))
-                            .ToList();
-
-                        if (pipeSections.Any())
-                            return pipeSections.First().Value;
-                        break;
-
-                    default:
-                        // For other section types, try to find family by section type name
-                        var typeSections = _braceTypes.Where(kvp =>
-                            kvp.Key.Contains(sectionType.ToString()))
-                            .ToList();
-
-                        if (typeSections.Any())
-                            return typeSections.First().Value;
-                        break;
-                }
-
-                // If we still haven't found a match, prioritize HSS sections for braces
-                if (hssType != null)
-                    return hssType;
-            }
-            else if (frameProps.Type == FrameMaterialType.Concrete && frameProps.ConcreteProps != null)
-            {
-                // For concrete braces, try to find a concrete brace type
-                var concreteTypes = _braceTypes.Where(kvp =>
-                    kvp.Key.Contains("CONCRETE") ||
-                    kvp.Key.Contains("CONC"))
-                    .ToList();
-
-                if (concreteTypes.Any())
-                {
-                    return concreteTypes.First().Value;
-                }
-            }
-
-            return defaultType;
-        }
-
-        // Get frame properties for a brace
-        private Core.Models.Properties.FrameProperties GetFrameProperties(
-            string framePropertiesId, BaseModel model)
-        {
-            if (string.IsNullOrEmpty(framePropertiesId) || model?.Properties?.FrameProperties == null)
-            {
                 return null;
             }
 
-            return model.Properties.FrameProperties.FirstOrDefault(fp =>
-                fp.Id == framePropertiesId);
+            string searchName = frameProps.Name.ToUpper();
+
+            // First try exact match
+            if (_braceTypes.ContainsKey(searchName))
+            {
+                Debug.WriteLine($"Found exact match for brace type: {frameProps.Name}");
+                return _braceTypes[searchName];
+            }
+
+            // Try partial matches
+            foreach (var kvp in _braceTypes)
+            {
+                if (kvp.Key.Contains(searchName) || searchName.Contains(kvp.Key))
+                {
+                    Debug.WriteLine($"Found partial match for brace type: {frameProps.Name} -> {kvp.Value.Name}");
+                    return kvp.Value;
+                }
+            }
+
+            // Return first available as fallback
+            if (_braceTypes.Count > 0)
+            {
+                var fallbackSymbol = _braceTypes.Values.First();
+                Debug.WriteLine($"No match found for brace type {frameProps.Name}, using fallback: {fallbackSymbol.Name}");
+                return fallbackSymbol;
+            }
+
+            Debug.WriteLine($"No brace types available for: {frameProps.Name}");
+            return null;
         }
 
-        // Find floor thickness at a specific level
+        // Get frame properties by ID
+        private FrameProperties GetFrameProperties(string framePropertiesId, BaseModel model)
+        {
+            if (string.IsNullOrEmpty(framePropertiesId) || model?.Properties?.FrameProperties == null)
+                return null;
+
+            return model.Properties.FrameProperties.FirstOrDefault(fp => fp.Id == framePropertiesId);
+        }
+
+        // Helper method to get floor thickness at a specific level
         private double GetFloorThicknessAtLevel(string levelId, BaseModel model)
         {
             try
             {
-                if (string.IsNullOrEmpty(levelId) || model?.Elements?.Floors == null)
-                    return 0;
+                // Default thickness in feet if no floor found
+                double defaultThickness = 0.75; // 9 inches converted to feet
 
-                // Find floors at this level
-                var floors = model.Elements.Floors.Where(f => f.LevelId == levelId).ToList();
-                if (!floors.Any())
-                    return 0;
+                if (model?.Elements?.Floors != null)
+                {
+                    var floorsAtLevel = model.Elements.Floors.Where(f => f.LevelId == levelId);
+                    if (floorsAtLevel.Any())
+                    {
+                        // Get the floor properties to determine thickness
+                        var firstFloor = floorsAtLevel.First();
+                        if (!string.IsNullOrEmpty(firstFloor.FloorPropertiesId) &&
+                            model.Properties?.FloorProperties != null)
+                        {
+                            var floorProps = model.Properties.FloorProperties.FirstOrDefault(
+                                fp => fp.Id == firstFloor.FloorPropertiesId);
+                            if (floorProps != null)
+                            {
+                                // Convert thickness from inches to feet
+                                return floorProps.Thickness / 12.0;
+                            }
+                        }
+                    }
+                }
 
-                // Get the floor properties for the first floor at this level
-                var floor = floors.First();
-                if (string.IsNullOrEmpty(floor.FloorPropertiesId) || model.Properties?.FloorProperties == null)
-                    return 0;
-
-                var floorProps = model.Properties.FloorProperties
-                    .FirstOrDefault(fp => fp.Id == floor.FloorPropertiesId);
-
-                if (floorProps == null)
-                    return 0;
-
-                // Return thickness in feet (convert from model units which are usually inches)
-                return floorProps.Thickness / 12.0;
+                return defaultThickness;
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error getting floor thickness: {ex.Message}");
-                return 0; // Return zero thickness on error
+                return 0.75; // Return default thickness on error
             }
         }
 
@@ -336,11 +275,18 @@ namespace Revit.Import.Elements
                     double baseElevation = baseLevel.ProjectElevation;
                     double topElevation = topLevel.ProjectElevation;
 
+                    // Calculate floor thickness at the top level and adjust top elevation
+                    double floorThickness = GetFloorThicknessAtLevel(jsonBrace.TopLevelId, model);
+                    double topOffset = -floorThickness; // Negative to position below the floor
+                    double adjustedTopElevation = topElevation + topOffset;
+
+                    Debug.WriteLine($"Brace {jsonBrace.Id}: Base elevation: {baseElevation:F3}, Top elevation: {topElevation:F3}, Floor thickness: {floorThickness:F3}, Adjusted top elevation: {adjustedTopElevation:F3}");
+
                     // Convert the 2D points to 3D points with correct Z coordinates
                     DB.XYZ basePoint = Helpers.ConvertToRevitCoordinates(jsonBrace.StartPoint, baseElevation);
-                    DB.XYZ topPoint = Helpers.ConvertToRevitCoordinates(jsonBrace.EndPoint, topElevation);
+                    DB.XYZ topPoint = Helpers.ConvertToRevitCoordinates(jsonBrace.EndPoint, adjustedTopElevation);
 
-                    // Create the line from bottom to top
+                    // Create the line from bottom to top with adjusted top elevation
                     DB.Line braceLine = DB.Line.CreateBound(basePoint, topPoint);
 
                     // Ensure the points are not too close
@@ -373,18 +319,6 @@ namespace Revit.Import.Elements
                         {
                             topLevelParam.Set(topLevelId);
                             Debug.WriteLine($"Brace {jsonBrace.Id}: Top level set successfully");
-                        }
-
-                        // Calculate top offset based on floor thickness at the top level
-                        double floorThickness = GetFloorThicknessAtLevel(jsonBrace.TopLevelId, model);
-                        double topOffset = -floorThickness; // Negative to position below the floor
-
-                        // Set top offset
-                        DB.Parameter topOffsetParam = brace.get_Parameter(DB.BuiltInParameter.FAMILY_TOP_LEVEL_OFFSET_PARAM);
-                        if (topOffsetParam != null && !topOffsetParam.IsReadOnly)
-                        {
-                            topOffsetParam.Set(topOffset);
-                            Debug.WriteLine($"Brace {jsonBrace.Id}: Top offset of {topOffset} feet applied");
                         }
                     }
                     catch (Exception paramEx)

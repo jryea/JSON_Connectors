@@ -157,6 +157,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="App.cs" />
+    <Compile Include="Controls\IMEGWindowLayout.xaml.cs">
+      <DependentUpon>IMEGWindowLayout.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Export\CADExporter.cs" />
     <Compile Include="Export\Elements\BeamExport.cs" />
     <Compile Include="Export\Elements\BraceExport.cs" />
@@ -259,6 +262,10 @@
   </ItemGroup>
   <ItemGroup />
   <ItemGroup>
+    <Page Include="Controls\IMEGWindowLayout.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="Views\ImportStructuralModelWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>

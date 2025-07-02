@@ -21,6 +21,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ModelDebugger", "ModelDebug
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RAMWorker", "RAMWorker\RAMWorker.csproj", "{035FD9CE-B762-40E2-83E9-49A51343B529}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WPF.Shared", "WPF.Shared\WPF.Shared.csproj", "{2F77F533-2AC2-4772-8C27-8CFB6AB47164}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -63,6 +65,10 @@ Global
 		{035FD9CE-B762-40E2-83E9-49A51343B529}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{035FD9CE-B762-40E2-83E9-49A51343B529}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{035FD9CE-B762-40E2-83E9-49A51343B529}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2F77F533-2AC2-4772-8C27-8CFB6AB47164}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2F77F533-2AC2-4772-8C27-8CFB6AB47164}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2F77F533-2AC2-4772-8C27-8CFB6AB47164}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2F77F533-2AC2-4772-8C27-8CFB6AB47164}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -1,0 +1,50 @@
+﻿<Window x:Class="WPF.Shared.Controls.IMEGWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{Binding WindowTitle}"
+        Height="{Binding WindowHeight, FallbackValue=600}"
+        Width="{Binding WindowWidth, FallbackValue=800}"
+        WindowStartupLocation="CenterOwner"
+        Style="{StaticResource IMEGWindowStyle}">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <!-- Header -->
+            <RowDefinition Height="*"/>
+            <!-- Main Content -->
+            <RowDefinition Height="Auto"/>
+            <!-- Footer/Buttons -->
+        </Grid.RowDefinitions>
+
+        <!-- Header with IMEG branding -->
+        <Border Grid.Row="0" Background="{StaticResource PrimaryBlue}" Height="60">
+            <Grid>
+                <TextBlock Style="{StaticResource IMEG_Title}" 
+                          Text="{Binding HeaderTitle}"/>
+                <StackPanel Orientation="Horizontal" 
+                           HorizontalAlignment="Right" 
+                           VerticalAlignment="Center" 
+                           Margin="20,0">
+                    <!-- Company logo, help button, etc. -->
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Main content area -->
+        <ScrollViewer Grid.Row="1" 
+                     VerticalScrollBarVisibility="Auto" 
+                     Padding="20">
+            <ContentPresenter Content="{Binding MainContent}"/>
+        </ScrollViewer>
+
+        <!-- Footer with standard buttons -->
+        <Border Grid.Row="2" 
+               Background="{StaticResource LightGray}" 
+               BorderBrush="#CCCCCC" 
+               BorderThickness="0,1,0,0">
+            <ContentPresenter Content="{Binding FooterContent}" 
+                            Margin="20,10"/>
+        </Border>
+    </Grid>
+</Window>

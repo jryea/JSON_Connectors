@@ -14,7 +14,6 @@ namespace ETABS.Import.Elements.AreaAssignment
         private List<Floor> _floors;
         private IEnumerable<Level> _levels;
         private IEnumerable<FloorProperties> _floorProperties;
-        private readonly HashSet<string> _validStoryNames;
 
         // Sets the data needed for converting floor assignments
         public void SetData(
@@ -53,7 +52,12 @@ namespace ETABS.Import.Elements.AreaAssignment
                 {
                     var properties = _floorProperties.FirstOrDefault(p => p.Id == floor.FloorPropertiesId);
                     if (properties != null)
+                    {
                         propertyName = properties.Name;
+                        // Apply the same inch symbol replacement as FloorPropertiesImport
+                        // Replace Unicode representation of double quote (\u0022) with "inch" to match property names
+                        propertyName = propertyName.Replace("\u0022", " inch");
+                    }
                 }
 
                 // Find diaphragm assignment

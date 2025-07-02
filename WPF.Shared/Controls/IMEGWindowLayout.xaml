@@ -1,11 +1,14 @@
-﻿<Window x:Class="WPF.Shared.Controls.IMEGWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="{Binding WindowTitle}"
-        Height="{Binding WindowHeight, FallbackValue=600}"
-        Width="{Binding WindowWidth, FallbackValue=800}"
-        WindowStartupLocation="CenterOwner"
-        Style="{StaticResource IMEGWindowStyle}">
+﻿<UserControl x:Class="WPF.Shared.Controls.IMEGWindowLayout"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/WPF.Shared;component/Styles/CommonStyles.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
 
     <Grid>
         <Grid.RowDefinitions>
@@ -47,4 +50,4 @@
                             Margin="20,10"/>
         </Border>
     </Grid>
-</Window>
+</>

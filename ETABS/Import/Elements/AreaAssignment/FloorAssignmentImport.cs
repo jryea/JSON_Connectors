@@ -14,6 +14,7 @@ namespace ETABS.Import.Elements.AreaAssignment
         private List<Floor> _floors;
         private IEnumerable<Level> _levels;
         private IEnumerable<FloorProperties> _floorProperties;
+        private readonly HashSet<string> _validStoryNames;
 
         // Sets the data needed for converting floor assignments
         public void SetData(

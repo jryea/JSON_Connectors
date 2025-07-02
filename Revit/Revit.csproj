@@ -157,9 +157,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="App.cs" />
-    <Compile Include="Controls\IMEGWindowLayout.xaml.cs">
-      <DependentUpon>IMEGWindowLayout.xaml</DependentUpon>
-    </Compile>
     <Compile Include="Export\CADExporter.cs" />
     <Compile Include="Export\Elements\BeamExport.cs" />
     <Compile Include="Export\Elements\BraceExport.cs" />
@@ -255,6 +252,10 @@
       <Project>{c3848f4a-add2-4fd4-bdb7-ee9eb89bf5c3}</Project>
       <Name>RAM</Name>
     </ProjectReference>
+    <ProjectReference Include="..\WPF.Shared\WPF.Shared.csproj">
+      <Project>{2f77f533-2ac2-4772-8c27-8cfb6ab47164}</Project>
+      <Name>WPF.Shared</Name>
+    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />
@@ -262,10 +263,6 @@
   </ItemGroup>
   <ItemGroup />
   <ItemGroup>
-    <Page Include="Controls\IMEGWindowLayout.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
     <Page Include="Views\ImportStructuralModelWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>

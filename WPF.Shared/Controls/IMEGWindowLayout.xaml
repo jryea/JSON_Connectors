@@ -1,56 +1,61 @@
-﻿<UserControl x:Class="WPF.Shared.Controls.IMEGWindowLayout"
-             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+﻿<UserControl x:Class="WPF.Shared.Controls.IMEGWindowLayout"  
+            xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"  
+            xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <UserControl.Resources>
-        <ResourceDictionary Source="pack://application:,,,/WPF.Shared;component/Styles/CommonStyles.xaml"/>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <!-- Updated the pack URI to ensure proper resolution -->
+                <ResourceDictionary Source="pack://application:,,,/Styles/CommonStyles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
     </UserControl.Resources>
 
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="60"/>
-            <!-- Title Bar -->
-            <RowDefinition Height="30"/>
-            <!-- Accent Bar -->
-            <RowDefinition Height="*"/>
-            <!-- Content -->
-            <RowDefinition Height="Auto"/>
-            <!-- Buttons -->
-        </Grid.RowDefinitions>
+    <Grid>  
+       <Grid.RowDefinitions>  
+           <RowDefinition Height="60"/>  
+           <!-- Title Bar -->  
+           <RowDefinition Height="30"/>  
+           <!-- Accent Bar -->  
+           <RowDefinition Height="*"/>  
+           <!-- Content -->  
+           <RowDefinition Height="Auto"/>  
+           <!-- Buttons -->  
+       </Grid.RowDefinitions>  
 
-        <!-- Blue Title Bar -->
-        <Grid Background="{StaticResource PrimaryBlue}" Grid.Row="0">
-            <TextBlock Style="{StaticResource IMEG_Title}" 
-                      Text="{Binding WindowTitle, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
-        </Grid>
+       <!-- Blue Title Bar -->  
+       <Grid Background="{StaticResource PrimaryBlue}" Grid.Row="0">  
+           <TextBlock Style="{StaticResource IMEG_Title}"   
+                     Text="{Binding WindowTitle, RelativeSource={RelativeSource AncestorType=UserControl}}"/>  
+       </Grid>  
 
-        <!-- Green Accent Bar -->
-        <StackPanel Height="30" Grid.Row="1" FlowDirection="RightToLeft">
-            <StackPanel.Background>
-                <LinearGradientBrush StartPoint="-2,0" EndPoint="1,1">
-                    <GradientStop Color="White" Offset="0.7" />
-                    <GradientStop Color="{Binding Source={StaticResource AccentGreen}, Path=Color}" Offset="1.0" />
-                </LinearGradientBrush>
-            </StackPanel.Background>
-        </StackPanel>
+       <!-- Green Accent Bar -->  
+       <StackPanel Height="30" Grid.Row="1" FlowDirection="RightToLeft">  
+           <StackPanel.Background>  
+               <LinearGradientBrush StartPoint="-2,0" EndPoint="1,1">  
+                   <GradientStop Color="White" Offset="0.7" />  
+                   <GradientStop Color="{Binding Source={StaticResource AccentGreen}, Path=Color}" Offset="1.0" />  
+               </LinearGradientBrush>  
+           </StackPanel.Background>  
+       </StackPanel>  
 
-        <!-- Content Area -->
-        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Margin="15">
-            <ContentPresenter Content="{Binding MainContent, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
-        </ScrollViewer>
+       <!-- Content Area -->  
+       <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Margin="15">  
+           <ContentPresenter Content="{Binding MainContent, RelativeSource={RelativeSource AncestorType=UserControl}}"/>  
+       </ScrollViewer>  
 
-        <!-- Button Area -->
-        <Grid Grid.Row="3" Background="White" Margin="15,0,15,15">
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
-                <Button Content="{Binding PrimaryButtonText, RelativeSource={RelativeSource AncestorType=UserControl}}" 
-                       Command="{Binding PrimaryCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                       Style="{StaticResource PrimaryButton}" 
-                       Width="100" Height="30" Margin="0,0,10,0"/>
-                <Button Content="Cancel" 
-                       Command="{Binding CancelCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                       Style="{StaticResource SecondaryButton}" 
-                       Width="100" Height="30"/>
-            </StackPanel>
-        </Grid>
-    </Grid>
+       <!-- Button Area -->  
+       <Grid Grid.Row="3" Background="White" Margin="15,0,15,15">  
+           <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">  
+               <Button Content="{Binding PrimaryButtonText, RelativeSource={RelativeSource AncestorType=UserControl}}"   
+                      Command="{Binding PrimaryCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"  
+                      Style="{StaticResource PrimaryButton}"   
+                      Width="100" Height="30" Margin="0,0,10,0"/>  
+               <Button Content="Cancel"   
+                      Command="{Binding CancelCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"  
+                      Style="{StaticResource SecondaryButton}"   
+                      Width="100" Height="30"/>  
+           </StackPanel>  
+       </Grid>  
+   </Grid>  
 </UserControl>

@@ -6,6 +6,15 @@
         Style="{StaticResource IMEGWindowStyle}"
         Height="600" Width="800">
 
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/WPF.Shared;component/Styles/CommonStyles.xaml"/>
+                <ResourceDictionary Source="pack://application:,,,/WPF.Shared;component/Styles/WindowTemplates.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+    
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>

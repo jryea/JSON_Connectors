@@ -156,10 +156,10 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <Page Include="App.xaml">
-      <SubType>Designer</SubType>
-      <Generator>XamlIntelliSenseFileGenerator</Generator>
-    </Page>
+	  <ApplicationDefinition Include="App.xaml">
+		  <Generator>MSBuild:Compile</Generator>
+		  <SubType>Designer</SubType>
+	  </ApplicationDefinition>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

@@ -2,170 +2,163 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:Revit.ViewModels"
-        xmlns:shared="clr-namespace:WPF.Shared.Controls;assembly=WPF.Shared"
-        Title="Export Structural Model" Height="700" Width="800"
+        Title="Export Structural Model"
+        Style="{StaticResource IMEGWindowStyle}"
+        Height="700" Width="800"
         WindowStartupLocation="CenterScreen">
 
     <Window.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="pack://application:,,,/WPF.Shared;component/Styles/CommonStyles.xaml"/>
+                <ResourceDictionary Source="pack://application:,,,/WPF.Shared;component/Styles/WindowTemplates.xaml"/>
             </ResourceDictionary.MergedDictionaries>
 
-            <!-- Only converters specific to this window -->
             <BooleanToVisibilityConverter x:Key="BoolToVis"/>
             <vm:InverseBooleanConverter x:Key="InverseBoolConverter"/>
             <vm:BoolToOpacityConverter x:Key="BoolToOpacity"/>
         </ResourceDictionary>
     </Window.Resources>
 
-    <shared:IMEGWindowLayout WindowTitle="Export Structural Model"
-                            PrimaryButtonText="Export"
-                            PrimaryCommand="{Binding ExportCommand}"
-                            CancelCommand="{Binding CancelCommand}">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <!-- Export Options & Output File -->
+            <RowDefinition Height="Auto"/>
+            <!-- Base Level & Model Rotation -->
+            <RowDefinition Height="Auto"/>
+            <!-- Elements to Export -->
+            <RowDefinition Height="Auto"/>
+            <!-- Level Export -->
+            <RowDefinition Height="Auto"/>
+            <!-- View Plans (Grasshopper only) -->
+        </Grid.RowDefinitions>
 
-        <shared:IMEGWindowLayout.MainContent>
+        <!-- Export Format & Output File -->
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Export Format -->
+            <GroupBox Grid.Column="0" Header="Export Format" Margin="0,0,10,0">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="10">
+                    <RadioButton Content="ETABS" IsChecked="{Binding ExportToETABS}" 
+                               GroupName="ExportFormat" Margin="0,0,15,0"/>
+                    <RadioButton Content="RAM SS" IsChecked="{Binding ExportToRAM}" 
+                               GroupName="ExportFormat" Margin="0,0,15,0"/>
+                    <RadioButton Content="Grasshopper" IsChecked="{Binding ExportToGrasshopper}" 
+                               GroupName="ExportFormat"/>
+                </StackPanel>
+            </GroupBox>
+
+            <!-- Output File -->
+            <GroupBox Grid.Column="1" Header="Output File" Margin="10,0,0,0">
+                <Grid Margin="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox Grid.Column="0" Text="{Binding OutputLocation, UpdateSourceTrigger=PropertyChanged}"
+                            Margin="0,0,10,0" Height="30" VerticalContentAlignment="Center"/>
+                    <Button Grid.Column="1" Content="Browse..." 
+                           Command="{Binding BrowseOutputCommand}"
+                           Style="{StaticResource SecondaryButton}" 
+                           Width="80" Height="30"/>
+                </Grid>
+            </GroupBox>
+        </Grid>
+
+        <!-- Base Level & Model Rotation -->
+        <Grid Grid.Row="1" Margin="0,15,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Base Level -->
+            <GroupBox Grid.Column="0" Header="Base Level" Margin="0,0,10,0">
+                <ComboBox Margin="10" ItemsSource="{Binding LevelCollection}" 
+                         SelectedItem="{Binding SelectedBaseLevel}" 
+                         DisplayMemberPath="Name"/>
+            </GroupBox>
+
+            <!-- Model Rotation -->
+            <GroupBox Grid.Column="1" Header="Model Rotation" Margin="10,0,0,0">
+                <StackPanel Orientation="Horizontal" Margin="10">
+                    <TextBlock Text="Angle (degrees):" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <TextBox Text="{Binding ModelRotationAngle}" Width="60" VerticalAlignment="Center"/>
+                </StackPanel>
+            </GroupBox>
+        </Grid>
+
+        <!-- Elements to Export -->
+        <GroupBox Grid.Row="2" Header="Elements to Export" Margin="0,15,0,0">
+            <StackPanel Orientation="Horizontal" Margin="10">
+                <CheckBox Content="Beams" IsChecked="{Binding ExportBeams}" Margin="0,0,20,0"/>
+                <CheckBox Content="Columns" IsChecked="{Binding ExportColumns}" Margin="0,0,20,0"/>
+                <CheckBox Content="Braces" IsChecked="{Binding ExportBraces}" Margin="0,0,20,0"/>
+                <CheckBox Content="Walls" IsChecked="{Binding ExportWalls}" Margin="0,0,20,0"/>
+                <CheckBox Content="Floors" IsChecked="{Binding ExportFloors}" Margin="0,0,20,0"/>
+                <CheckBox Content="Footings" IsChecked="{Binding ExportFootings}"/>
+            </StackPanel>
+        </GroupBox>
+
+        <!-- Level Export -->
+        <GroupBox Grid.Row="3" Header="Levels" Margin="0,15,0,0">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
-                    <!-- Export Options & Output File -->
-                    <RowDefinition Height="Auto"/>
-                    <!-- Base Level & Model Rotation -->
-                    <RowDefinition Height="Auto"/>
-                    <!-- Elements to Export -->
-                    <RowDefinition Height="Auto"/>
-                    <!-- Level Export -->
-                    <RowDefinition Height="Auto"/>
-                    <!-- View Plans (Grasshopper only) -->
+                    <RowDefinition Height="200"/>
                 </Grid.RowDefinitions>
 
-                <!-- Export Format & Output File -->
-                <Grid Grid.Row="0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
+                <StackPanel Orientation="Horizontal" Margin="10,10,10,5">
+                    <CheckBox Content="Select All" Command="{Binding SelectAllLevelsCommand}" Margin="0,0,20,0"/>
+                    <CheckBox Content="Select None" Command="{Binding SelectNoLevelsCommand}"/>
+                </StackPanel>
 
-                    <!-- Export Format -->
-                    <GroupBox Grid.Column="0" Header="Export Format" Margin="0,0,10,0">
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="10">
-                            <RadioButton Content="ETABS" IsChecked="{Binding ExportToETABS}" 
-                                       GroupName="ExportFormat" Margin="0,0,15,0"/>
-                            <RadioButton Content="RAM SS" IsChecked="{Binding ExportToRAM}" 
-                                       GroupName="ExportFormat" Margin="0,0,15,0"/>
-                            <RadioButton Content="Grasshopper" IsChecked="{Binding ExportToGrasshopper}" 
-                                       GroupName="ExportFormat"/>
-                        </StackPanel>
-                    </GroupBox>
-
-                    <!-- Output File -->
-                    <GroupBox Grid.Column="1" Header="Output File" Margin="10,0,0,0">
-                        <Grid Margin="10">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBox Grid.Column="0" Text="{Binding OutputLocation, UpdateSourceTrigger=PropertyChanged}"
-                                    Margin="0,0,10,0" Height="30" VerticalContentAlignment="Center"/>
-                            <Button Grid.Column="1" Content="Browse..." 
-                                   Command="{Binding BrowseOutputCommand}"
-                                   Style="{StaticResource SecondaryButton}" 
-                                   Width="80" Height="30"/>
-                        </Grid>
-                    </GroupBox>
-                </Grid>
-
-                <!-- Base Level & Model Rotation -->
-                <Grid Grid.Row="1" Margin="0,15,0,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-
-                    <!-- Base Level -->
-                    <GroupBox Grid.Column="0" Header="Base Level" Margin="0,0,10,0">
-                        <ComboBox Margin="10" ItemsSource="{Binding LevelCollection}" 
-                                 SelectedItem="{Binding SelectedBaseLevel}" 
-                                 DisplayMemberPath="Name"/>
-                    </GroupBox>
-
-                    <!-- Model Rotation -->
-                    <GroupBox Grid.Column="1" Header="Model Rotation" Margin="10,0,0,0">
-                        <StackPanel Orientation="Horizontal" Margin="10">
-                            <TextBlock Text="Angle (degrees):" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                            <TextBox Text="{Binding ModelRotationAngle}" Width="60" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </GroupBox>
-                </Grid>
-
-                <!-- Elements to Export -->
-                <GroupBox Grid.Row="2" Header="Elements to Export" Margin="0,15,0,0">
-                    <StackPanel Orientation="Horizontal" Margin="10">
-                        <CheckBox Content="Beams" IsChecked="{Binding ExportBeams}" Margin="0,0,20,0"/>
-                        <CheckBox Content="Columns" IsChecked="{Binding ExportColumns}" Margin="0,0,20,0"/>
-                        <CheckBox Content="Braces" IsChecked="{Binding ExportBraces}" Margin="0,0,20,0"/>
-                        <CheckBox Content="Walls" IsChecked="{Binding ExportWalls}" Margin="0,0,20,0"/>
-                        <CheckBox Content="Floors" IsChecked="{Binding ExportFloors}" Margin="0,0,20,0"/>
-                        <CheckBox Content="Footings" IsChecked="{Binding ExportFootings}"/>
-                    </StackPanel>
-                </GroupBox>
-
-                <!-- Level Export -->
-                <GroupBox Grid.Row="3" Header="Levels" Margin="0,15,0,0">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="200"/>
-                        </Grid.RowDefinitions>
-
-                        <StackPanel Orientation="Horizontal" Margin="10,10,10,5">
-                            <CheckBox Content="Select All" Command="{Binding SelectAllLevelsCommand}" Margin="0,0,20,0"/>
-                            <CheckBox Content="Select None" Command="{Binding SelectNoLevelsCommand}"/>
-                        </StackPanel>
-
-                        <DataGrid Grid.Row="1" AutoGenerateColumns="False" Margin="10"
-                                 ItemsSource="{Binding LevelCollection}" 
-                                 RowStyle="{StaticResource LevelDataGridRowStyle}"
-                                 CanUserAddRows="False" CanUserDeleteRows="False">
-                            <DataGrid.Columns>
-                                <DataGridCheckBoxColumn Header="Export" Binding="{Binding IsSelected}" Width="60"/>
-                                <DataGridTextColumn Header="Level Name" Binding="{Binding Name}" Width="150" IsReadOnly="True"/>
-                                <DataGridTextColumn Header="Elevation" Binding="{Binding Elevation, StringFormat=F2}" Width="100" IsReadOnly="True"/>
-                                <DataGridTemplateColumn Header="Floor Type" Width="*">
-                                    <DataGridTemplateColumn.CellTemplate>
-                                        <DataTemplate>
-                                            <ComboBox ItemsSource="{Binding DataContext.FloorTypeCollection, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                     SelectedItem="{Binding SelectedFloorType, UpdateSourceTrigger=PropertyChanged}"
-                                                     DisplayMemberPath="Name" Margin="2"/>
-                                        </DataTemplate>
-                                    </DataGridTemplateColumn.CellTemplate>
-                                </DataGridTemplateColumn>
-                            </DataGrid.Columns>
-                        </DataGrid>
-                    </Grid>
-                </GroupBox>
-
-                <!-- View Plans for CAD Export (Grasshopper only) -->
-                <GroupBox Grid.Row="4" Header="Plan Views for CAD Export" Margin="0,15,0,0"
-                          Visibility="{Binding ExportToGrasshopper, Converter={StaticResource BoolToVis}}">
-                    <DataGrid AutoGenerateColumns="False" Height="200" Margin="10"
-                             ItemsSource="{Binding FloorTypeViewMappingCollection}"
-                             CanUserAddRows="False" CanUserDeleteRows="False">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="Floor Type" Binding="{Binding FloorTypeName}" Width="150"/>
-                            <DataGridTemplateColumn Header="View Plan" Width="*">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <ComboBox ItemsSource="{Binding DataContext.ViewPlanCollection, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                 SelectedItem="{Binding SelectedViewPlan, UpdateSourceTrigger=PropertyChanged}"
-                                                 DisplayMemberPath="Name" Margin="2"/>
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-                        </DataGrid.Columns>
-                    </DataGrid>
-                </GroupBox>
+                <DataGrid Grid.Row="1" AutoGenerateColumns="False" Margin="10"
+                         ItemsSource="{Binding LevelCollection}" 
+                         RowStyle="{StaticResource LevelDataGridRowStyle}"
+                         CanUserAddRows="False" CanUserDeleteRows="False">
+                    <DataGrid.Columns>
+                        <DataGridCheckBoxColumn Header="Export" Binding="{Binding IsSelected}" Width="60"/>
+                        <DataGridTextColumn Header="Level Name" Binding="{Binding Name}" Width="150" IsReadOnly="True"/>
+                        <DataGridTextColumn Header="Elevation" Binding="{Binding Elevation, StringFormat=F2}" Width="100" IsReadOnly="True"/>
+                        <DataGridTemplateColumn Header="Floor Type" Width="*">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <ComboBox ItemsSource="{Binding DataContext.FloorTypeCollection, RelativeSource={RelativeSource AncestorType=Window}}"
+                                             SelectedItem="{Binding SelectedFloorType, UpdateSourceTrigger=PropertyChanged}"
+                                             DisplayMemberPath="Name" Margin="2"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
             </Grid>
-        </shared:IMEGWindowLayout.MainContent>
-    </shared:IMEGWindowLayout>
+        </GroupBox>
+
+        <!-- View Plans for CAD Export (Grasshopper only) -->
+        <GroupBox Grid.Row="4" Header="Plan Views for CAD Export" Margin="0,15,0,0"
+                  Visibility="{Binding ExportToGrasshopper, Converter={StaticResource BoolToVis}}">
+            <DataGrid AutoGenerateColumns="False" Height="200" Margin="10"
+                     ItemsSource="{Binding FloorTypeViewMappingCollection}"
+                     CanUserAddRows="False" CanUserDeleteRows="False">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Floor Type" Binding="{Binding FloorTypeName}" Width="150"/>
+                    <DataGridTemplateColumn Header="View Plan" Width="*">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <ComboBox ItemsSource="{Binding DataContext.ViewPlanCollection, RelativeSource={RelativeSource AncestorType=Window}}"
+                                         SelectedItem="{Binding SelectedViewPlan, UpdateSourceTrigger=PropertyChanged}"
+                                         DisplayMemberPath="Name" Margin="2"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+        </GroupBox>
+    </Grid>
 </Window>

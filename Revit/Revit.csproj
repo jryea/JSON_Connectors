@@ -223,9 +223,6 @@
     <Compile Include="Views\ExportStructuralModelWindow.xaml.cs">
       <DependentUpon>ExportStructuralModelWindow.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Views\ExportGrasshopperWindow.xaml.cs">
-      <DependentUpon>ExportGrasshopperWindow.xaml</DependentUpon>
-    </Compile>
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Properties\Resources.resx">
@@ -268,10 +265,6 @@
       <SubType>Designer</SubType>
     </Page>
     <Page Include="Views\ExportStructuralModelWindow.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="Views\ExportGrasshopperWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>

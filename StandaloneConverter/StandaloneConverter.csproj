@@ -155,7 +155,7 @@
       <Name>RAM</Name>
     </ProjectReference>
     <ProjectReference Include="..\WPF.Shared\WPF.Shared.csproj">
-      <Project>{2f77f533-2ac2-4772-8c27-8cfb6ab47164}</Project>
+      <Project>{5f53299a-24d8-4110-9fa7-1dd30d0b5c45}</Project>
       <Name>WPF.Shared</Name>
     </ProjectReference>
   </ItemGroup>

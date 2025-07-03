@@ -2,160 +2,202 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:Revit.ViewModels"
-        xmlns:shared="clr-namespace:WPF.Shared.Controls;assembly=WPF.Shared"
-        Title="Import Structural Model" Height="700" Width="800"
+        Title="Import Structural Model"
+        Style="{StaticResource IMEGWindowStyle}"
+        Height="700" Width="800"
         WindowStartupLocation="CenterScreen">
 
     <Window.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="pack://application:,,,/WPF.Shared;component/Styles/CommonStyles.xaml"/>
+                <ResourceDictionary Source="pack://application:,,,/WPF.Shared;component/Styles/WindowTemplates.xaml"/>
             </ResourceDictionary.MergedDictionaries>
 
-            <!-- Only converters specific to this window -->
             <BooleanToVisibilityConverter x:Key="BoolToVis"/>
             <vm:InverseBooleanConverter x:Key="InverseBoolConverter"/>
             <vm:BoolToOpacityConverter x:Key="BoolToOpacity"/>
         </ResourceDictionary>
     </Window.Resources>
 
-    <shared:IMEGWindowLayout WindowTitle="Import Structural Model"
-                            PrimaryButtonText="Import"
-                            PrimaryCommand="{Binding ImportCommand}"
-                            CancelCommand="{Binding CancelCommand}">
+    <Window.DataContext>
+        <vm:ImportStructuralModelViewModel/>
+    </Window.DataContext>
 
-        <shared:IMEGWindowLayout.MainContent>
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <!-- Import Options & Input File -->
-                    <RowDefinition Height="Auto"/>
-                    <!-- Model Transformation -->
-                    <RowDefinition Height="Auto"/>
-                    <!-- Elements to Import -->
-                </Grid.RowDefinitions>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <!-- Import Options & Input File -->
+            <RowDefinition Height="Auto"/>
+            <!-- Model Transformation (full width) -->
+            <RowDefinition Height="Auto"/>
+            <!-- Elements to Import -->
+        </Grid.RowDefinitions>
 
-                <!-- Import Options & Input File -->
-                <Grid Grid.Row="0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
+        <!-- Import Options & Input File -->
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
 
-                    <!-- Left Column: Import Format and Input File -->
-                    <StackPanel Grid.Column="0" Margin="0,0,10,0">
-                        <!-- Import Format -->
-                        <GroupBox Header="Import Format" Margin="0,0,0,15">
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="10">
-                                <RadioButton Content="ETABS" IsChecked="{Binding ImportFromETABS}" 
-                                           GroupName="ImportFormat" Margin="0,0,15,0"/>
-                                <RadioButton Content="RAM SS" IsChecked="{Binding ImportFromRAM}" 
-                                           GroupName="ImportFormat" Margin="0,0,15,0"/>
-                                <RadioButton Content="JSON" IsChecked="{Binding ImportFromJSON}" 
-                                           GroupName="ImportFormat"/>
+            <!-- Left Column: Import Format and Input File -->
+            <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                <!-- Import Format -->
+                <GroupBox Header="Import Format" Margin="0,0,0,15">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                        <RadioButton Content="ETABS" Margin="0,0,15,0" IsChecked="{Binding ImportFromETABS}"/>
+                        <RadioButton Content="RAM SS" Margin="0,0,15,0" IsChecked="{Binding ImportFromRAM}"/>
+                        <RadioButton Content="Grasshopper" Margin="0,0,0,0" IsChecked="{Binding ImportFromGrasshopper}"/>
+                    </StackPanel>
+                </GroupBox>
+
+                <!-- Input File -->
+                <GroupBox Header="Input File">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="structuralInputLocation" Text="{Binding InputLocation, UpdateSourceTrigger=PropertyChanged}"
+                            Grid.Column="0" Margin="0,0,10,0" Height="30" VerticalContentAlignment="Center"
+                            ToolTip="Path to the import file" />
+                        <Button Content="Browse..." Command="{Binding BrowseInputCommand}"
+                            Style="{StaticResource SecondaryButton}" Grid.Column="1" Width="80" Height="30"/>
+                    </Grid>
+                </GroupBox>
+            </StackPanel>
+
+            <!-- Right Column: Elements to Import -->
+            <GroupBox Grid.Column="1" Header="Elements to Import" Height="140">
+                <TabControl>
+                    <TabItem Header="Categories">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <CheckBox Content="Grids" IsChecked="{Binding ImportGrids}" Margin="0,5,0,5"/>
+                                <CheckBox Content="Beams" IsChecked="{Binding ImportBeams}" Margin="0,5,0,5"/>
+                                <CheckBox Content="Braces" IsChecked="{Binding ImportBraces}" Margin="0,5,0,5"/>
                             </StackPanel>
-                        </GroupBox>
+                            <StackPanel Grid.Column="1">
+                                <CheckBox Content="Columns" IsChecked="{Binding ImportColumns}" Margin="0,5,0,5"/>
+                                <CheckBox Content="Walls" IsChecked="{Binding ImportWalls}" Margin="0,5,0,5"/>
+                                <CheckBox Content="Floors" IsChecked="{Binding ImportFloors}" Margin="0,5,0,5"/>
+                            </StackPanel>
+                        </Grid>
+                    </TabItem>
+                    <TabItem Header="Properties">
+                        <StackPanel>
+                            <CheckBox Content="Materials" IsChecked="{Binding ImportMaterials}" Margin="0,5,0,5"/>
+                            <CheckBox Content="Section Properties" IsChecked="{Binding ImportSectionProperties}" Margin="0,5,0,5"/>
+                            <CheckBox Content="Loads" IsChecked="{Binding ImportLoads}" Margin="0,5,0,5"/>
+                        </StackPanel>
+                    </TabItem>
+                </TabControl>
+            </GroupBox>
+        </Grid>
 
-                        <!-- Input File -->
-                        <GroupBox Header="Input File">
-                            <Grid Margin="10">
+        <!-- Model Transformation (full width) -->
+        <GroupBox Grid.Row="1" Header="Model Transformation" Margin="0,15,0,0">
+            <StackPanel>
+                <!-- Transformation Options Label -->
+                <TextBlock Text="Transformation Options:" FontWeight="SemiBold" Margin="0,0,0,10"/>
+
+                <!-- Import by Grid Intersection Section -->
+                <Border BorderBrush="#E0E0E0" BorderThickness="0,0,0,1" Margin="0,0,0,15" Padding="0,0,0,15">
+                    <StackPanel>
+                        <RadioButton Content="Import by Grid Intersection (Auto-align to lower-left intersection)" 
+                                     IsChecked="{Binding UseGridIntersection}" 
+                                     FontWeight="SemiBold" Margin="0,0,0,10" GroupName="TransformationMethod"/>
+
+                        <!-- Grid Selection Controls (only visible when radio button is checked) -->
+                        <StackPanel Visibility="{Binding UseGridIntersection, Converter={StaticResource BoolToVis}}"
+                                    Margin="20,0,0,0">
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="120"/>
+                                    <ColumnDefinition Width="250"/>
+                                </Grid.ColumnDefinitions>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
 
-                                <TextBox Grid.Row="0" Grid.Column="0" Text="{Binding InputFilePath}" 
-                                        Margin="0,0,10,10" Height="30" VerticalContentAlignment="Center"/>
-                                <Button Grid.Row="0" Grid.Column="1" Content="Browse" 
-                                       Command="{Binding BrowseInputFileCommand}" 
-                                       Style="{StaticResource SecondaryButton}"
-                                       Width="75" Height="30" Margin="0,0,0,10"/>
-                                <CheckBox Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" 
-                                         Content="Validate geometry on import" 
-                                         IsChecked="{Binding ValidateGeometry}"/>
+                                <!-- Grid Source Selection -->
+                                <TextBlock Text="Reference Grids:" Grid.Row="0" Grid.Column="0" 
+                                          VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,10,10"/>
+                                <ComboBox Grid.Row="0" Grid.Column="1" Height="25" 
+                                         SelectedItem="{Binding SelectedGridSource}"
+                                         ItemsSource="{Binding AvailableGridSources}"
+                                         ToolTip="Choose whether to use grids from current model or linked architectural model"
+                                         Margin="0,0,0,10"/>
+
+                                <!-- Horizontal Grid Selection -->
+                                <TextBlock Text="Horizontal Grid:" Grid.Row="1" Grid.Column="0" 
+                                          VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,10,10"/>
+                                <ComboBox Grid.Row="1" Grid.Column="1" Height="25" 
+                                         SelectedItem="{Binding SelectedHorizontalGrid}"
+                                         ItemsSource="{Binding AvailableHorizontalGrids}"
+                                         ToolTip="Select horizontal grid line for reference"
+                                         Margin="0,0,0,10"/>
+
+                                <!-- Vertical Grid Selection -->
+                                <TextBlock Text="Vertical Grid:" Grid.Row="2" Grid.Column="0" 
+                                          VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,10,0"/>
+                                <ComboBox Grid.Row="2" Grid.Column="1" Height="25" 
+                                         SelectedItem="{Binding SelectedVerticalGrid}"
+                                         ItemsSource="{Binding AvailableVerticalGrids}"
+                                         ToolTip="Select vertical grid line for reference"/>
                             </Grid>
-                        </GroupBox>
+                        </StackPanel>
                     </StackPanel>
+                </Border>
 
-                    <!-- Right Column: Import Options -->
-                    <StackPanel Grid.Column="1" Margin="10,0,0,0">
-                        <GroupBox Header="Import Options">
-                            <StackPanel Margin="10">
-                                <CheckBox Content="Import materials" IsChecked="{Binding ImportMaterials}" Margin="0,0,0,10"/>
-                                <CheckBox Content="Import section properties" IsChecked="{Binding ImportSectionProperties}" Margin="0,0,0,10"/>
-                                <CheckBox Content="Import loads" IsChecked="{Binding ImportLoads}" Margin="0,0,0,10"/>
-                                <CheckBox Content="Merge with existing model" IsChecked="{Binding MergeWithExisting}"/>
-                            </StackPanel>
-                        </GroupBox>
-                    </StackPanel>
-                </Grid>
+                <!-- Manual Transformation Section -->
+                <StackPanel>
+                    <RadioButton Content="Import with Manual Transformation" 
+                                 IsChecked="{Binding UseManualTransformation}" 
+                                 FontWeight="SemiBold" Margin="0,0,0,10" GroupName="TransformationMethod"/>
 
-                <!-- Model Transformation (full width) -->
-                <GroupBox Grid.Row="1" Header="Model Transformation" Margin="0,15,0,0">
-                    <Grid Margin="10">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
+                    <!-- Manual transformation controls (only visible when radio button is checked) -->
+                    <Grid Visibility="{Binding UseManualTransformation, Converter={StaticResource BoolToVis}}"
+                          Margin="20,0,0,0">
                         <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
 
-                        <!-- Row 1: Translation -->
-                        <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,10,10">
-                            <TextBlock Text="Translation (X, Y, Z):" Margin="0,0,0,5"/>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBox Text="{Binding TranslationX}" Width="60" Margin="0,0,5,0"/>
-                                <TextBox Text="{Binding TranslationY}" Width="60" Margin="0,0,5,0"/>
-                                <TextBox Text="{Binding TranslationZ}" Width="60"/>
-                            </StackPanel>
-                        </StackPanel>
+                        <TextBlock Text="X:" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <TextBox Text="{Binding TranslationX}" Grid.Column="1" Width="80" Height="25" Margin="0,0,15,0"/>
 
-                        <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,10,10">
-                            <TextBlock Text="Rotation (degrees):" Margin="0,0,0,5"/>
-                            <TextBox Text="{Binding RotationAngle}" Width="80"/>
-                        </StackPanel>
+                        <TextBlock Text="Y:" Grid.Column="2" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <TextBox Text="{Binding TranslationY}" Grid.Column="3" Width="80" Height="25" Margin="0,0,15,0"/>
 
-                        <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,10">
-                            <TextBlock Text="Scale Factor:" Margin="0,0,0,5"/>
-                            <TextBox Text="{Binding ScaleFactor}" Width="80"/>
-                        </StackPanel>
-
-                        <!-- Row 2: Target Level -->
-                        <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2">
-                            <TextBlock Text="Target Base Level:" Margin="0,0,0,5"/>
-                            <ComboBox ItemsSource="{Binding LevelCollection}" 
-                                     SelectedItem="{Binding SelectedTargetLevel}" 
-                                     DisplayMemberPath="Name" Width="200" HorizontalAlignment="Left"/>
-                        </StackPanel>
-
-                        <StackPanel Grid.Row="1" Grid.Column="2" VerticalAlignment="Bottom">
-                            <Button Content="Reset Transform" 
-                                   Command="{Binding ResetTransformCommand}"
-                                   Style="{StaticResource SecondaryButton}"
-                                   Width="120" Height="30"/>
-                        </StackPanel>
+                        <TextBlock Text="Rotation:" Grid.Column="4" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <TextBox Text="{Binding RotationAngle}" Grid.Column="5" Width="80" Height="25"/>
                     </Grid>
-                </GroupBox>
+                </StackPanel>
+            </StackPanel>
+        </GroupBox>
 
-                <!-- Elements to Import -->
-                <GroupBox Grid.Row="2" Header="Elements to Import" Margin="0,15,0,0">
-                    <StackPanel Orientation="Horizontal" Margin="10">
-                        <CheckBox Content="Beams" IsChecked="{Binding ImportBeams}" Margin="0,0,20,0"/>
-                        <CheckBox Content="Columns" IsChecked="{Binding ImportColumns}" Margin="0,0,20,0"/>
-                        <CheckBox Content="Braces" IsChecked="{Binding ImportBraces}" Margin="0,0,20,0"/>
-                        <CheckBox Content="Walls" IsChecked="{Binding ImportWalls}" Margin="0,0,20,0"/>
-                        <CheckBox Content="Floors" IsChecked="{Binding ImportFloors}" Margin="0,0,20,0"/>
-                        <CheckBox Content="Footings" IsChecked="{Binding ImportFootings}"/>
-                    </StackPanel>
-                </GroupBox>
-            </Grid>
-        </shared:IMEGWindowLayout.MainContent>
-    </shared:IMEGWindowLayout>
+        <!-- Elements to Import -->
+        <GroupBox Grid.Row="2" Header="Import Summary" Margin="0,15,0,0">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="10">
+                <TextBlock Text="Ready to import " VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding SelectedElementCount}" FontWeight="Bold" VerticalAlignment="Center"/>
+                <TextBlock Text=" element types from " VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding SelectedInputFormat}" FontWeight="Bold" VerticalAlignment="Center"/>
+                <TextBlock Text=" file." VerticalAlignment="Center"/>
+            </StackPanel>
+        </GroupBox>
+    </Grid>
 </Window>

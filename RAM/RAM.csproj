@@ -114,10 +114,6 @@
       <Project>{80d76120-2908-4ce5-bdea-1a24a47f4fdf}</Project>
       <Name>Core</Name>
     </ProjectReference>
-    <ProjectReference Include="..\WPF.Shared\WPF.Shared.csproj">
-      <Project>{2f77f533-2ac2-4772-8c27-8cfb6ab47164}</Project>
-      <Name>WPF.Shared</Name>
-    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <COMReference Include="RAMCOLUMNLib">

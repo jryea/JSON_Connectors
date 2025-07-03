@@ -36,4 +36,35 @@
             </Setter.Value>
         </Setter>
     </Style>
+    <!-- Secondary Button Style -->
+    <Style x:Key="SecondaryButton" TargetType="Button">
+        <Setter Property="Background" Value="#E0E0E0"/>
+        <Setter Property="Foreground" Value="Black"/>
+        <Setter Property="Padding" Value="16,6"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="0">
+                        <ContentPresenter HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Margin="{TemplateBinding Padding}"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.5"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="#CCCCCC"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
 </ResourceDictionary>

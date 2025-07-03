@@ -15,63 +15,63 @@
         </ResourceDictionary>
     </Window.Resources>
     
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
+    <DockPanel>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
 
-        <!-- Conversion Options -->
-        <GroupBox Grid.Row="0" Header="Conversion Options" Margin="0,0,0,15">
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="10">
-                <RadioButton Content="ETABS to JSON" Margin="0,0,15,0"/>
-                <RadioButton Content="RAM to JSON" Margin="0,0,15,0"/>
-                <RadioButton Content="JSON to ETABS" Margin="0,0,15,0"/>
-                <RadioButton Content="JSON to RAM"/>
-            </StackPanel>
-        </GroupBox>
+            <!-- Conversion Options -->
+            <GroupBox Grid.Row="0" Header="Conversion Options" Margin="0,0,0,15">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="10">
+                    <RadioButton Content="ETABS to JSON" Margin="0,0,15,0"/>
+                    <RadioButton Content="RAM to JSON" Margin="0,0,15,0"/>
+                    <RadioButton Content="JSON to ETABS" Margin="0,0,15,0"/>
+                    <RadioButton Content="JSON to RAM"/>
+                </StackPanel>
+            </GroupBox>
 
-        <!-- Input File -->
-        <GroupBox Grid.Row="1" Header="Input File" Margin="0,0,0,15">
-            <Grid Margin="10">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <TextBox Text="{Binding InputFilePath}" Grid.Column="0" Margin="0,0,10,0"/>
-                <Button Content="Browse..." Command="{Binding BrowseInputCommand}" 
-                        Style="{StaticResource SecondaryButton}" Grid.Column="1" Width="80"/>
-            </Grid>
-        </GroupBox>
+            <!-- Input File -->
+            <GroupBox Grid.Row="1" Header="Input File" Margin="0,0,0,15">
+                <Grid Margin="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox Text="{Binding InputFilePath}" Grid.Column="0" Margin="0,0,10,0"/>
+                    <Button Content="Browse..." Command="{Binding BrowseInputCommand}" 
+                                Style="{StaticResource SecondaryButton}" Grid.Column="1" Width="80"/>
+                </Grid>
+            </GroupBox>
 
-        <!-- Output File -->
-        <GroupBox Grid.Row="2" Header="Output File" Margin="0,0,0,15">
-            <Grid Margin="10">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <TextBox Text="{Binding OutputFilePath}" Grid.Column="0" Margin="0,0,10,0"/>
-                <Button Content="Browse..." Command="{Binding BrowseOutputCommand}" 
-                        Style="{StaticResource SecondaryButton}" Grid.Column="1" Width="80"/>
-            </Grid>
-        </GroupBox>
+            <!-- Output File -->
+            <GroupBox Grid.Row="2" Header="Output File" Margin="0,0,0,15">
+                <Grid Margin="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox Text="{Binding OutputFilePath}" Grid.Column="0" Margin="0,0,10,0"/>
+                    <Button Content="Browse..." Command="{Binding BrowseOutputCommand}" 
+                                Style="{StaticResource SecondaryButton}" Grid.Column="1" Width="80"/>
+                </Grid>
+            </GroupBox>
 
-        <!-- Log Output -->
-        <GroupBox Grid.Row="3" Header="Log" Margin="0,0,0,15">
-            <TextBox Text="{Binding LogOutput}" IsReadOnly="True" VerticalScrollBarVisibility="Auto" 
-                     FontFamily="Consolas" Margin="10" Background="{StaticResource LightGrey}"/>
-        </GroupBox>
-
+            <!-- Log Output -->
+            <GroupBox Grid.Row="3" Header="Log" Margin="0,0,0,15">
+                <TextBox Text="{Binding LogOutput}" IsReadOnly="True" VerticalScrollBarVisibility="Auto" 
+                             FontFamily="Consolas" Margin="10" Background="{StaticResource LightGrey}"/>
+            </GroupBox>
+        </Grid>
         <!-- Action Buttons -->
-        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button Content="Convert" Command="{Binding ConvertCommand}" 
-                    Style="{StaticResource PrimaryButton}" Width="100" Height="30" Margin="0,0,10,0"/>
-            <Button Content="Close" Command="{Binding CloseCommand}" 
-                    Style="{StaticResource SecondaryButton}" Width="100" Height="30"/>
+        <StackPanel DockPanel.Dock="Bottom" HorizontalAlignment="Right" Margin="15" Orientation="Horizontal">
+            <Button Content="Convert" Style="{StaticResource PrimaryButton}"/>
+            <Button Content="Close" Style="{StaticResource SecondaryButton}"/>
         </StackPanel>
-    </Grid>
+    </DockPanel>
+    
 </Window>

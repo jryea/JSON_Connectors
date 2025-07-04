@@ -53,6 +53,7 @@
                 <Grid Margin="10">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
+                        
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <TextBox Text="{Binding OutputFilePath}" Grid.Column="0" Margin="0,0,10,0"/>
@@ -73,5 +74,4 @@
             <Button Content="Close" Style="{StaticResource SecondaryButton}"/>
         </StackPanel>
     </DockPanel>
-    
 </Window>
